@@ -53,39 +53,34 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Set up layout with two columns
-col1, col2 = st.columns(2)
-
 # Upload PDF file and load its content
-with col1:
-    st.subheader("Upload PDF File")
-    uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
+st.subheader("Upload PDF File")
+uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 
-    if uploaded_file is not None:
-        # Load and store the lesson content for chatbot use
-        lesson_content = load_pdf_content(uploaded_file)
-        
-        # Check if content was successfully loaded
-        if lesson_content:
-            pdf_bytes = uploaded_file.read()
-            pdf_base64 = base64.b64encode(pdf_bytes).decode()
-            pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="300" type="application/pdf">'
-            st.components.v1.html(pdf_display, height=300)
-
-            # Display the PDF content in a selectable area
-            st.markdown('<div class="pdf-area"><pre>{}</pre></div>'.format(lesson_content), unsafe_allow_html=True)
-        else:
-            st.write("Unable to extract text from PDF.")
-    else:
-        st.write("Please upload a PDF file.")
-
-# Chatbot interaction in the second column
-with col2:
-    st.subheader("Chatbot Interaction")
+if uploaded_file is not None:
+    # Load and store the lesson content for chatbot use
+    lesson_content = load_pdf_content(uploaded_file)
     
-    student_input = st.text_input("Ask your question about the lesson:")
+    # Check if content was successfully loaded
+    if lesson_content:
+        # Display the PDF content
+        pdf_bytes = uploaded_file.read()
+        pdf_base64 = base64.b64encode(pdf_bytes).decode()
+        pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="300" type="application/pdf">'
+        st.components.v1.html(pdf_display, height=300)
 
-    if student_input and 'lesson_content' in locals():
-        response = get_chatbot_response(student_input, lesson_content)
-        st.markdown('<div class="chatbox">{}</div>'.format(response), unsafe_allow_html=True)
+        # Display the PDF content in a selectable area
+        st.markdown('<div class="pdf-area"><pre>{}</pre></div>'.format(lesson_content), unsafe_allow_html=True)
+    else:
+        st.write("Unable to extract text from PDF.")
+else:
+    st.write("Please upload a PDF file.")
+
+# Chatbot interaction section
+st.subheader("Chatbot Interaction")
+student_input = st.text_input("Ask your question about the lesson:")
+
+if student_input and 'lesson_content' in locals():
+    response = get_chatbot_response(student_input, lesson_content)
+    st.markdown('<div class="chatbox">{}</div>'.format(response), unsafe_allow_html=True)
 
