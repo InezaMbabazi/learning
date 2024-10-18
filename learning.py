@@ -52,9 +52,9 @@ with col1:
             pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="500" type="application/pdf">'
             st.components.v1.html(pdf_display, height=500)
 
-            # Display the extracted text content
+            # Display the extracted text content in a scrollable area
             st.subheader("Extracted Text Content")
-            st.text_area("PDF Content", lesson_content, height=200)
+            st.text_area("PDF Content", lesson_content, height=300, max_chars=None)
         else:
             st.write("Unable to extract text from PDF.")
     else:
@@ -68,3 +68,4 @@ with col2:
     if student_input and 'lesson_content' in locals():
         response = get_chatbot_response(student_input, lesson_content)
         st.markdown('<div style="border: 2px solid #2196F3; padding: 10px; height: 500px; overflow-y: scroll; background-color: #f1f1f1;">{}</div>'.format(response), unsafe_allow_html=True)
+
