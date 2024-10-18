@@ -32,6 +32,27 @@ def load_pdf_content(file):
 # Streamlit UI
 st.title("Chatbot for Lesson Assistance")
 
+# Apply custom CSS to style the layout
+st.markdown("""
+    <style>
+    .chatbox {
+        border: 2px solid #2196F3;
+        padding: 10px;
+        height: 200px; /* Height for chatbot response */
+        overflow-y: scroll;
+        background-color: #f1f1f1;
+    }
+    .pdf-area {
+        border: 2px solid #2196F3;
+        padding: 10px;
+        height: auto; /* Height for PDF content */
+        overflow-y: auto;
+        background-color: #f9f9f9;
+        margin-top: 20px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # Set up layout with two equal columns
 col1, col2 = st.columns(2)
 
@@ -51,8 +72,8 @@ with col1:
             pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="300" type="application/pdf">'
             st.components.v1.html(pdf_display, height=300)
 
-            # Display the extracted text content in a scrollable area
-            st.text_area("PDF Content", lesson_content, height=200, max_chars=None, key="pdf_content", disabled=True)
+            # Display the PDF content in a selectable area
+            st.markdown('<div class="pdf-area"><pre>{}</pre></div>'.format(lesson_content), unsafe_allow_html=True)
         else:
             st.write("Unable to extract text from PDF.")
     else:
@@ -66,4 +87,5 @@ with col2:
 
     if student_input and 'lesson_content' in locals():
         response = get_chatbot_response(student_input, lesson_content)
-        st.markdown('<div style="border: 2px solid #2196F3; padding: 10px; height: 300px; overflow-y: scroll; background-color: #f1f1f1;">{}</div>'.format(response), unsafe_allow_html=True)
+        st.markdown('<div class="chatbox">{}</div>'.format(response), unsafe_allow_html=True)
+
