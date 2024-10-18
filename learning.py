@@ -39,11 +39,12 @@ with col1:
     uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 
     if uploaded_file is not None:
-        # Display the PDF in a scrollable frame
-        pdf_display = f'<iframe src="data:application/pdf;base64,{base64.b64encode(uploaded_file.read()).decode()}" width="100%" height="500"></iframe>'
-        st.markdown(pdf_display, unsafe_allow_html=True)
         # Load and store the lesson content for chatbot use
         lesson_content = load_pdf_content(uploaded_file)
+        pdf_bytes = uploaded_file.read()
+        pdf_base64 = base64.b64encode(pdf_bytes).decode()
+        pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="500" type="application/pdf">'
+        st.components.v1.html(pdf_display, height=500)
     else:
         lesson_content = None
 
