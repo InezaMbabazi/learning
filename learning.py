@@ -1,6 +1,7 @@
 import streamlit as st
 import openai
 import os
+import tempfile
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -41,20 +42,21 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Upload PDF file and save it temporarily to display the content
+# Upload PDF file
 st.subheader("Upload PDF File")
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 
 if uploaded_file is not None:
-    # Save the uploaded PDF temporarily
-    with open("temp_pdf.pdf", "wb") as f:
-        f.write(uploaded_file.getbuffer())
+    # Save the uploaded PDF temporarily using tempfile
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+        temp_file.write(uploaded_file.getbuffer())
+        temp_pdf_path = temp_file.name
 
-    # Embed the saved PDF in the Streamlit app
-    pdf_display = f'<iframe src="temp_pdf.pdf" width="100%" height="500"></iframe>'
+    # Display the saved PDF in an iframe
+    pdf_display = f'<iframe src="file://{temp_pdf_path}" width="100%" height="500"></iframe>'
     st.markdown(pdf_display, unsafe_allow_html=True)
 
-    # For chatbot, you can still extract the text if needed for the conversation
+    # Placeholder content for chatbot (you can extract text from PDF if needed)
     lesson_content = "Lesson content from the PDF."
 
     # Chatbot interaction section
