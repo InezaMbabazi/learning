@@ -102,7 +102,11 @@ if uploaded_file is not None:
                 # Once the form is submitted, grade the student's answers
                 if submit:
                     if all(answers):  # Ensure that all questions have been answered
-                        feedback = get_grading(answers, generated_questions, lesson_content)
+                        # Display progress while waiting for the AI grading
+                        with st.spinner("Grading your answers, please wait..."):
+                            feedback = get_grading(answers, generated_questions, lesson_content)
+                        
+                        # Display feedback in the chatbox area
                         st.subheader("Feedback on Your Answers:")
                         st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
                     else:
