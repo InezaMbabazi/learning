@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import base64
+import os
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -41,16 +41,17 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Upload PDF file and display the content
+# Upload PDF file and save it temporarily to display the content
 st.subheader("Upload PDF File")
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 
 if uploaded_file is not None:
-    # Convert the PDF file to base64 to embed in HTML
-    pdf_base64 = base64.b64encode(uploaded_file.read()).decode('utf-8')
+    # Save the uploaded PDF temporarily
+    with open("temp_pdf.pdf", "wb") as f:
+        f.write(uploaded_file.getbuffer())
 
-    # Embed the PDF in the Streamlit app using an iframe
-    pdf_display = f'<iframe src="data:application/pdf;base64,{pdf_base64}" width="100%" height="500"></iframe>'
+    # Embed the saved PDF in the Streamlit app
+    pdf_display = f'<iframe src="temp_pdf.pdf" width="100%" height="500"></iframe>'
     st.markdown(pdf_display, unsafe_allow_html=True)
 
     # For chatbot, you can still extract the text if needed for the conversation
