@@ -1,12 +1,11 @@
 import streamlit as st
 import openai
 import PyPDF2
-import random
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Function to get response from OpenAI based on the lesson content for generating questions
+# Function to get response from OpenAI for generating questions
 def generate_questions_from_content(lesson_content):
     prompt = f"Generate 3 questions based on the following lesson content:\n{lesson_content}\n\nPlease ensure the questions are relevant and test the student's understanding."
     
@@ -31,13 +30,12 @@ def load_pdf_content(file):
             content += text + "\n"  # Adding newline for better formatting
     return content.strip()  # Return stripped content
 
-# Function to grade the test (based on simplified logic)
-def grade_test(answers, correct_answers):
-    score = 0
-    for answer, correct in zip(answers, correct_answers):
-        if answer.strip().lower() == correct.strip().lower():
-            score += 1
-    return score
+# Function to grade the student's answer
+def grade_response(student_answer, correct_answer):
+    if student_answer.strip().lower() == correct_answer.strip().lower():
+        return "Correct!"
+    else:
+        return f"Incorrect. The correct answer is: {correct_answer}"
 
 # Streamlit UI
 st.title("Chatbot for Lesson Assistance with AI-Generated Questions")
@@ -80,26 +78,26 @@ if uploaded_file is not None:
         if st.button("Generate Questions"):
             generated_questions = generate_questions_from_content(lesson_content)
             st.subheader("Test Questions")
-            answers = []
-            for i, question in enumerate(generated_questions):
-                st.write(f"Question {i+1}: {question}")
-                answer = st.text_input(f"Your answer to question {i+1}:")
-                answers.append(answer)
-            
-            # Check if answers are provided and grade the test
-            if len(answers) == len(generated_questions):
-                # Simplified grading: we assume the answer is the first word of the question (just for demo purposes)
-                correct_answers = [q.split(' ')[0] for q in generated_questions] 
-                score = grade_test(answers, correct_answers)
-                
-                # Provide feedback based on score
-                st.write(f"Your score: {score}/{len(generated_questions)}")
-                if score == len(generated_questions):
-                    st.write("Excellent! You understood the content well.")
-                elif score >= len(generated_questions) // 2:
-                    st.write("Good job, but you may want to review some parts.")
-                else:
-                    st.write("You should review the lesson and try again.")
+
+            # Display questions in a form to get student responses
+            with st.form(key='question_form'):
+                answers = []
+                correct_answers = [q.split(' ')[0] for q in generated_questions]  # Simplified correct answer (first word of question)
+
+                # Loop through generated questions to create input fields
+                for i, question in enumerate(generated_questions):
+                    st.write(f"Question {i+1}: {question}")
+                    answer = st.text_input(f"Your answer to question {i+1}", key=f"answer_{i}")
+                    answers.append(answer)
+
+                # Submit button for form
+                submit = st.form_submit_button("Submit Answers")
+
+                # Grade and display feedback after form submission
+                if submit:
+                    for i, answer in enumerate(answers):
+                        feedback = grade_response(answer, correct_answers[i])
+                        st.write(f"Feedback for Question {i+1}: {feedback}")
     else:
         st.write("Unable to extract text from PDF.")
 else:
@@ -110,5 +108,10 @@ st.subheader("Chatbot Interaction")
 student_input = st.text_input("Ask your question about the lesson:")
 
 if student_input and 'lesson_content' in locals():
-    response = get_chatbot_response(student_input, lesson_content)
-    st.markdown('<div class="chatbox">{}</div>'.format(response), unsafe_allow_html=True)
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "user", "content": f"Lesson Content: {lesson_content}\n\nStudent Query: {student_input}"}
+        ]
+    )
+    st.markdown('<div class="chatbox">{}</div>'.format(response['choices'][0]['message']['content']), unsafe_allow_html=True)
