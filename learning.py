@@ -35,14 +35,14 @@ st.title("Chatbot for Lesson Assistance")
 st.markdown("""
     <style>
     .scrollable-content {
-        height: 300px;
+        height: 500px;  /* Increased height */
         border: 2px solid #4CAF50;
         padding: 10px;
         overflow-y: scroll;
         background-color: #f9f9f9;
     }
     .chatbox {
-        height: 300px;
+        height: 500px;  /* Same size as the lesson content */
         border: 2px solid #2196F3;
         padding: 10px;
         background-color: #f1f1f1;
@@ -57,12 +57,12 @@ col1, col2 = st.columns([1, 1])
 file_path = 'note2.pdf'  # Ensure this file is in your GitHub repo and deployed
 lesson_content = load_pdf_content(file_path)
 
-# Display PDF content in the first column (Scrollable and Styled)
+# Display PDF content in the first column (Larger, Scrollable, and Styled)
 with col1:
     st.subheader("Lesson Content")
     st.markdown('<div class="scrollable-content">{}</div>'.format(lesson_content.replace("\n", "<br>")), unsafe_allow_html=True)
 
-# Chatbot interaction in the second column (Same Size and Styled)
+# Chatbot interaction in the second column (Larger, Same Size, and Styled)
 with col2:
     st.subheader("Ask the Chatbot")
     student_input = st.text_input("Ask your question about the lesson:")
