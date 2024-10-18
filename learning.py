@@ -1,6 +1,5 @@
-import streamlit as st 
+import streamlit as st
 import openai
-import PyPDF2
 import base64
 
 # Initialize OpenAI API with the secret key
@@ -34,7 +33,7 @@ st.markdown("""
     }
     .pdf-area {
         border: 2px solid #2196F3;
-        height: 300px; /* Fixed height for PDF content */
+        height: 400px; /* Height for PDF content */
         overflow-y: auto;
         background-color: #f9f9f9;
         margin-bottom: 20px; /* Space between PDF and chatbot */
@@ -42,30 +41,23 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Upload PDF file and load its content
+# Upload PDF file and display the content
 st.subheader("Upload PDF File")
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 
 if uploaded_file is not None:
-    # Read the PDF content
+    # Read the uploaded PDF file as bytes
     pdf_bytes = uploaded_file.read()
-    
-    # Display the PDF in its original format
-    pdf_base64 = base64.b64encode(pdf_bytes).decode()
-    pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="300" type="application/pdf">'
-    st.components.v1.html(pdf_display, height=300)
 
-    # Extract text for chatbot use
-    lesson_content = ''
-    reader = PyPDF2.PdfReader(uploaded_file)
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:  # Only append if text is not None
-            lesson_content += text + "\n"  # Adding newline for better formatting
-    lesson_content = lesson_content.strip()  # Return stripped content
+    # Convert the PDF file to base64 to embed in HTML
+    pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
 
-    # Display the extracted text content in a selectable area
-    st.markdown('<div class="pdf-area"><pre>{}</pre></div>'.format(lesson_content), unsafe_allow_html=True)
+    # Embed the PDF in the Streamlit app using HTML <embed>
+    pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="400" type="application/pdf">'
+    st.markdown(pdf_display, unsafe_allow_html=True)
+
+    # For chatbot, you can still extract the text if needed for the conversation
+    lesson_content = "Lesson content from the PDF (you can extract text if needed)."
 
     # Chatbot interaction section
     st.subheader("Chatbot Interaction")
