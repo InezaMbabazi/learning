@@ -24,7 +24,6 @@ def load_pdf_content(file):
     reader = PyPDF2.PdfReader(file)
     content = ''
     for page in reader.pages:
-        # Extract text and handle None or empty returns
         text = page.extract_text()
         if text:  # Only append if text is not None
             content += text + "\n"  # Adding newline for better formatting
@@ -53,8 +52,7 @@ with col1:
             st.components.v1.html(pdf_display, height=300)
 
             # Display the extracted text content in a scrollable area
-            st.subheader("Extracted Text Content")
-            st.text_area("PDF Content", lesson_content, height=200, max_chars=None)
+            st.text_area("PDF Content", lesson_content, height=200, max_chars=None, key="pdf_content", disabled=True)
         else:
             st.write("Unable to extract text from PDF.")
     else:
@@ -64,13 +62,8 @@ with col1:
 with col2:
     st.subheader("Chatbot Interaction")
     
-    # Display the extracted text content in the chatbot area
-    if 'lesson_content' in locals():
-        st.text_area("PDF Content", lesson_content, height=200, max_chars=None, key="chatbot_pdf_content", disabled=True)
-    
     student_input = st.text_input("Ask your question about the lesson:")
 
     if student_input and 'lesson_content' in locals():
         response = get_chatbot_response(student_input, lesson_content)
         st.markdown('<div style="border: 2px solid #2196F3; padding: 10px; height: 300px; overflow-y: scroll; background-color: #f1f1f1;">{}</div>'.format(response), unsafe_allow_html=True)
-
