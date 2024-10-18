@@ -38,7 +38,7 @@ col1, col2 = st.columns(2)
 
 # Upload PDF file and load its content
 with col1:
-    st.subheader("Lesson PDF")
+    st.subheader("Upload PDF File")
     uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 
     if uploaded_file is not None:
@@ -49,12 +49,12 @@ with col1:
         if lesson_content:
             pdf_bytes = uploaded_file.read()
             pdf_base64 = base64.b64encode(pdf_bytes).decode()
-            pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="500" type="application/pdf">'
-            st.components.v1.html(pdf_display, height=500)
+            pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="300" type="application/pdf">'
+            st.components.v1.html(pdf_display, height=300)
 
             # Display the extracted text content in a scrollable area
             st.subheader("Extracted Text Content")
-            st.text_area("PDF Content", lesson_content, height=300, max_chars=None)
+            st.text_area("PDF Content", lesson_content, height=200, max_chars=None)
         else:
             st.write("Unable to extract text from PDF.")
     else:
@@ -62,10 +62,10 @@ with col1:
 
 # Chatbot interaction in the second column
 with col2:
-    st.subheader("Ask the Chatbot")
+    st.subheader("Chatbot Interaction")
     student_input = st.text_input("Ask your question about the lesson:")
 
     if student_input and 'lesson_content' in locals():
         response = get_chatbot_response(student_input, lesson_content)
-        st.markdown('<div style="border: 2px solid #2196F3; padding: 10px; height: 500px; overflow-y: scroll; background-color: #f1f1f1;">{}</div>'.format(response), unsafe_allow_html=True)
+        st.markdown('<div style="border: 2px solid #2196F3; padding: 10px; height: 300px; overflow-y: scroll; background-color: #f1f1f1;">{}</div>'.format(response), unsafe_allow_html=True)
 
