@@ -33,7 +33,7 @@ st.markdown("""
     }
     .pdf-area {
         border: 2px solid #2196F3;
-        height: 400px; /* Height for PDF content */
+        height: 500px; /* Height for PDF content */
         overflow-y: auto;
         background-color: #f9f9f9;
         margin-bottom: 20px; /* Space between PDF and chatbot */
@@ -46,18 +46,15 @@ st.subheader("Upload PDF File")
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 
 if uploaded_file is not None:
-    # Read the uploaded PDF file as bytes
-    pdf_bytes = uploaded_file.read()
-
     # Convert the PDF file to base64 to embed in HTML
-    pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+    pdf_base64 = base64.b64encode(uploaded_file.read()).decode('utf-8')
 
-    # Embed the PDF in the Streamlit app using HTML <embed>
-    pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="400" type="application/pdf">'
+    # Embed the PDF in the Streamlit app using an iframe
+    pdf_display = f'<iframe src="data:application/pdf;base64,{pdf_base64}" width="100%" height="500"></iframe>'
     st.markdown(pdf_display, unsafe_allow_html=True)
 
     # For chatbot, you can still extract the text if needed for the conversation
-    lesson_content = "Lesson content from the PDF (you can extract text if needed)."
+    lesson_content = "Lesson content from the PDF."
 
     # Chatbot interaction section
     st.subheader("Chatbot Interaction")
