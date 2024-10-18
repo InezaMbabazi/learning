@@ -24,8 +24,11 @@ def load_pdf_content(file):
     reader = PyPDF2.PdfReader(file)
     content = ''
     for page in reader.pages:
-        content += page.extract_text() + "\n"  # Adding newline for better formatting
-    return content
+        # Extract text and handle None or empty returns
+        text = page.extract_text()
+        if text:  # Only append if text is not None
+            content += text + "\n"  # Adding newline for better formatting
+    return content.strip()  # Return stripped content
 
 # Streamlit UI
 st.title("Chatbot for Lesson Assistance")
@@ -48,8 +51,12 @@ with col1:
             pdf_base64 = base64.b64encode(pdf_bytes).decode()
             pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="500" type="application/pdf">'
             st.components.v1.html(pdf_display, height=500)
+
+            # Display the extracted text content
+            st.subheader("Extracted Text Content")
+            st.text_area("PDF Content", lesson_content, height=200)
         else:
-            st.write("Unable to read PDF content.")
+            st.write("Unable to extract text from PDF.")
     else:
         st.write("Please upload a PDF file.")
 
