@@ -1,7 +1,8 @@
 import streamlit as st
 import openai
-import os
+import fitz  # PyMuPDF for handling PDFs
 import tempfile
+from PIL import Image
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -52,19 +53,23 @@ if uploaded_file is not None:
         temp_file.write(uploaded_file.getbuffer())
         temp_pdf_path = temp_file.name
 
-    # Display the saved PDF in an iframe
-    pdf_display = f'<iframe src="file://{temp_pdf_path}" width="100%" height="500"></iframe>'
-    st.markdown(pdf_display, unsafe_allow_html=True)
+    # Open the PDF file with PyMuPDF (fitz)
+    pdf_document = fitz.open(temp_pdf_path)
 
-    # Placeholder content for chatbot (you can extract text from PDF if needed)
-    lesson_content = "Lesson content from the PDF."
+    # Display the PDF content page by page
+    st.subheader("PDF Content")
+    for page_num in range(len(pdf_document)):
+        page = pdf_document.load_page(page_num)  # Load each page
+        pix = page.get_pixmap()  # Get the page as an image
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        st.image(img, width=700)  # Display the image of the PDF page
 
     # Chatbot interaction section
     st.subheader("Chatbot Interaction")
     student_input = st.text_input("Ask your question about the lesson:")
 
     if student_input:
-        response = get_chatbot_response(student_input, lesson_content)
+        response = get_chatbot_response(student_input, "Lesson content from the PDF.")
         st.markdown('<div class="chatbox">{}</div>'.format(response), unsafe_allow_html=True)
 else:
     st.write("Please upload a PDF file.")
