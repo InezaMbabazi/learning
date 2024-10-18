@@ -6,18 +6,20 @@ import random
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Function to get response from OpenAI based on student input
-def get_chatbot_response(student_input, lesson_content):
-    context = f"Lesson Content: {lesson_content}\n\nStudent Query: {student_input}"
+# Function to get response from OpenAI based on the lesson content for generating questions
+def generate_questions_from_content(lesson_content):
+    prompt = f"Generate 3 questions based on the following lesson content:\n{lesson_content}\n\nPlease ensure the questions are relevant and test the student's understanding."
     
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "user", "content": context}
+            {"role": "user", "content": prompt}
         ]
     )
     
-    return response['choices'][0]['message']['content']
+    # Extracting the generated questions
+    generated_questions = response['choices'][0]['message']['content'].strip().split("\n")
+    return generated_questions
 
 # Function to load PDF content
 def load_pdf_content(file):
@@ -29,17 +31,7 @@ def load_pdf_content(file):
             content += text + "\n"  # Adding newline for better formatting
     return content.strip()  # Return stripped content
 
-# Function to generate test questions from the content
-def generate_test_questions(content):
-    # Split the content into sentences
-    sentences = content.split('. ')
-    
-    # Randomly select 3 sentences as questions
-    questions = random.sample(sentences, min(3, len(sentences))) if len(sentences) >= 3 else sentences
-    
-    return questions
-
-# Function to grade the test
+# Function to grade the test (based on simplified logic)
 def grade_test(answers, correct_answers):
     score = 0
     for answer, correct in zip(answers, correct_answers):
@@ -48,7 +40,7 @@ def grade_test(answers, correct_answers):
     return score
 
 # Streamlit UI
-st.title("Chatbot for Lesson Assistance with Test Feature")
+st.title("Chatbot for Lesson Assistance with AI-Generated Questions")
 
 # Apply custom CSS to style the layout
 st.markdown("""
@@ -84,28 +76,27 @@ if uploaded_file is not None:
         # Display the PDF content in a selectable area
         st.markdown('<div class="pdf-area"><pre>{}</pre></div>'.format(lesson_content), unsafe_allow_html=True)
         
-        # Generate test questions
-        test_questions = generate_test_questions(lesson_content)
-        
-        # Testing button
-        if st.button("Start Test"):
-            st.subheader("Test")
+        # Generate test questions using OpenAI based on the PDF content
+        if st.button("Generate Questions"):
+            generated_questions = generate_questions_from_content(lesson_content)
+            st.subheader("Test Questions")
             answers = []
-            for i, question in enumerate(test_questions):
+            for i, question in enumerate(generated_questions):
                 st.write(f"Question {i+1}: {question}")
                 answer = st.text_input(f"Your answer to question {i+1}:")
                 answers.append(answer)
-
+            
             # Check if answers are provided and grade the test
-            if len(answers) == len(test_questions):
-                correct_answers = [q.split(' ')[0] for q in test_questions]  # Simplified grading
+            if len(answers) == len(generated_questions):
+                # Simplified grading: we assume the answer is the first word of the question (just for demo purposes)
+                correct_answers = [q.split(' ')[0] for q in generated_questions] 
                 score = grade_test(answers, correct_answers)
                 
                 # Provide feedback based on score
-                st.write(f"Your score: {score}/{len(test_questions)}")
-                if score == len(test_questions):
+                st.write(f"Your score: {score}/{len(generated_questions)}")
+                if score == len(generated_questions):
                     st.write("Excellent! You understood the content well.")
-                elif score >= len(test_questions) // 2:
+                elif score >= len(generated_questions) // 2:
                     st.write("Good job, but you may want to review some parts.")
                 else:
                     st.write("You should review the lesson and try again.")
