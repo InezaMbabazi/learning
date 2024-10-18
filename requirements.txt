@@ -2,5 +2,5 @@ openai==0.28
 PyPDF2
 python-docx
 streamlit
-PyMuPDF==1.20.0
+PyMuPDF
 Pillow
