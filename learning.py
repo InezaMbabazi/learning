@@ -63,6 +63,11 @@ with col1:
 # Chatbot interaction in the second column
 with col2:
     st.subheader("Chatbot Interaction")
+    
+    # Display the extracted text content in the chatbot area
+    if 'lesson_content' in locals():
+        st.text_area("PDF Content", lesson_content, height=200, max_chars=None, key="chatbot_pdf_content", disabled=True)
+    
     student_input = st.text_input("Ask your question about the lesson:")
 
     if student_input and 'lesson_content' in locals():
