@@ -56,15 +56,18 @@ if uploaded_file is not None:
     # Open the PDF file with PyMuPDF (fitz)
     pdf_document = fitz.open(temp_pdf_path)
 
-    # Display the PDF content page by page
+    # Display the PDF content page by page in a scrollable section
     st.subheader("PDF Content")
-    for page_num in range(len(pdf_document)):
-        page = pdf_document.load_page(page_num)  # Load each page
-        pix = page.get_pixmap()  # Get the page as an image
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-        st.image(img, width=700)  # Display the image of the PDF page
+    pdf_area = st.empty()  # Placeholder for displaying PDF content
+    
+    with pdf_area.container():
+        for page_num in range(len(pdf_document)):
+            page = pdf_document.load_page(page_num)  # Load each page
+            pix = page.get_pixmap()  # Get the page as an image
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            st.image(img, use_column_width=True)  # Display the image of the PDF page
 
-    # Chatbot interaction section
+    # Chatbot interaction section below the PDF content
     st.subheader("Chatbot Interaction")
     student_input = st.text_input("Ask your question about the lesson:")
 
