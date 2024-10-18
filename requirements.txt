@@ -2,4 +2,4 @@ openai==0.28
 PyPDF2
 python-docx
 streamlit
-PyMuPDF
+PyMuPDF==1.20.0
