@@ -29,11 +29,6 @@ st.markdown("""
         padding: 10px;
         background-color: #f1f1f1;
     }
-    .pdfbox {
-        height: 500px;  /* Same size as the chatbot frame */
-        border: 2px solid #FF5733;
-        padding: 10px;
-    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -43,10 +38,9 @@ col1, col2 = st.columns([1, 1])
 # Display the PDF file in the first column using an iframe
 with col1:
     st.subheader("Lesson PDF")
-    # Link to the raw PDF file on GitHub
-    pdf_url = 'https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/main/note2.pdf'
-    pdf_display = f'<iframe src="{pdf_url}" width="100%" height="500"></iframe>'
-    st.markdown(f'<div class="pdfbox">{pdf_display}</div>', unsafe_allow_html=True)
+    pdf_path = 'note2.pdf'  # Ensure the PDF file is uploaded and available in your Streamlit project on GitHub
+    pdf_display = f'<iframe src="data:application/pdf;base64,{st.file_uploader(pdf_path).getvalue()}" width="100%" height="500"></iframe>'
+    st.markdown(pdf_display, unsafe_allow_html=True)
 
 # Chatbot interaction in the second column
 with col2:
