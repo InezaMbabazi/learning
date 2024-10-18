@@ -24,7 +24,7 @@ def load_pdf_content(file):
     reader = PyPDF2.PdfReader(file)
     content = ''
     for page in reader.pages:
-        content += page.extract_text()
+        content += page.extract_text() + "\n"  # Adding newline for better formatting
     return content
 
 # Streamlit UI
@@ -41,18 +41,23 @@ with col1:
     if uploaded_file is not None:
         # Load and store the lesson content for chatbot use
         lesson_content = load_pdf_content(uploaded_file)
-        pdf_bytes = uploaded_file.read()
-        pdf_base64 = base64.b64encode(pdf_bytes).decode()
-        pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="500" type="application/pdf">'
-        st.components.v1.html(pdf_display, height=500)
+        
+        # Check if content was successfully loaded
+        if lesson_content:
+            pdf_bytes = uploaded_file.read()
+            pdf_base64 = base64.b64encode(pdf_bytes).decode()
+            pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="500" type="application/pdf">'
+            st.components.v1.html(pdf_display, height=500)
+        else:
+            st.write("Unable to read PDF content.")
     else:
-        lesson_content = None
+        st.write("Please upload a PDF file.")
 
 # Chatbot interaction in the second column
 with col2:
     st.subheader("Ask the Chatbot")
     student_input = st.text_input("Ask your question about the lesson:")
 
-    if student_input and lesson_content:
+    if student_input and 'lesson_content' in locals():
         response = get_chatbot_response(student_input, lesson_content)
         st.markdown('<div style="border: 2px solid #2196F3; padding: 10px; height: 500px; overflow-y: scroll; background-color: #f1f1f1;">{}</div>'.format(response), unsafe_allow_html=True)
