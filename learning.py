@@ -45,15 +45,15 @@ st.markdown("""
     .pdf-area {
         border: 2px solid #2196F3;
         padding: 10px;
-        height: auto; /* Height for PDF content */
+        height: 300px; /* Fixed height for PDF content */
         overflow-y: auto;
         background-color: #f9f9f9;
-        margin-top: 20px;
+        margin-bottom: 20px; /* Space between PDF and chatbot */
     }
     </style>
     """, unsafe_allow_html=True)
 
-# Set up layout with two equal columns
+# Set up layout with two columns
 col1, col2 = st.columns(2)
 
 # Upload PDF file and load its content
