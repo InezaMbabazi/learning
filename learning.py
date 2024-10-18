@@ -30,15 +30,15 @@ def load_pdf_content(file):
             content += text + "\n"  # Adding newline for better formatting
     return content.strip()  # Return stripped content
 
-# Function to get grading from OpenAI based on student responses
-def get_grading(student_answers, generated_questions, lesson_content):
+# Function to get grading and improvement suggestions from OpenAI
+def get_grading_with_improvement(student_answers, generated_questions, lesson_content):
     grading_prompt = f"Based on the following lesson content: {lesson_content}\n"
     grading_prompt += "Here are the student's answers and the questions:\n"
 
     for i, (question, answer) in enumerate(zip(generated_questions, student_answers), 1):
         grading_prompt += f"Question {i}: {question}\nStudent's Answer: {answer}\n"
 
-    grading_prompt += "\nPlease provide feedback for each answer, grade each answer out of 10, and suggest improvements if necessary."
+    grading_prompt += "\nPlease provide feedback for each answer, grade each answer out of 10, suggest improvements if necessary, and give the correct answers."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -90,48 +90,3 @@ if uploaded_file is not None:
     if lesson_content:
         # Display the PDF content in a selectable area
         st.markdown('<div class="pdf-area"><pre>{}</pre></div>'.format(lesson_content), unsafe_allow_html=True)
-        
-        # Generate test questions using OpenAI based on the PDF content
-        if st.button("Generate Questions"):
-            st.session_state.generated_questions = generate_questions_from_content(lesson_content)
-        
-        # Display the generated questions and student input
-        if st.session_state.generated_questions:
-            st.subheader("Test Questions")
-
-            # Student answers section
-            student_answers = []
-
-            with st.form(key='question_form'):
-                for i, question in enumerate(st.session_state.generated_questions):
-                    st.write(f"Question {i+1}: {question}")
-                    answer = st.text_input(f"Your answer to question {i+1}", key=f"answer_{i}")
-                    student_answers.append(answer)
-                
-                # Submit button for form
-                submit = st.form_submit_button("Submit Answers")
-                
-                # Display feedback after submission
-                if submit and all(student_answers):
-                    feedback = get_grading(student_answers, st.session_state.generated_questions, lesson_content)
-                    st.subheader("Feedback on Your Answers:")
-                    st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
-                elif submit:
-                    st.warning("Please answer all questions before submitting.")
-    else:
-        st.write("Unable to extract text from PDF.")
-else:
-    st.write("Please upload a PDF file.")
-
-# Chatbot interaction section
-st.subheader("Chatbot Interaction")
-student_input = st.text_input("Ask your question about the lesson:")
-
-if student_input and 'lesson_content' in locals():
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "user", "content": f"Lesson Content: {lesson_content}\n\nStudent Query: {student_input}"}
-        ]
-    )
-    st.markdown('<div class="chatbox">{}</div>'.format(response['choices'][0]['message']['content']), unsafe_allow_html=True)
