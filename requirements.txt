@@ -3,3 +3,4 @@ PyPDF2
 python-docx
 streamlit
 PyMuPDF==1.20.0
+Pillow
