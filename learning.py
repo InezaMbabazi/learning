@@ -4,7 +4,7 @@ import PyPDF2
 import docx
 
 # Initialize OpenAI API with the secret key
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+openai.api_key = st.secrets["openai"]["api_key"]
 
 # Function to load content from a PDF file
 def load_pdf_content(file_path):
