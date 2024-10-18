@@ -1,7 +1,7 @@
-import streamlit as st 
+import streamlit as st
 import openai
 import PyPDF2
-import base64
+import random
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -29,8 +29,26 @@ def load_pdf_content(file):
             content += text + "\n"  # Adding newline for better formatting
     return content.strip()  # Return stripped content
 
+# Function to generate test questions from the content
+def generate_test_questions(content):
+    # Split the content into sentences
+    sentences = content.split('. ')
+    
+    # Randomly select 3 sentences as questions
+    questions = random.sample(sentences, min(3, len(sentences))) if len(sentences) >= 3 else sentences
+    
+    return questions
+
+# Function to grade the test
+def grade_test(answers, correct_answers):
+    score = 0
+    for answer, correct in zip(answers, correct_answers):
+        if answer.strip().lower() == correct.strip().lower():
+            score += 1
+    return score
+
 # Streamlit UI
-st.title("Chatbot for Lesson Assistance")
+st.title("Chatbot for Lesson Assistance with Test Feature")
 
 # Apply custom CSS to style the layout
 st.markdown("""
@@ -63,14 +81,34 @@ if uploaded_file is not None:
     
     # Check if content was successfully loaded
     if lesson_content:
-        # Display the PDF content
-        pdf_bytes = uploaded_file.read()
-        pdf_base64 = base64.b64encode(pdf_bytes).decode()
-        pdf_display = f'<embed src="data:application/pdf;base64,{pdf_base64}" width="100%" height="300" type="application/pdf">'
-        st.components.v1.html(pdf_display, height=300)
-
         # Display the PDF content in a selectable area
         st.markdown('<div class="pdf-area"><pre>{}</pre></div>'.format(lesson_content), unsafe_allow_html=True)
+        
+        # Generate test questions
+        test_questions = generate_test_questions(lesson_content)
+        
+        # Testing button
+        if st.button("Start Test"):
+            st.subheader("Test")
+            answers = []
+            for i, question in enumerate(test_questions):
+                st.write(f"Question {i+1}: {question}")
+                answer = st.text_input(f"Your answer to question {i+1}:")
+                answers.append(answer)
+
+            # Check if answers are provided and grade the test
+            if len(answers) == len(test_questions):
+                correct_answers = [q.split(' ')[0] for q in test_questions]  # Simplified grading
+                score = grade_test(answers, correct_answers)
+                
+                # Provide feedback based on score
+                st.write(f"Your score: {score}/{len(test_questions)}")
+                if score == len(test_questions):
+                    st.write("Excellent! You understood the content well.")
+                elif score >= len(test_questions) // 2:
+                    st.write("Good job, but you may want to review some parts.")
+                else:
+                    st.write("You should review the lesson and try again.")
     else:
         st.write("Unable to extract text from PDF.")
 else:
@@ -83,4 +121,3 @@ student_input = st.text_input("Ask your question about the lesson:")
 if student_input and 'lesson_content' in locals():
     response = get_chatbot_response(student_input, lesson_content)
     st.markdown('<div class="chatbox">{}</div>'.format(response), unsafe_allow_html=True)
-
