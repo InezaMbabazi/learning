@@ -57,7 +57,7 @@ st.set_page_config(page_title="AI Lesson Assistant", layout="wide")
 st.image("header.png", use_column_width=True)  # Place your image file in the same directory or provide a path
 
 # Title of the application
-st.title("📚 AI-Powered Lesson Assistant")
+st.title("📚 Kepler college AI-Powered Lesson Assistant")
 
 # Custom CSS for enhanced layout and styling
 st.markdown("""
