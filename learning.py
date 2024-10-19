@@ -1,4 +1,4 @@
-import streamlit as st 
+import streamlit as st
 import openai
 import PyPDF2
 
@@ -7,11 +7,13 @@ openai.api_key = st.secrets["openai"]["api_key"]
 
 # Function to generate questions based on lesson content
 def generate_questions_from_content(lesson_content):
-    prompt = f"Generate 3 detailed questions based on the following lesson content:\n{lesson_content}\n\nPlease ensure the questions are relevant and test the student's understanding."
+    prompt = f"Generate 3 questions based on the following lesson content:\n{lesson_content}\n\nMake sure the questions test the student's understanding."
     
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
+        messages=[
+            {"role": "user", "content": prompt}
+        ]
     )
     
     # Extract the generated questions
@@ -30,15 +32,19 @@ def load_pdf_content(file):
 
 # Function to get grading from OpenAI based on student responses
 def get_grading(student_answers, generated_questions, lesson_content):
-    grading_prompt = f"Lesson Content: {lesson_content}\n\nHere are the student's answers and the questions:\n"
+    grading_prompt = f"Based on the following lesson content: {lesson_content}\n"
+    grading_prompt += "Here are the student's answers and the questions:\n"
+
     for i, (question, answer) in enumerate(zip(generated_questions, student_answers), 1):
         grading_prompt += f"Question {i}: {question}\nStudent's Answer: {answer}\n"
 
-    grading_prompt += "\nPlease grade the student's answers and provide feedback for each."
+    grading_prompt += "\nPlease provide feedback for each answer, grade each answer out of 10, and suggest improvements if necessary."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": grading_prompt}]
+        messages=[
+            {"role": "user", "content": grading_prompt}
+        ]
     )
     
     feedback = response['choices'][0]['message']['content']
@@ -72,6 +78,10 @@ st.markdown("""
 st.subheader("Upload PDF File")
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 
+# Session state to track if questions have been generated
+if 'generated_questions' not in st.session_state:
+    st.session_state.generated_questions = []
+
 if uploaded_file is not None:
     # Load and store the lesson content for chatbot use
     lesson_content = load_pdf_content(uploaded_file)
@@ -83,47 +93,45 @@ if uploaded_file is not None:
         
         # Generate test questions using OpenAI based on the PDF content
         if st.button("Generate Questions"):
-            generated_questions = generate_questions_from_content(lesson_content)
+            st.session_state.generated_questions = generate_questions_from_content(lesson_content)
+        
+        # Display the generated questions and student input
+        if st.session_state.generated_questions:
             st.subheader("Test Questions")
 
-            # Display questions in a form to get student responses
+            # Student answers section
+            student_answers = []
+
             with st.form(key='question_form'):
-                answers = []
-                
-                # Loop through generated questions to create input fields
-                for i, question in enumerate(generated_questions):
+                for i, question in enumerate(st.session_state.generated_questions):
                     st.write(f"Question {i+1}: {question}")
                     answer = st.text_input(f"Your answer to question {i+1}", key=f"answer_{i}")
-                    answers.append(answer)
-
+                    student_answers.append(answer)
+                
                 # Submit button for form
                 submit = st.form_submit_button("Submit Answers")
-
-                # Once the form is submitted, grade the student's answers
-                if submit:
-                    if all(answers):  # Ensure that all questions have been answered
-                        # Display progress while waiting for the AI grading
-                        with st.spinner("Grading your answers, please wait..."):
-                            feedback = get_grading(answers, generated_questions, lesson_content)
-                        
-                        # Display feedback in the chatbox area
-                        st.subheader("Feedback on Your Answers:")
-                        st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
-                    else:
-                        st.warning("Please answer all questions before submitting.")
+                
+                # Display feedback after submission
+                if submit and all(student_answers):
+                    feedback = get_grading(student_answers, st.session_state.generated_questions, lesson_content)
+                    st.subheader("Feedback on Your Answers:")
+                    st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
+                elif submit:
+                    st.warning("Please answer all questions before submitting.")
     else:
         st.write("Unable to extract text from PDF.")
 else:
     st.write("Please upload a PDF file.")
 
-# Chatbot interaction section (appears after uploading PDF)
-if 'lesson_content' in locals():
-    st.subheader("Chatbot Interaction")
-    student_input = st.text_input("Ask your question about the lesson:")
+# Chatbot interaction section
+st.subheader("Chatbot Interaction")
+student_input = st.text_input("Ask your question about the lesson:")
 
-    if student_input:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": f"Lesson Content: {lesson_content}\n\nStudent Query: {student_input}"}]
-        )
-        st.markdown('<div class="chatbox">{}</div>'.format(response['choices'][0]['message']['content']), unsafe_allow_html=True)
+if student_input and 'lesson_content' in locals():
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "user", "content": f"Lesson Content: {lesson_content}\n\nStudent Query: {student_input}"}
+        ]
+    )
+    st.markdown('<div class="chatbox">{}</div>'.format(response['choices'][0]['message']['content']), unsafe_allow_html=True)
