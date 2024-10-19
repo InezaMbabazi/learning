@@ -30,7 +30,7 @@ def load_pdf_content(file):
             content += text + "\n"  # Adding newline for better formatting
     return content.strip()  # Return stripped content
 
-# Function to get grading and feedback from OpenAI
+# Function to get grading from OpenAI based on student responses
 def get_grading(student_answers, generated_questions, lesson_content):
     grading_prompt = f"Based on the following lesson content: {lesson_content}\n"
     grading_prompt += "Here are the student's answers and the questions:\n"
@@ -51,15 +51,24 @@ def get_grading(student_answers, generated_questions, lesson_content):
     return feedback
 
 # Streamlit UI
-st.set_page_config(page_title="AI Lesson Assistant", layout="wide")
+st.image("header.png", use_column_width=True)  # Add your header image file here
+st.title("Kepler College AI-Powered Lesson Assistant")
 
-# Header image
-st.image("header.png", use_column_width=True)  # Place your image file in the same directory or provide a path
+# Instructions with better formatting
+st.markdown("""
+    <div style="background-color: #f0f0f5; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+        <h3 style="color: #2E86C1;">Welcome to Kepler College's AI-Powered Lesson Assistant</h3>
+        <p>To use this AI assistant, follow these simple steps:</p>
+        <ul style="list-style-type: square;">
+            <li>Upload your lesson content in <strong>PDF format</strong>.</li>
+            <li>Generate questions to assess your understanding of the material.</li>
+            <li>Interact with the chatbot to receive AI-driven answers and explanations about your content.</li>
+        </ul>
+        <p>Get ready to enhance your learning experience with AI!</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Title of the application
-st.title("📚 Kepler college AI-Powered Lesson Assistant")
-
-# Custom CSS for enhanced layout and styling
+# Apply custom CSS to style the layout
 st.markdown("""
     <style>
     .chatbox {
@@ -68,7 +77,6 @@ st.markdown("""
         height: 200px; /* Height for chatbot response */
         overflow-y: scroll;
         background-color: #f1f1f1;
-        margin-bottom: 10px;
     }
     .pdf-area {
         border: 2px solid #2196F3;
@@ -78,22 +86,11 @@ st.markdown("""
         background-color: #f9f9f9;
         margin-bottom: 20px; /* Space between PDF and chatbot */
     }
-    .feedback {
-        border: 2px solid #4CAF50;
-        padding: 10px;
-        background-color: #e7f3e7;
-        margin-top: 20px;
-    }
-    .header-text {
-        font-weight: bold;
-        font-size: 1.3em;
-        margin-bottom: 10px;
-    }
     </style>
     """, unsafe_allow_html=True)
 
 # Upload PDF file and load its content
-st.subheader("📁 Upload Lesson PDF")
+st.subheader("Upload PDF File")
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 
 # Session state to track if questions have been generated
@@ -109,20 +106,20 @@ if uploaded_file is not None:
         # Display the PDF content in a selectable area
         st.markdown('<div class="pdf-area"><pre>{}</pre></div>'.format(lesson_content), unsafe_allow_html=True)
         
-        # Button to generate test questions
-        if st.button("🔄 Generate Questions"):
+        # Generate test questions using OpenAI based on the PDF content
+        if st.button("Generate Questions"):
             st.session_state.generated_questions = generate_questions_from_content(lesson_content)
         
         # Display the generated questions and student input
         if st.session_state.generated_questions:
-            st.subheader("📝 **Test Questions**")
+            st.subheader("Test Questions")
 
             # Student answers section
             student_answers = []
 
             with st.form(key='question_form'):
                 for i, question in enumerate(st.session_state.generated_questions):
-                    st.write(f"**Question {i+1}:** {question}")
+                    st.write(f"Question {i+1}: {question}")
                     answer = st.text_input(f"Your answer to question {i+1}", key=f"answer_{i}")
                     student_answers.append(answer)
                 
@@ -132,8 +129,8 @@ if uploaded_file is not None:
                 # Display feedback after submission
                 if submit and all(student_answers):
                     feedback = get_grading(student_answers, st.session_state.generated_questions, lesson_content)
-                    st.subheader("💡 **Feedback on Your Answers**")
-                    st.markdown(f"<div class='feedback'>{feedback}</div>", unsafe_allow_html=True)
+                    st.subheader("Feedback on Your Answers:")
+                    st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
                 elif submit:
                     st.warning("Please answer all questions before submitting.")
     else:
@@ -142,7 +139,7 @@ else:
     st.write("Please upload a PDF file.")
 
 # Chatbot interaction section
-st.subheader("💬 **Chatbot Interaction**")
+st.subheader("Chatbot Interaction")
 student_input = st.text_input("Ask your question about the lesson:")
 
 if student_input and 'lesson_content' in locals():
@@ -153,10 +150,4 @@ if student_input and 'lesson_content' in locals():
         ]
     )
     st.markdown('<div class="chatbox">{}</div>'.format(response['choices'][0]['message']['content']), unsafe_allow_html=True)
-
-# Place the "Generate Questions" button below the chatbot interaction section
-if st.button("Generate Questions Again"):
-    if uploaded_file is not None:
-        st.session_state.generated_questions = generate_questions_from_content(lesson_content)
-    else:
-        st.warning("Please upload a PDF first.")
+``
