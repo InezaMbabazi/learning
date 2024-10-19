@@ -150,4 +150,3 @@ if student_input and 'lesson_content' in locals():
         ]
     )
     st.markdown('<div class="chatbox">{}</div>'.format(response['choices'][0]['message']['content']), unsafe_allow_html=True)
-``
