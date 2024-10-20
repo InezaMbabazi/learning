@@ -94,8 +94,8 @@ st.subheader("Option 1: Upload PDF File")
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 
 # Option 2: Manual text input
-st.subheader("Option 2: Enter Lesson Content Manually")
-manual_content = st.text_area("Enter lesson content here:")
+st.subheader("Option 2: Paste Specific Lesson Content Here ?")
+manual_content = st.text_area("paste lesson content here:")
 
 # Session state to track if questions have been generated
 if 'generated_questions' not in st.session_state:
