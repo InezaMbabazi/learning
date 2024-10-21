@@ -1,4 +1,3 @@
-
 import streamlit as st
 import openai
 import PyPDF2
@@ -61,7 +60,8 @@ st.markdown("""
         <h3 style="color: #2E86C1;">Welcome to Kepler College's AI-Powered Lesson Assistant</h3>
         <p>To use this AI assistant, follow these simple steps:</p>
         <ul style="list-style-type: square;">
-            <li>Upload your lesson content in <strong>PDF format</strong>, or type the lesson content manually.</li>
+            <li>Upload your lesson content in <strong>PDF format</strong> or write your lesson content directly.</li>
+            <li>You can also provide a link to an external resource, such as a YouTube video.</li>
             <li>Generate questions to assess your understanding of the material.</li>
             <li>Interact with the chatbot to receive AI-driven answers and explanations about your content.</li>
         </ul>
@@ -90,57 +90,61 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Option 1: Upload PDF file
-st.subheader("Option 1: Upload PDF File")
-uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
+# Option to upload PDF file, input text content, or provide a link
+st.subheader("Provide a Link or Upload a PDF/Write Content")
 
-# Option 2: Manual text input
-st.subheader("Option 2: Paste Specific Lesson Content Here ?")
-manual_content = st.text_area("paste lesson content here:")
+# Reorder: Link comes before lesson content
+lesson_link = st.text_input("Provide a link to an external resource (e.g., YouTube video)")
+lesson_text = st.text_area("Paste lesson content here or write it directly", height=150)
+
+# PDF uploader after the link and content input
+uploaded_file = st.file_uploader("Or upload a PDF file", type="pdf")
 
 # Session state to track if questions have been generated
 if 'generated_questions' not in st.session_state:
     st.session_state.generated_questions = []
 
-# Load content from PDF or manual input
-lesson_content = None
+lesson_content = ""
+
+# Load content from the PDF file if uploaded
 if uploaded_file is not None:
     lesson_content = load_pdf_content(uploaded_file)
-    if lesson_content:
-        st.markdown('<div class="pdf-area"><pre>{}</pre></div>'.format(lesson_content), unsafe_allow_html=True)
-elif manual_content:
-    lesson_content = manual_content
+    st.markdown('<div class="pdf-area"><pre>{}</pre></div>'.format(lesson_content), unsafe_allow_html=True)
 
-# Generate questions if content is available
-if lesson_content:
-    if st.button("Generate Questions"):
-        st.session_state.generated_questions = generate_questions_from_content(lesson_content)
-    
-    # Display the generated questions and student input
-    if st.session_state.generated_questions:
-        st.subheader("Test Questions")
+# If no PDF file, use the text area input
+elif lesson_text:
+    lesson_content = lesson_text
 
-        # Student answers section
-        student_answers = []
+# If a link is provided, use the link as part of the lesson content
+if lesson_link:
+    lesson_content += f"\n\nExternal Resource: {lesson_link}"
 
-        with st.form(key='question_form'):
-            for i, question in enumerate(st.session_state.generated_questions):
-                st.write(f"Question {i+1}: {question}")
-                answer = st.text_input(f"Your answer to question {i+1}", key=f"answer_{i}")
-                student_answers.append(answer)
-            
-            # Submit button for form
-            submit = st.form_submit_button("Submit Answers")
-            
-            # Display feedback after submission
-            if submit and all(student_answers):
-                feedback = get_grading(student_answers, st.session_state.generated_questions, lesson_content)
-                st.subheader("Feedback on Your Answers:")
-                st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
-            elif submit:
-                st.warning("Please answer all questions before submitting.")
-else:
-    st.write("Please upload a PDF file or enter the lesson content manually.")
+# Generate questions based on the lesson content
+if lesson_content and st.button("Generate Questions"):
+    st.session_state.generated_questions = generate_questions_from_content(lesson_content)
+
+# Display the generated questions and student input
+if st.session_state.generated_questions:
+    st.subheader("Test Questions")
+
+    student_answers = []
+
+    with st.form(key='question_form'):
+        for i, question in enumerate(st.session_state.generated_questions):
+            st.write(f"Question {i+1}: {question}")
+            answer = st.text_input(f"Your answer to question {i+1}", key=f"answer_{i}")
+            student_answers.append(answer)
+        
+        # Submit button for form
+        submit = st.form_submit_button("Submit Answers")
+        
+        # Display feedback after submission
+        if submit and all(student_answers):
+            feedback = get_grading(student_answers, st.session_state.generated_questions, lesson_content)
+            st.subheader("Feedback on Your Answers:")
+            st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
+        elif submit:
+            st.warning("Please answer all questions before submitting.")
 
 # Chatbot interaction section
 st.subheader("Chatbot Interaction")
