@@ -1,7 +1,8 @@
 import streamlit as st
 import openai
 import pandas as pd
-import PyPDF2  # Ensure PyPDF2 is imported for PDF reading
+import PyPDF2  # For reading PDF files
+from docx import Document  # For reading Word documents
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -42,7 +43,7 @@ st.markdown("""
 
 # Upload section for student work
 st.subheader("Upload Student Work")
-uploaded_file = st.file_uploader("Upload student work (PDF or text file)", type=["pdf", "txt"])
+uploaded_file = st.file_uploader("Upload student work (PDF, Word, or text file)", type=["pdf", "docx", "txt"])
 
 # Input for the proposed answer
 proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer you expect from the student here...")
@@ -50,19 +51,28 @@ proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer 
 # Process the uploaded file and proposed answer
 if uploaded_file is not None and proposed_answer:
     try:
+        # Initialize student submission variable
+        student_submission = ""
+
         if uploaded_file.type == "application/pdf":
             # Load PDF content
             reader = PyPDF2.PdfReader(uploaded_file)
-            student_submission = ''
             for page in reader.pages:
                 text = page.extract_text()
                 if text:
                     student_submission += text + "\n"
+        
+        elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            # Load Word document content
+            doc = Document(uploaded_file)
+            for para in doc.paragraphs:
+                student_submission += para.text + "\n"
+        
         else:  # Assuming the uploaded file is a text file
             student_submission = uploaded_file.read().decode("utf-8")
 
         if st.button("Grade Submission"):
-            feedback = get_grading(student_submission, proposed_answer)
+            feedback = get_grading(student_submission.strip(), proposed_answer)
             
             # Display feedback
             st.subheader("Feedback on Student Submission:")
@@ -70,8 +80,8 @@ if uploaded_file is not None and proposed_answer:
 
             # Save feedback in a DataFrame and allow download
             feedback_df = pd.DataFrame({
-                "Student Work": [student_submission],
-                "Proposed Answer": [proposed_answer],
+                "Student Work": [student_submission.strip()],
+                "Proposed Answer": [proposed_answer.strip()],
                 "Feedback": [feedback]
             })
             
