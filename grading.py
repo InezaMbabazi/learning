@@ -33,63 +33,77 @@ st.markdown("""
         <h3 style="color: #2E86C1;">Welcome to Kepler College's AI-Powered Grading Assistant</h3>
         <p>To use this assistant, follow these steps:</p>
         <ul style="list-style-type: square;">
-            <li>Upload the student's work for grading.</li>
+            <li>Upload the student's work for grading (multiple files).</li>
             <li>Provide the proposed answer you expect from the student.</li>
-            <li>Submit to receive grading and feedback.</li>
+            <li>Submit to receive grading and feedback for all submissions.</li>
         </ul>
         <p>Enhance your grading experience with AI!</p>
     </div>
     """, unsafe_allow_html=True)
 
 # Upload section for student work
-st.subheader("Upload Student Work")
-uploaded_file = st.file_uploader("Upload student work (PDF, Word, or text file)", type=["pdf", "docx", "txt"])
+st.subheader("Upload Student Work (Multiple Files)")
+uploaded_files = st.file_uploader("Upload student work (PDF, Word, or text files)", type=["pdf", "docx", "txt"], accept_multiple_files=True)
 
 # Input for the proposed answer
 proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer you expect from the student here...")
 
-# Process the uploaded file and proposed answer
-if uploaded_file is not None and proposed_answer:
-    try:
-        # Initialize student submission variable
-        student_submission = ""
+# Process the uploaded files and proposed answer
+if uploaded_files and proposed_answer:
+    results = []  # List to store results for each student's submission
 
-        if uploaded_file.type == "application/pdf":
-            # Load PDF content
-            reader = PyPDF2.PdfReader(uploaded_file)
-            for page in reader.pages:
-                text = page.extract_text()
-                if text:
-                    student_submission += text + "\n"
-        
-        elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-            # Load Word document content
-            doc = Document(uploaded_file)
-            for para in doc.paragraphs:
-                student_submission += para.text + "\n"
-        
-        else:  # Assuming the uploaded file is a text file
-            student_submission = uploaded_file.read().decode("utf-8")
+    for uploaded_file in uploaded_files:
+        try:
+            # Initialize student submission variable
+            student_submission = ""
+            student_name = uploaded_file.name.split('.')[0]  # Assuming filename without extension is the student's name
 
-        if st.button("Grade Submission"):
+            if uploaded_file.type == "application/pdf":
+                # Load PDF content
+                reader = PyPDF2.PdfReader(uploaded_file)
+                for page in reader.pages:
+                    text = page.extract_text()
+                    if text:
+                        student_submission += text + "\n"
+            
+            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                # Load Word document content
+                doc = Document(uploaded_file)
+                for para in doc.paragraphs:
+                    student_submission += para.text + "\n"
+            
+            else:  # Assuming the uploaded file is a text file
+                student_submission = uploaded_file.read().decode("utf-8")
+
+            # Get grading feedback
             feedback = get_grading(student_submission.strip(), proposed_answer)
             
-            # Display feedback
-            st.subheader("Feedback on Student Submission:")
-            st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
+            # Extract the grade from feedback (assume it's the first line)
+            grade_line = feedback.splitlines()[0] if feedback else "No feedback provided."
+            grade = grade_line.split("out of")[0].strip() if "out of" in grade_line else "N/A"
 
-            # Save feedback in a DataFrame and allow download
-            feedback_df = pd.DataFrame({
-                "Student Work": [student_submission.strip()],
-                "Proposed Answer": [proposed_answer.strip()],
-                "Feedback": [feedback]
+            # Append results for this submission
+            results.append({
+                "Student Name": student_name,
+                "Submission": student_submission.strip(),
+                "Grade": grade,
+                "Feedback": feedback
             })
-            
-            # Download link for feedback
-            feedback_csv = feedback_df.to_csv(index=False)
-            st.download_button("Download Feedback as CSV", feedback_csv, "feedback.csv", "text/csv")
-    
-    except Exception as e:
-        st.error(f"An error occurred while processing the file: {e}")
+        
+        except Exception as e:
+            st.error(f"An error occurred while processing the file '{uploaded_file.name}': {e}")
+
+    if results:
+        # Convert results to DataFrame
+        feedback_df = pd.DataFrame(results)
+
+        # Display results in the app
+        st.subheader("Grading Results:")
+        st.dataframe(feedback_df)
+
+        # Download link for feedback
+        feedback_csv = feedback_df.to_csv(index=False)
+        st.download_button("Download Feedback as CSV", feedback_csv, "feedback.csv", "text/csv")
+
 else:
     st.write("Please upload the student's work and enter the proposed answer.")
