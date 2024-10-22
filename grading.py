@@ -1,6 +1,7 @@
 import streamlit as st
 import openai
 import pandas as pd
+import PyPDF2  # Ensure PyPDF2 is imported for PDF reading
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -48,34 +49,37 @@ proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer 
 
 # Process the uploaded file and proposed answer
 if uploaded_file is not None and proposed_answer:
-    if uploaded_file.type == "application/pdf":
-        # Load PDF content
-        reader = PyPDF2.PdfReader(uploaded_file)
-        student_submission = ''
-        for page in reader.pages:
-            text = page.extract_text()
-            if text:
-                student_submission += text + "\n"
-    else:  # Assuming the uploaded file is a text file
-        student_submission = uploaded_file.read().decode("utf-8")
+    try:
+        if uploaded_file.type == "application/pdf":
+            # Load PDF content
+            reader = PyPDF2.PdfReader(uploaded_file)
+            student_submission = ''
+            for page in reader.pages:
+                text = page.extract_text()
+                if text:
+                    student_submission += text + "\n"
+        else:  # Assuming the uploaded file is a text file
+            student_submission = uploaded_file.read().decode("utf-8")
 
-    if st.button("Grade Submission"):
-        feedback = get_grading(student_submission, proposed_answer)
-        
-        # Display feedback
-        st.subheader("Feedback on Student Submission:")
-        st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
+        if st.button("Grade Submission"):
+            feedback = get_grading(student_submission, proposed_answer)
+            
+            # Display feedback
+            st.subheader("Feedback on Student Submission:")
+            st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
+
+            # Save feedback in a DataFrame and allow download
+            feedback_df = pd.DataFrame({
+                "Student Work": [student_submission],
+                "Proposed Answer": [proposed_answer],
+                "Feedback": [feedback]
+            })
+            
+            # Download link for feedback
+            feedback_csv = feedback_df.to_csv(index=False)
+            st.download_button("Download Feedback as CSV", feedback_csv, "feedback.csv", "text/csv")
+    
+    except Exception as e:
+        st.error(f"An error occurred while processing the file: {e}")
 else:
     st.write("Please upload the student's work and enter the proposed answer.")
-
-# Save feedback in a DataFrame and allow download
-if uploaded_file is not None and proposed_answer and feedback:
-    feedback_df = pd.DataFrame({
-        "Student Work": [student_submission],
-        "Proposed Answer": [proposed_answer],
-        "Feedback": [feedback]
-    })
-    
-    # Download link for feedback
-    feedback_csv = feedback_df.to_csv(index=False)
-    st.download_button("Download Feedback as CSV", feedback_csv, "feedback.csv", "text/csv")
