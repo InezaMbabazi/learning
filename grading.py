@@ -5,7 +5,7 @@ import fitz  # PyMuPDF for PDFs
 from docx import Document
 
 # Set your OpenAI API key
-openai.api_key = st.secrets["openai_api_key"]
+openai.api_key = st.secrets["openai"]["api_key"]
 
 # Function to extract text from a PDF file
 def extract_text_from_pdf(pdf_path):
