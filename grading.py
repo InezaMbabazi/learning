@@ -131,9 +131,9 @@ if uploaded_files and proposed_answer:
         # Generate HTML output with AI detection highlighting and compact table styling
         def highlight_row(row):
             if row['AI Generated'] == "Yes":
-                return f'<tr style="background-color: red;"><td>{row["Student Name"]}</td><td>{row["Submission"]}</td><td>{row["Grade"]}</td><td>{row["AI Generated"]}</td><td>{row["Feedback"]}</td></tr>'
+                return f'<tr style="background-color: red;"><td>{row["Student Name"]}</td><td class="clickable" onclick="alert(\'{row["Submission"].replace("'", "\\'")}\')">{row["Submission"][:50]}...</td><td>{row["Grade"]}</td><td>{row["AI Generated"]}</td><td>{row["Feedback"]}</td></tr>'
             else:
-                return f'<tr><td>{row["Student Name"]}</td><td>{row["Submission"]}</td><td>{row["Grade"]}</td><td>{row["AI Generated"]}</td><td>{row["Feedback"]}</td></tr>'
+                return f'<tr><td>{row["Student Name"]}</td><td class="clickable" onclick="alert(\'{row["Submission"].replace("'", "\\'")}\')">{row["Submission"][:50]}...</td><td>{row["Grade"]}</td><td>{row["AI Generated"]}</td><td>{row["Feedback"]}</td></tr>'
         
         # Construct HTML table
         table_header = """
@@ -153,7 +153,7 @@ if uploaded_files and proposed_answer:
         table_body = "".join([highlight_row(row) for _, row in feedback_df.iterrows()])
         table_footer = "</tbody></table>"
 
-        # Add custom CSS to make the table compact and prevent cell wrapping
+        # Add custom CSS to style the table and prevent wrapping
         st.markdown("""
             <style>
             table {
@@ -165,9 +165,24 @@ if uploaded_files and proposed_answer:
             th, td {
                 padding: 8px 12px;
                 border: 1px solid #ddd;
+                max-width: 200px;  /* Set maximum width for cells */
+                overflow: hidden;   /* Prevent overflow */
+                text-overflow: ellipsis;  /* Show ellipsis for overflow */
                 white-space: nowrap;  /* Prevent text from wrapping */
             }
+            .clickable {
+                cursor: pointer;  /* Change cursor to pointer on hover */
+            }
             </style>
+        """, unsafe_allow_html=True)
+
+        # Add JavaScript for double-click functionality
+        st.markdown("""
+            <script>
+            // This script is just a placeholder; Streamlit doesn't allow custom scripts directly.
+            // If running in a local environment, you may want to integrate a front-end framework
+            // to achieve this more dynamically.
+            </script>
         """, unsafe_allow_html=True)
 
         # Display the table using custom HTML
