@@ -128,65 +128,8 @@ if uploaded_files and proposed_answer:
         # Convert results to DataFrame
         feedback_df = pd.DataFrame(results)
 
-        # Generate HTML output with AI detection highlighting and compact table styling
-        def highlight_row(row):
-            if row['AI Generated'] == "Yes":
-                return f'<tr style="background-color: red;"><td>{row["Student Name"]}</td><td class="clickable" onclick="alert(\'{row["Submission"].replace("'", "\\'")}\')">{row["Submission"][:50]}...</td><td>{row["Grade"]}</td><td>{row["AI Generated"]}</td><td>{row["Feedback"]}</td></tr>'
-            else:
-                return f'<tr><td>{row["Student Name"]}</td><td class="clickable" onclick="alert(\'{row["Submission"].replace("'", "\\'")}\')">{row["Submission"][:50]}...</td><td>{row["Grade"]}</td><td>{row["AI Generated"]}</td><td>{row["Feedback"]}</td></tr>'
-        
-        # Construct HTML table
-        table_header = """
-        <table style="width: 70%; table-layout: auto; border-collapse: collapse; text-align: left;">
-        <thead>
-            <tr style="background-color: #f2f2f2;">
-                <th>Student Name</th>
-                <th>Submission</th>
-                <th>Grade</th>
-                <th>AI Generated</th>
-                <th>Feedback</th>
-            </tr>
-        </thead>
-        <tbody>
-        """
-        
-        table_body = "".join([highlight_row(row) for _, row in feedback_df.iterrows()])
-        table_footer = "</tbody></table>"
-
-        # Add custom CSS to style the table and prevent wrapping
-        st.markdown("""
-            <style>
-            table {
-                border: 1px solid black;
-                width: 70%;  /* Adjust table width */
-                margin: auto;
-                border-collapse: collapse;
-            }
-            th, td {
-                padding: 8px 12px;
-                border: 1px solid #ddd;
-                max-width: 200px;  /* Set maximum width for cells */
-                overflow: hidden;   /* Prevent overflow */
-                text-overflow: ellipsis;  /* Show ellipsis for overflow */
-                white-space: nowrap;  /* Prevent text from wrapping */
-            }
-            .clickable {
-                cursor: pointer;  /* Change cursor to pointer on hover */
-            }
-            </style>
-        """, unsafe_allow_html=True)
-
-        # Add JavaScript for double-click functionality
-        st.markdown("""
-            <script>
-            // This script is just a placeholder; Streamlit doesn't allow custom scripts directly.
-            // If running in a local environment, you may want to integrate a front-end framework
-            // to achieve this more dynamically.
-            </script>
-        """, unsafe_allow_html=True)
-
-        # Display the table using custom HTML
-        st.markdown(table_header + table_body + table_footer, unsafe_allow_html=True)
+        # Display the table using Streamlit's st.table()
+        st.table(feedback_df[['Student Name', 'Submission', 'Grade', 'AI Generated', 'Feedback']])
 
         # Download link for feedback
         feedback_csv = feedback_df.to_csv(index=False)
