@@ -113,15 +113,32 @@ if uploaded_files and proposed_answer:
         # Convert results to DataFrame
         feedback_df = pd.DataFrame(results)
 
-        # Highlight rows with AI-generated content
-        def color_ai(val):
-            color = 'red' if val == "Yes" else ''
-            return f'background-color: {color}'
+        # Generate HTML output with AI detection highlighting
+        def highlight_row(row):
+            if row['AI Generated'] == "Yes":
+                return f'<tr style="background-color: red;"><td>{row["Student Name"]}</td><td>{row["Grade"]}</td><td>{row["AI Generated"]}</td><td>{row["Feedback"]}</td></tr>'
+            else:
+                return f'<tr><td>{row["Student Name"]}</td><td>{row["Grade"]}</td><td>{row["AI Generated"]}</td><td>{row["Feedback"]}</td></tr>'
+        
+        # Construct HTML table
+        table_header = """
+        <table>
+        <thead>
+            <tr>
+                <th>Student Name</th>
+                <th>Grade</th>
+                <th>AI Generated</th>
+                <th>Feedback</th>
+            </tr>
+        </thead>
+        <tbody>
+        """
+        
+        table_body = "".join([highlight_row(row) for _, row in feedback_df.iterrows()])
+        table_footer = "</tbody></table>"
 
-        # Display results in the app with AI detection highlighting
-        st.subheader("Grading Results:")
-        styled_df = feedback_df.style.applymap(color_ai, subset=['AI Generated'])
-        st.dataframe(styled_df)
+        # Display the table using custom HTML
+        st.markdown(table_header + table_body + table_footer, unsafe_allow_html=True)
 
         # Download link for feedback
         feedback_csv = feedback_df.to_csv(index=False)
