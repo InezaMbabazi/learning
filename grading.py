@@ -3,6 +3,7 @@ import openai
 import pandas as pd
 import PyPDF2  # For reading PDF files
 from docx import Document  # For reading Word documents
+import re  # For regex pattern matching
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -78,9 +79,9 @@ if uploaded_files and proposed_answer:
             # Get grading feedback
             feedback = get_grading(student_submission.strip(), proposed_answer)
             
-            # Extract the grade from feedback (assume it's the first line)
-            grade_line = feedback.splitlines()[0] if feedback else "No feedback provided."
-            grade = grade_line.split("out of")[0].strip() if "out of" in grade_line else "N/A"
+            # Extract the grade from feedback using regex
+            grade_match = re.search(r'(\d+\.?\d*) out of \d+', feedback)
+            grade = grade_match.group(1) if grade_match else "N/A"  # Get the numeric grade, or "N/A" if not found
 
             # Append results for this submission
             results.append({
