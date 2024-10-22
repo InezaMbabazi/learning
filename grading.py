@@ -79,9 +79,12 @@ if uploaded_files and proposed_answer:
             # Get grading feedback
             feedback = get_grading(student_submission.strip(), proposed_answer)
             
-            # Extract the grade from feedback using regex
-            grade_match = re.search(r'(\d+\.?\d*) out of \d+', feedback)
-            grade = grade_match.group(1) if grade_match else "N/A"  # Get the numeric grade, or "N/A" if not found
+            # Extract the grade from feedback using regex with improved patterns
+            grade_match = re.search(r'Grade:\s*(\d+\.?\d*)/?(\d+)', feedback)
+            if grade_match:
+                grade = grade_match.group(1)  # The numeric grade
+            else:
+                grade = "N/A"  # Default to "N/A" if not found
 
             # Append results for this submission
             results.append({
