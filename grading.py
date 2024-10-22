@@ -116,9 +116,9 @@ if uploaded_files and proposed_answer:
         # Generate HTML output with AI detection highlighting
         def highlight_row(row):
             if row['AI Generated'] == "Yes":
-                return f'<tr style="background-color: red;"><td>{row["Student Name"]}</td><td>{row["Grade"]}</td><td>{row["AI Generated"]}</td><td>{row["Feedback"]}</td></tr>'
+                return f'<tr style="background-color: red;"><td>{row["Student Name"]}</td><td>{row["Submission"]}</td><td>{row["Grade"]}</td><td>{row["AI Generated"]}</td><td>{row["Feedback"]}</td></tr>'
             else:
-                return f'<tr><td>{row["Student Name"]}</td><td>{row["Grade"]}</td><td>{row["AI Generated"]}</td><td>{row["Feedback"]}</td></tr>'
+                return f'<tr><td>{row["Student Name"]}</td><td>{row["Submission"]}</td><td>{row["Grade"]}</td><td>{row["AI Generated"]}</td><td>{row["Feedback"]}</td></tr>'
         
         # Construct HTML table
         table_header = """
@@ -126,6 +126,7 @@ if uploaded_files and proposed_answer:
         <thead>
             <tr>
                 <th>Student Name</th>
+                <th>Submission</th>
                 <th>Grade</th>
                 <th>AI Generated</th>
                 <th>Feedback</th>
