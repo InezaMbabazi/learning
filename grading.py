@@ -41,10 +41,10 @@ def extract_grade(feedback):
     else:
         return "N/A"  # Default to "N/A" if not found
 
-# Function to remove grade portion from feedback
-def remove_grade_from_feedback(feedback):
-    # Remove patterns like "X out of Y", "X/10", etc.
-    cleaned_feedback = re.sub(r'(\d+\.?\d*)\s*(?:/|out of)\s*(\d+)', '', feedback, flags=re.IGNORECASE)
+# Function to remove the grade mention from feedback
+def clean_feedback(feedback):
+    # Remove any mention of "X out of Y" or "X/10"
+    cleaned_feedback = re.sub(r'(\d+\.?\d*)\s*(?:/|out of)\s*(\d+)', '', feedback)
     return cleaned_feedback.strip()
 
 # Streamlit UI
@@ -102,11 +102,11 @@ if uploaded_files and proposed_answer:
             # Get grading feedback
             feedback = get_grading(student_submission.strip(), proposed_answer)
             
-            # Extract the grade from feedback
+            # Extract the grade from feedback using the updated regex
             grade = extract_grade(feedback)
 
-            # Remove the grade portion from the feedback
-            cleaned_feedback = remove_grade_from_feedback(feedback)
+            # Clean feedback to remove any mention of grades
+            feedback_cleaned = clean_feedback(feedback)
 
             # AI detection for content
             ai_generated = is_ai_generated(student_submission.strip())
@@ -117,7 +117,7 @@ if uploaded_files and proposed_answer:
                 "Student Name": student_name,
                 "Submission": student_submission.strip(),
                 "Grade": grade,
-                "Feedback": cleaned_feedback,
+                "Feedback": feedback_cleaned,  # Use cleaned feedback without grades
                 "AI Generated": ai_flag
             })
         
@@ -128,7 +128,7 @@ if uploaded_files and proposed_answer:
         # Convert results to DataFrame
         feedback_df = pd.DataFrame(results)
 
-        # Generate HTML output with AI detection highlighting
+        # Generate HTML output with AI detection highlighting and compact table styling
         def highlight_row(row):
             if row['AI Generated'] == "Yes":
                 return f'<tr style="background-color: red;"><td>{row["Student Name"]}</td><td>{row["Submission"]}</td><td>{row["Grade"]}</td><td>{row["AI Generated"]}</td><td>{row["Feedback"]}</td></tr>'
@@ -137,9 +137,9 @@ if uploaded_files and proposed_answer:
         
         # Construct HTML table
         table_header = """
-        <table style="width: 100%; max-width: 700px; table-layout: fixed; word-wrap: break-word;">
+        <table style="width: 70%; table-layout: auto; border-collapse: collapse; text-align: left;">
         <thead>
-            <tr>
+            <tr style="background-color: #f2f2f2;">
                 <th>Student Name</th>
                 <th>Submission</th>
                 <th>Grade</th>
@@ -152,6 +152,23 @@ if uploaded_files and proposed_answer:
         
         table_body = "".join([highlight_row(row) for _, row in feedback_df.iterrows()])
         table_footer = "</tbody></table>"
+
+        # Add custom CSS to make the table compact and prevent cell wrapping
+        st.markdown("""
+            <style>
+            table {
+                border: 1px solid black;
+                width: 70%;  /* Adjust table width */
+                margin: auto;
+                border-collapse: collapse;
+            }
+            th, td {
+                padding: 8px 12px;
+                border: 1px solid #ddd;
+                white-space: nowrap;  /* Prevent text from wrapping */
+            }
+            </style>
+        """, unsafe_allow_html=True)
 
         # Display the table using custom HTML
         st.markdown(table_header + table_body + table_footer, unsafe_allow_html=True)
