@@ -9,12 +9,23 @@ import re  # For regex pattern matching
 openai.api_key = st.secrets["openai"]["api_key"]
 
 # Function to get grading from OpenAI based on student submissions and proposed answers
-def get_grading(student_submission, proposed_answer):
-    grading_prompt = f"Evaluate the student's submission based on the following proposed answer:\n\n"
-    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
-    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide detailed feedback and grade the submission out of 10. Also, suggest improvements."
-
+def get_grading(student_submission, proposed_answer, content_type):
+    if content_type == "Math (LaTeX)":
+        grading_prompt = f"Evaluate the student's LaTeX-based mathematical submission based on the following proposed answer:\n\n"
+        grading_prompt += f"**Proposed Answer (LaTeX)**: {proposed_answer}\n\n"
+        grading_prompt += f"**Student Submission (LaTeX)**: {student_submission}\n\n"
+        grading_prompt += "Please provide detailed feedback on the mathematical correctness, grade it out of 10, and suggest improvements."
+    elif content_type == "Programming (Code)":
+        grading_prompt = f"Evaluate the student's code submission based on the following proposed solution:\n\n"
+        grading_prompt += f"**Proposed Code**: {proposed_answer}\n\n"
+        grading_prompt += f"**Student Code Submission**: {student_submission}\n\n"
+        grading_prompt += "Please check the logic, efficiency, and correctness of the code, provide feedback, and grade the submission out of 10."
+    else:  # Default to Text
+        grading_prompt = f"Evaluate the student's submission based on the following proposed answer:\n\n"
+        grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
+        grading_prompt += f"**Student Submission**: {student_submission}\n\n"
+        grading_prompt += "Provide detailed feedback and grade the submission out of 10. Also, suggest improvements."
+    
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": grading_prompt}]
@@ -56,6 +67,7 @@ st.markdown("""
         <ul style="list-style-type: square;">
             <li>Upload the student's work for grading (multiple files).</li>
             <li>Provide the proposed answer you expect from the student.</li>
+            <li>Select the type of content being evaluated (Text, Math, or Code).</li>
             <li>Submit to receive grading and feedback for all submissions.</li>
         </ul>
         <p>Enhance your grading experience with AI!</p>
@@ -68,6 +80,9 @@ uploaded_files = st.file_uploader("Upload student work (PDF, Word, or text files
 
 # Input for the proposed answer
 proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer you expect from the student here...")
+
+# Dropdown for selecting content type
+content_type = st.selectbox("Select Content Type", options=["Text", "Math (LaTeX)", "Programming (Code)"])
 
 # Process the uploaded files and proposed answer
 if uploaded_files and proposed_answer:
@@ -97,7 +112,7 @@ if uploaded_files and proposed_answer:
                 student_submission = uploaded_file.read().decode("utf-8")
 
             # Get grading feedback
-            feedback = get_grading(student_submission.strip(), proposed_answer)
+            feedback = get_grading(student_submission.strip(), proposed_answer, content_type)
             
             # Extract the grade from feedback
             grade = extract_grade(feedback)
