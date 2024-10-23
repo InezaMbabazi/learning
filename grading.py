@@ -10,10 +10,11 @@ openai.api_key = st.secrets["openai"]["api_key"]
 
 # Function to get grading from OpenAI based on student submissions and proposed answers
 def get_grading(student_submission, proposed_answer):
-    grading_prompt = f"Proposed Answer: {proposed_answer}\n"
-    grading_prompt += f"Student Submission: {student_submission}\n\n"
-    grading_prompt += "Please provide feedback on the student's work, grade it out of 10, and suggest improvements if necessary."
-    
+    grading_prompt = f"Evaluate the student's submission based on the following proposed answer:\n\n"
+    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
+    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
+    grading_prompt += "Provide detailed feedback and grade the submission out of 10. Also, suggest improvements."
+
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": grading_prompt}]
@@ -32,7 +33,7 @@ def is_ai_generated(content):
 
 # Function to extract grade from feedback
 def extract_grade(feedback):
-    grade_match = re.search(r'(\d+\.?\d*)\s*(?:/|out of)\s*(\d+)', feedback, re.IGNORECASE)
+    grade_match = re.search(r'(\d+(\.\d+)?)\s*(?:/|out of)\s*(10)', feedback, re.IGNORECASE)
     if grade_match:
         return grade_match.group(1)
     else:
@@ -40,7 +41,7 @@ def extract_grade(feedback):
 
 # Function to remove the grade mention from feedback
 def clean_feedback(feedback):
-    cleaned_feedback = re.sub(r'(\d+\.?\d*)\s*(?:/|out of)\s*(\d+)', '', feedback)
+    cleaned_feedback = re.sub(r'(\d+(\.\d+)?)\s*(?:/|out of)\s*(10)', '', feedback)
     return cleaned_feedback.strip()
 
 # Streamlit UI
