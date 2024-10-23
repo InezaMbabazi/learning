@@ -22,9 +22,8 @@ def get_grading(student_submission, proposed_answer):
     feedback = response['choices'][0]['message']['content']
     return feedback
 
-# Function to detect AI-generated content (simple example, can be replaced with a more robust AI detection algorithm)
+# Function to detect AI-generated content
 def is_ai_generated(content):
-    # Basic detection method (for demo purposes). Can be replaced with an actual AI detection algorithm.
     ai_keywords = ["As an AI", "As a language model", "I don’t have personal opinions", "I cannot", "AI-generated content"]
     for keyword in ai_keywords:
         if keyword.lower() in content.lower():
@@ -33,22 +32,19 @@ def is_ai_generated(content):
 
 # Function to extract grade from feedback
 def extract_grade(feedback):
-    # Match patterns like "X out of Y", "X/10", or "Grade: X"
     grade_match = re.search(r'(\d+\.?\d*)\s*(?:/|out of)\s*(\d+)', feedback, re.IGNORECASE)
-    
     if grade_match:
-        return grade_match.group(1)  # The numeric grade (X in "X out of Y")
+        return grade_match.group(1)
     else:
-        return "N/A"  # Default to "N/A" if not found
+        return "N/A"
 
 # Function to remove the grade mention from feedback
 def clean_feedback(feedback):
-    # Remove any mention of "X out of Y" or "X/10"
     cleaned_feedback = re.sub(r'(\d+\.?\d*)\s*(?:/|out of)\s*(\d+)', '', feedback)
     return cleaned_feedback.strip()
 
 # Streamlit UI
-st.image("header.png", use_column_width=True)  # Add your header image file here
+st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Grading Assistant")
 
 # Instructions for the instructor
@@ -102,7 +98,7 @@ if uploaded_files and proposed_answer:
             # Get grading feedback
             feedback = get_grading(student_submission.strip(), proposed_answer)
             
-            # Extract the grade from feedback using the updated regex
+            # Extract the grade from feedback
             grade = extract_grade(feedback)
 
             # Clean feedback to remove any mention of grades
@@ -117,8 +113,8 @@ if uploaded_files and proposed_answer:
                 "Student Name": student_name,
                 "Submission": student_submission.strip(),
                 "Grade": grade,
-                "Feedback": feedback_cleaned,  # Use cleaned feedback without grades
-                "AI Generated": ai_flag
+                "AI Generated": ai_flag,
+                "Feedback": feedback_cleaned
             })
         
         except Exception as e:
@@ -128,8 +124,8 @@ if uploaded_files and proposed_answer:
         # Convert results to DataFrame
         feedback_df = pd.DataFrame(results)
 
-        # Display the table using Streamlit's st.table()
-        st.table(feedback_df[['Student Name', 'Submission', 'Grade', 'AI Generated', 'Feedback']])
+        # Display the table with auto-sizing cells for better visibility
+        st.dataframe(feedback_df[['Student Name', 'Submission', 'Grade', 'AI Generated', 'Feedback']], width=1000, height=400)
 
         # Download link for feedback
         feedback_csv = feedback_df.to_csv(index=False)
