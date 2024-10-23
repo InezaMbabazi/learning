@@ -6,3 +6,4 @@ PyMuPDF
 Pillow
 watchdog
 pylint
+sympy==1.12
