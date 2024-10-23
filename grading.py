@@ -4,7 +4,6 @@ import pandas as pd
 import PyPDF2  # For reading PDF files
 from docx import Document  # For reading Word documents
 import re  # For regex pattern matching
-import sympy as sp  # For mathematical evaluation
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -43,21 +42,6 @@ def extract_grade(feedback):
 def clean_feedback(feedback):
     cleaned_feedback = re.sub(r'(\d+\.?\d*)\s*(?:/|out of)\s*(\d+)', '', feedback)
     return cleaned_feedback.strip()
-
-# Function to evaluate mathematical expressions
-def evaluate_math(student_submission, proposed_answer):
-    try:
-        # Evaluate both proposed and student submissions as mathematical expressions
-        proposed_expr = sp.sympify(proposed_answer)
-        student_expr = sp.sympify(student_submission)
-
-        # Compare expressions (checks mathematical equivalence)
-        if proposed_expr.equals(student_expr):
-            return "Correct"
-        else:
-            return f"Incorrect, expected: {proposed_expr}"
-    except sp.SympifyError:
-        return "Error evaluating math expression."
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -124,16 +108,12 @@ if uploaded_files and proposed_answer:
             ai_generated = is_ai_generated(student_submission.strip())
             ai_flag = "Yes" if ai_generated else "No"
 
-            # Evaluate math if math expressions are provided
-            math_evaluation = evaluate_math(student_submission.strip(), proposed_answer)
-
             # Append results for this submission
             results.append({
                 "Student Name": student_name,
                 "Submission": student_submission.strip(),
                 "Grade": grade,
                 "AI Generated": ai_flag,
-                "Math Evaluation": math_evaluation,
                 "Feedback": feedback_cleaned
             })
         
@@ -145,7 +125,7 @@ if uploaded_files and proposed_answer:
         feedback_df = pd.DataFrame(results)
 
         # Display the table with auto-sizing cells for better visibility
-        st.dataframe(feedback_df[['Student Name', 'Submission', 'Grade', 'AI Generated', 'Math Evaluation', 'Feedback']], width=1000, height=400)
+        st.dataframe(feedback_df[['Student Name', 'Submission', 'Grade', 'AI Generated', 'Feedback']], width=1000, height=400)
 
         # Download link for feedback
         feedback_csv = feedback_df.to_csv(index=False)
