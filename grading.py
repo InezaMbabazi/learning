@@ -10,21 +10,19 @@ openai.api_key = st.secrets["openai"]["api_key"]
 
 # Function to get grading from OpenAI based on student submissions and proposed answers
 def get_grading(student_submission, proposed_answer, content_type):
+    grading_prompt = f"Evaluate the student's submission based on the proposed answer:\n\n"
     if content_type == "Math (LaTeX)":
-        grading_prompt = f"Evaluate the student's LaTeX-based mathematical submission based on the following proposed answer:\n\n"
         grading_prompt += f"**Proposed Answer (LaTeX)**: {proposed_answer}\n\n"
         grading_prompt += f"**Student Submission (LaTeX)**: {student_submission}\n\n"
-        grading_prompt += "Please provide detailed feedback on the mathematical correctness, grade it out of 10, and suggest improvements."
+        grading_prompt += "Provide feedback on correctness, grade out of 10, and suggest improvements."
     elif content_type == "Programming (Code)":
-        grading_prompt = f"Evaluate the student's code submission based on the following proposed solution:\n\n"
         grading_prompt += f"**Proposed Code**: {proposed_answer}\n\n"
         grading_prompt += f"**Student Code Submission**: {student_submission}\n\n"
-        grading_prompt += "Please check the logic, efficiency, and correctness of the code, provide feedback, and grade the submission out of 10."
-    else:  # Default to Text
-        grading_prompt = f"Evaluate the student's submission based on the following proposed answer:\n\n"
+        grading_prompt += "Check logic, efficiency, correctness, and grade out of 10."
+    else:
         grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
         grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-        grading_prompt += "Provide detailed feedback and grade the submission out of 10. Also, suggest improvements."
+        grading_prompt += "Provide detailed feedback and grade out of 10. Suggest improvements."
     
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -37,23 +35,16 @@ def get_grading(student_submission, proposed_answer, content_type):
 # Function to detect AI-generated content
 def is_ai_generated(content):
     ai_keywords = ["As an AI", "As a language model", "I don’t have personal opinions", "I cannot", "AI-generated content"]
-    for keyword in ai_keywords:
-        if keyword.lower() in content.lower():
-            return True
-    return False
+    return any(keyword.lower() in content.lower() for keyword in ai_keywords)
 
 # Function to extract grade from feedback
 def extract_grade(feedback):
     grade_match = re.search(r'(\d+(\.\d+)?)\s*(?:/|out of)\s*(10)', feedback, re.IGNORECASE)
-    if grade_match:
-        return grade_match.group(1)
-    else:
-        return "N/A"
+    return grade_match.group(1) if grade_match else "N/A"
 
-# Function to remove the grade mention from feedback
+# Function to clean feedback by removing grade mention
 def clean_feedback(feedback):
-    cleaned_feedback = re.sub(r'(\d+(\.\d+)?)\s*(?:/|out of)\s*(10)', '', feedback)
-    return cleaned_feedback.strip()
+    return re.sub(r'(\d+(\.\d+)?)\s*(?:/|out of)\s*(10)', '', feedback).strip()
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
