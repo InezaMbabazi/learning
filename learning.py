@@ -1,7 +1,6 @@
 import streamlit as st
 import openai
 import fitz  # PyMuPDF
-import io
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -28,12 +27,8 @@ def load_pdf_content(file):
             page = doc[page_num]
             text = page.get_text("text")  # Get the text from the page
             
-            # Extract images (optional, you can remove this if not needed)
-            # Here we don't store images in content as per your requirement
-            images = []
-            # images would be added if needed, currently empty
-            
-            content.append((text.strip(), images))  # Store text and images for each page
+            # Store text for each page
+            content.append(text.strip())  # Only store text
 
         return content
     except Exception as e:
@@ -42,9 +37,8 @@ def load_pdf_content(file):
 
 # Function to display content for a specific page
 def display_page_content(page_content):
-    text, _ = page_content  # We are not displaying images
     st.subheader("Extracted Content")
-    st.write(text)  # Display the extracted text content
+    st.write(page_content)  # Display the extracted text content
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -71,7 +65,7 @@ if uploaded_file is not None:
     st.session_state.pdf_content = pdf_content  # Store in session state
     st.session_state.current_page = 0  # Reset to first page on new upload
 elif manual_content:
-    st.session_state.pdf_content = [(manual_content, [])]  # Store manual content as a single page
+    st.session_state.pdf_content = [manual_content]  # Store manual content as a single page
     st.session_state.current_page = 0  # Reset to first page
 
 # Initialize current_page if not already done
@@ -82,8 +76,10 @@ if 'current_page' not in st.session_state:
 if 'pdf_content' in st.session_state and st.session_state.pdf_content:
     # Ensure current_page is within bounds
     st.session_state.current_page = min(st.session_state.current_page, len(st.session_state.pdf_content) - 1)
+    
+    # Display the content for the current page
     current_page_content = st.session_state.pdf_content[st.session_state.current_page]
-    display_page_content(current_page_content)  # Display the content for the current page
+    display_page_content(current_page_content)
 
     # Pagination controls
     col1, col2 = st.columns(2)  # Create two columns for pagination buttons
@@ -101,7 +97,7 @@ if 'pdf_content' in st.session_state and st.session_state.pdf_content:
     st.write(f"Page {st.session_state.current_page + 1} of {len(st.session_state.pdf_content)}")
 
     # Generate questions based on current page
-    lesson_content = st.session_state.pdf_content[st.session_state.current_page][0]
+    lesson_content = st.session_state.pdf_content[st.session_state.current_page]
     if st.button("Generate Questions"):
         st.session_state.generated_questions = generate_questions_from_content(lesson_content)
 
@@ -112,8 +108,8 @@ if 'pdf_content' in st.session_state and st.session_state.pdf_content:
         student_answers = []
         with st.form(key='question_form'):
             for i, question in enumerate(st.session_state.generated_questions):
-                st.write(f"Question {i+1}: {question}")
-                answer = st.text_input(f"Your answer to question {i+1}", key=f"answer_{i}")
+                st.write(f"Question {i + 1}: {question}")
+                answer = st.text_input(f"Your answer to question {i + 1}", key=f"answer_{i}")
                 student_answers.append(answer)
             
             # Submit button for form
