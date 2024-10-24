@@ -10,31 +10,20 @@ BASE_URL = 'https://kepler.instructure.com/api/v1'
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Function to get course name and assignments from Canvas
-def get_course_name_and_assignments(course_id):
+# Function to get a specific assignment by its ID
+def get_assignment_details(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     
-    # Get course by its ID (since the course ID is known)
-    course_url = f"{BASE_URL}/courses/{course_id}"
-    response = requests.get(course_url, headers=headers)
+    # Fetch assignment details by its ID
+    assignment_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}"
+    response = requests.get(assignment_url, headers=headers)
     
     if response.status_code == 200:
-        course = response.json()
-        course_name = course['name']
-        
-        # Fetch assignments for this course
-        assignments_url = f"{BASE_URL}/courses/{course_id}/assignments"
-        assignments_response = requests.get(assignments_url, headers=headers)
-        
-        if assignments_response.status_code == 200:
-            assignments = assignments_response.json()
-            return course_name, assignments
-        else:
-            st.error("Failed to retrieve assignments.")
-            return None, []
+        assignment = response.json()
+        return assignment
     else:
-        st.error("Failed to fetch course from Canvas.")
-        return None, []
+        st.error("Failed to fetch assignment details.")
+        return None
 
 # Function to get grading from OpenAI based on student submissions and proposed answers
 def get_grading(student_submission, proposed_answer, content_type):
@@ -64,18 +53,15 @@ def get_grading(student_submission, proposed_answer, content_type):
 st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Grading Assistant")
 
-# Use the specific course ID directly (course 2850)
+# Course and Assignment ID for the specific assignment
 course_id = 2850
+assignment_id = 46672
 
-# Fetch course details
-course_name, assignments = get_course_name_and_assignments(course_id)
+# Fetch specific assignment details
+assignment = get_assignment_details(course_id, assignment_id)
 
-if course_name and assignments:
-    st.subheader(f"Course: {course_name}")
-    
-    # Display assignments for selection
-    assignment_names = [assignment['name'] for assignment in assignments]
-    selected_assignment = st.selectbox("Select Assignment to Grade:", assignment_names)
+if assignment:
+    st.subheader(f"Assignment: {assignment['name']}")
     
     # Input for the proposed answer
     proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer you expect from the student here...")
@@ -83,8 +69,8 @@ if course_name and assignments:
     # Dropdown for selecting content type
     content_type = st.selectbox("Select Content Type", options=["Text", "Math (LaTeX)", "Programming (Code)"])
     
-    # Submit to grade selected assignment
-    if selected_assignment and proposed_answer:
+    # Submit to grade assignment
+    if proposed_answer:
         # Mock student submissions (replace with actual data retrieval logic from Canvas or a database)
         student_submissions = [
             {"name": "Student A", "submission": "Sample submission A", "turnitin": 12},
@@ -121,4 +107,4 @@ if course_name and assignments:
         df_results = pd.DataFrame(results)
         st.dataframe(df_results)
 else:
-    st.write("Unable to retrieve course details or assignments.")
+    st.write("Unable to retrieve assignment details.")
