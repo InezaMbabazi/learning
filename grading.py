@@ -25,6 +25,19 @@ def get_assignment_details(course_id, assignment_id):
         st.error("Failed to fetch assignment details.")
         return None
 
+# Function to get all submissions for a specific assignment
+def get_submissions(course_id, assignment_id):
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    
+    submissions_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions"
+    response = requests.get(submissions_url, headers=headers)
+    
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error("Failed to retrieve submissions.")
+        return []
+
 # Function to get grading from OpenAI based on student submissions and proposed answers
 def get_grading(student_submission, proposed_answer, content_type):
     grading_prompt = f"Evaluate the student's submission based on the proposed answer:\n\n"
@@ -71,40 +84,39 @@ if assignment:
     
     # Submit to grade assignment
     if proposed_answer:
-        # Mock student submissions (replace with actual data retrieval logic from Canvas or a database)
-        student_submissions = [
-            {"name": "Student A", "submission": "Sample submission A", "turnitin": 12},
-            {"name": "Student B", "submission": "Sample submission B", "turnitin": 28},
-            {"name": "Student C", "submission": "Sample submission C", "turnitin": 5},
-        ]
+        # Fetch submissions for this assignment
+        submissions = get_submissions(course_id, assignment_id)
         
-        # Create a DataFrame to capture results
-        results = []
+        if submissions:
+            # Create a DataFrame to capture results
+            results = []
 
-        for student in student_submissions:
-            student_submission = student['submission']
-            turnitin_score = student['turnitin']
-            
-            # Get grading feedback
-            feedback = get_grading(student_submission.strip(), proposed_answer, content_type)
+            for submission in submissions:
+                if submission['submitted_at']:
+                    student_name = submission['user']['name']
+                    student_submission = submission['body']  # assuming text-based submission
+                    turnitin_score = submission.get('turnitin_score', 'N/A')
+                    
+                    # Get grading feedback
+                    feedback = get_grading(student_submission.strip(), proposed_answer, content_type)
 
-            # Extract grade (you can add logic here to extract it automatically from feedback)
-            grade = "8/10"  # Replace with actual extraction logic if needed
-            
-            # Clean feedback to remove grades (if necessary)
-            feedback_cleaned = feedback.replace(grade, "").strip()
+                    # Extract grade (you can add logic here to extract it automatically from feedback)
+                    grade = "8/10"  # Replace with actual extraction logic if needed
+                    
+                    # Clean feedback to remove grades (if necessary)
+                    feedback_cleaned = feedback.replace(grade, "").strip()
 
-            # Append to results
-            results.append({
-                "Student Name": student['name'],
-                "Submission": student_submission,
-                "Grade": grade,
-                "Feedback": feedback_cleaned,
-                "Turnitin Score (%)": turnitin_score
-            })
-        
-        # Convert results to a DataFrame for display
-        df_results = pd.DataFrame(results)
-        st.dataframe(df_results)
+                    # Append to results
+                    results.append({
+                        "Student Name": student_name,
+                        "Submission": student_submission,
+                        "Grade": grade,
+                        "Feedback": feedback_cleaned,
+                        "Turnitin Score (%)": turnitin_score
+                    })
+
+            # Convert results to a DataFrame for display
+            df_results = pd.DataFrame(results)
+            st.dataframe(df_results)
 else:
     st.write("Unable to retrieve assignment details.")
