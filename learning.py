@@ -32,7 +32,6 @@ def get_grading(student_answers, generated_questions, lesson_content):
     feedback = []
     
     for i, (question, answer) in enumerate(zip(generated_questions, student_answers)):
-        # Create a prompt for OpenAI to provide feedback
         prompt = f"Question: {question}\nStudent's Answer: {answer}\nLesson Content: {lesson_content}\nProvide feedback on the student's answer."
         
         response = openai.ChatCompletion.create(
@@ -62,7 +61,7 @@ uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 
 # Option 2: Manual text input
 st.subheader("Option 2: Paste Specific Lesson Content Here")
-manual_content = st.text_area("Paste lesson content here:")
+manual_content = st.text_area("Paste lesson content here:", height=150)
 
 # Session state to track if questions have been generated
 if 'generated_questions' not in st.session_state:
@@ -87,11 +86,16 @@ if lesson_content:
 
         # Student answers section
         student_answers = []
+        feedbacks = []
         with st.form(key='question_form'):
             for i, question in enumerate(st.session_state.generated_questions):
-                st.write(f"Question {i + 1}: {question}")
+                # Create a color block for each question
+                question_color = f"#{i * 30 % 255:02x}{(255 - i * 30 % 255):02x}c0"
+                st.markdown(f'<div style="background-color: {question_color}; padding: 10px; border-radius: 5px; margin-bottom: 10px;">', unsafe_allow_html=True)
+                st.write(f"**Question {i + 1}:** {question}")
                 answer = st.text_input(f"Your answer to question {i + 1}", key=f"answer_{i}")
                 student_answers.append(answer)
+                st.markdown('</div>', unsafe_allow_html=True)  # End color block
             
             # Submit button for form
             submit = st.form_submit_button("Submit Answers")
@@ -99,8 +103,12 @@ if lesson_content:
             if submit and all(student_answers):
                 # Provide feedback using OpenAI
                 feedback = get_grading(student_answers, st.session_state.generated_questions, lesson_content)
+                feedbacks = feedback.split("\n")
+                
                 st.subheader("Feedback on Your Answers:")
-                st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
+                
+                for feedback in feedbacks:
+                    st.markdown(f'<div style="background-color: #e0f7fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;">{feedback}</div>', unsafe_allow_html=True)
             elif submit:
                 st.warning("Please answer all questions before submitting.")
 else:
