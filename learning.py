@@ -21,24 +21,28 @@ def generate_questions_from_content(lesson_content):
 
 # Function to load PDF content and extract images
 def load_pdf_content(file):
-    doc = fitz.open(file)
-    content = ''
-    images = []
-    
-    for page_num in range(len(doc)):
-        page = doc[page_num]
-        text = page.get_text()
-        content += text + "\n"
+    try:
+        doc = fitz.open(stream=file.read(), filetype="pdf")  # Use stream to read the file
+        content = ''
+        images = []
         
-        # Extract images
-        for img_index, img in enumerate(page.get_images(full=True)):
-            xref = img[0]
-            base_image = doc.extract_image(xref)
-            image_bytes = base_image["image"]
-            image_stream = io.BytesIO(image_bytes)
-            images.append((image_stream, page_num))  # Store image stream and page number
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            text = page.get_text()
+            content += text + "\n"
+            
+            # Extract images
+            for img_index, img in enumerate(page.get_images(full=True)):
+                xref = img[0]
+                base_image = doc.extract_image(xref)
+                image_bytes = base_image["image"]
+                image_stream = io.BytesIO(image_bytes)
+                images.append((image_stream, page_num))  # Store image stream and page number
 
-    return content.strip(), images
+        return content.strip(), images
+    except Exception as e:
+        st.error(f"Error loading PDF: {str(e)}")
+        return "", []
 
 # Function to display images
 def display_images(images):
