@@ -78,15 +78,19 @@ pdf_content = []
 if uploaded_file is not None:
     pdf_content = load_pdf_content(uploaded_file)  # Load the PDF content
     st.session_state.pdf_content = pdf_content  # Store in session state
+    st.session_state.current_page = 0  # Reset to first page on new upload
 elif manual_content:
     st.session_state.pdf_content = [(manual_content, [])]  # Store manual content as a single page
+    st.session_state.current_page = 0  # Reset to first page
 
-# Pagination logic
+# Initialize current_page if not already done
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 0
 
-# Display the current page
-if st.session_state.pdf_content:
+# Check if pdf_content is available
+if 'pdf_content' in st.session_state and st.session_state.pdf_content:
+    # Ensure current_page is within bounds
+    st.session_state.current_page = min(st.session_state.current_page, len(st.session_state.pdf_content) - 1)
     current_page_content = st.session_state.pdf_content[st.session_state.current_page]
     display_page_content(current_page_content)  # Display the content for the current page
 
@@ -103,7 +107,7 @@ if st.session_state.pdf_content:
     st.write(f"Page {st.session_state.current_page + 1} of {len(st.session_state.pdf_content)}")
 
 # Generate questions if content is available
-if st.session_state.pdf_content:
+if 'pdf_content' in st.session_state and st.session_state.pdf_content:
     lesson_content = st.session_state.pdf_content[st.session_state.current_page][0]
     if st.button("Generate Questions"):
         st.session_state.generated_questions = generate_questions_from_content(lesson_content)
