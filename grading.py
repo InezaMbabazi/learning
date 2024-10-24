@@ -10,25 +10,11 @@ BASE_URL = 'https://kepler.instructure.com/api/v1'
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Function to get a specific assignment by its ID
-def get_assignment_details(course_id, assignment_id):
-    headers = {"Authorization": f"Bearer {API_TOKEN}"}
-    
-    # Fetch assignment details by its ID
-    assignment_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}"
-    response = requests.get(assignment_url, headers=headers)
-    
-    if response.status_code == 200:
-        assignment = response.json()
-        return assignment
-    else:
-        st.error("Failed to fetch assignment details.")
-        return None
-
-# Function to get all submissions for a specific assignment
+# Function to get submissions for the assignment
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     
+    # Get submissions for the given assignment
     submissions_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions"
     response = requests.get(submissions_url, headers=headers)
     
@@ -38,7 +24,7 @@ def get_submissions(course_id, assignment_id):
         st.error("Failed to retrieve submissions.")
         return []
 
-# Function to get grading from OpenAI based on student submissions and proposed answers
+# Function to provide grading feedback using OpenAI
 def get_grading(student_submission, proposed_answer, content_type):
     grading_prompt = f"Evaluate the student's submission based on the proposed answer:\n\n"
     if content_type == "Math (LaTeX)":
@@ -63,52 +49,42 @@ def get_grading(student_submission, proposed_answer, content_type):
     return feedback
 
 # Streamlit UI
-st.image("header.png", use_column_width=True)
-st.title("Kepler College AI-Powered Grading Assistant")
+st.title("Canvas Assignment Grading Automation")
 
-# Course and Assignment ID for the specific assignment
-course_id = 2850
-assignment_id = 46672
+# Course and Assignment ID
+course_id = 2850  # Replace with your course ID
+assignment_id = 46672  # Replace with your assignment ID
 
-# Fetch specific assignment details
-assignment = get_assignment_details(course_id, assignment_id)
+# Proposed Answer Input
+proposed_answer = st.text_area("Proposed Answer:", placeholder="Enter the correct answer here...")
 
-if assignment:
-    st.subheader(f"Assignment: {assignment['name']}")
-    
-    # Input for the proposed answer
-    proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer you expect from the student here...")
+# Select content type
+content_type = st.selectbox("Content Type:", options=["Text", "Math (LaTeX)", "Programming (Code)"])
 
-    # Dropdown for selecting content type
-    content_type = st.selectbox("Select Content Type", options=["Text", "Math (LaTeX)", "Programming (Code)"])
-    
-    # Submit to grade assignment
+# Submit button
+if st.button("Grade Submissions"):
     if proposed_answer:
-        # Fetch submissions for this assignment
+        # Fetch submissions from Canvas
         submissions = get_submissions(course_id, assignment_id)
         
+        # If submissions exist, process them
         if submissions:
-            # Create a DataFrame to capture results
+            # DataFrame to store results
             results = []
 
             for submission in submissions:
-                # Safely access 'user' and 'body' keys
+                # Get student name and submission content
                 student_name = submission.get('user', {}).get('name', 'Unknown')
                 student_submission = submission.get('body', 'No Submission')
                 turnitin_score = submission.get('turnitin_score', 'N/A')
-                
-                # Get grading feedback if there is a submission
+
+                # Grade the submission if available
                 if student_submission != 'No Submission':
-                    # Ensure that student_submission is treated as a string
                     feedback = get_grading(str(student_submission).strip(), proposed_answer, content_type)
-
-                    # Extract grade (you can add logic here to extract it automatically from feedback)
-                    grade = "8/10"  # Replace with actual extraction logic if needed
-
-                    # Clean feedback to remove grades (if necessary)
+                    grade = "8/10"  # You can extract actual grade based on feedback logic
                     feedback_cleaned = feedback.replace(grade, "").strip()
 
-                    # Append to results
+                    # Append the result to the list
                     results.append({
                         "Student Name": student_name,
                         "Submission": student_submission,
@@ -117,8 +93,10 @@ if assignment:
                         "Turnitin Score (%)": turnitin_score
                     })
 
-            # Convert results to a DataFrame for display
+            # Display results in a table
             df_results = pd.DataFrame(results)
             st.dataframe(df_results)
-else:
-    st.write("Unable to retrieve assignment details.")
+        else:
+            st.write("No submissions found.")
+    else:
+        st.error("Please provide the proposed answer.")
