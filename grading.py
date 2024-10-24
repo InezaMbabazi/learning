@@ -11,38 +11,29 @@ BASE_URL = 'https://kepler.instructure.com/api/v1'
 openai.api_key = st.secrets["openai"]["api_key"]
 
 # Function to get course name and assignments from Canvas
-def get_course_name_and_assignments(course_code):
+def get_course_name_and_assignments(course_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     
-    # Get all courses from the correct URL
-    course_url = f"{BASE_URL}/courses"
+    # Get course by its ID (since the course ID is known)
+    course_url = f"{BASE_URL}/courses/{course_id}"
     response = requests.get(course_url, headers=headers)
     
     if response.status_code == 200:
-        courses = response.json()
+        course = response.json()
+        course_name = course['name']
         
-        # Find the course by its code
-        course = next((c for c in courses if str(course_code) in c['course_code']), None)
+        # Fetch assignments for this course
+        assignments_url = f"{BASE_URL}/courses/{course_id}/assignments"
+        assignments_response = requests.get(assignments_url, headers=headers)
         
-        if course:
-            course_id = course['id']
-            course_name = course['name']
-            
-            # Fetch assignments for this course
-            assignments_url = f"{BASE_URL}/courses/{course_id}/assignments"
-            assignments_response = requests.get(assignments_url, headers=headers)
-            
-            if assignments_response.status_code == 200:
-                assignments = assignments_response.json()
-                return course_name, assignments
-            else:
-                st.error("Failed to retrieve assignments.")
-                return None, []
+        if assignments_response.status_code == 200:
+            assignments = assignments_response.json()
+            return course_name, assignments
         else:
-            st.error("Course code not found.")
+            st.error("Failed to retrieve assignments.")
             return None, []
     else:
-        st.error("Failed to fetch courses from Canvas.")
+        st.error("Failed to fetch course from Canvas.")
         return None, []
 
 # Function to get grading from OpenAI based on student submissions and proposed answers
@@ -73,62 +64,61 @@ def get_grading(student_submission, proposed_answer, content_type):
 st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Grading Assistant")
 
-# Input for course code
-course_code = st.text_input("Enter Course Code:")
+# Use the specific course ID directly (course 2850)
+course_id = 2850
 
 # Fetch course details
-if course_code:
-    course_name, assignments = get_course_name_and_assignments(course_code)
+course_name, assignments = get_course_name_and_assignments(course_id)
+
+if course_name and assignments:
+    st.subheader(f"Course: {course_name}")
     
-    if course_name and assignments:
-        st.subheader(f"Course: {course_name}")
-        
-        # Display assignments for selection
-        assignment_names = [assignment['name'] for assignment in assignments]
-        selected_assignment = st.selectbox("Select Assignment to Grade:", assignment_names)
-        
-        # Input for the proposed answer
-        proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer you expect from the student here...")
+    # Display assignments for selection
+    assignment_names = [assignment['name'] for assignment in assignments]
+    selected_assignment = st.selectbox("Select Assignment to Grade:", assignment_names)
+    
+    # Input for the proposed answer
+    proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer you expect from the student here...")
 
-        # Dropdown for selecting content type
-        content_type = st.selectbox("Select Content Type", options=["Text", "Math (LaTeX)", "Programming (Code)"])
+    # Dropdown for selecting content type
+    content_type = st.selectbox("Select Content Type", options=["Text", "Math (LaTeX)", "Programming (Code)"])
+    
+    # Submit to grade selected assignment
+    if selected_assignment and proposed_answer:
+        # Mock student submissions (replace with actual data retrieval logic from Canvas or a database)
+        student_submissions = [
+            {"name": "Student A", "submission": "Sample submission A", "turnitin": 12},
+            {"name": "Student B", "submission": "Sample submission B", "turnitin": 28},
+            {"name": "Student C", "submission": "Sample submission C", "turnitin": 5},
+        ]
         
-        # Submit to grade selected assignment
-        if selected_assignment and proposed_answer:
-            # Mock student submissions (replace with actual data retrieval logic from Canvas or a database)
-            student_submissions = [
-                {"name": "Student A", "submission": "Sample submission A", "turnitin": 12},
-                {"name": "Student B", "submission": "Sample submission B", "turnitin": 28},
-                {"name": "Student C", "submission": "Sample submission C", "turnitin": 5},
-            ]
+        # Create a DataFrame to capture results
+        results = []
+
+        for student in student_submissions:
+            student_submission = student['submission']
+            turnitin_score = student['turnitin']
             
-            # Create a DataFrame to capture results
-            results = []
+            # Get grading feedback
+            feedback = get_grading(student_submission.strip(), proposed_answer, content_type)
 
-            for student in student_submissions:
-                student_submission = student['submission']
-                turnitin_score = student['turnitin']
-                
-                # Get grading feedback
-                feedback = get_grading(student_submission.strip(), proposed_answer, content_type)
-
-                # Extract grade (you can add logic here to extract it automatically from feedback)
-                grade = "8/10"  # Replace with actual extraction logic if needed
-                
-                # Clean feedback to remove grades (if necessary)
-                feedback_cleaned = feedback.replace(grade, "").strip()
-
-                # Append to results
-                results.append({
-                    "Student Name": student['name'],
-                    "Submission": student_submission,
-                    "Grade": grade,
-                    "Feedback": feedback_cleaned,
-                    "Turnitin Score (%)": turnitin_score
-                })
+            # Extract grade (you can add logic here to extract it automatically from feedback)
+            grade = "8/10"  # Replace with actual extraction logic if needed
             
-            # Convert results to a DataFrame for display
-            df_results = pd.DataFrame(results)
-            st.dataframe(df_results)
+            # Clean feedback to remove grades (if necessary)
+            feedback_cleaned = feedback.replace(grade, "").strip()
+
+            # Append to results
+            results.append({
+                "Student Name": student['name'],
+                "Submission": student_submission,
+                "Grade": grade,
+                "Feedback": feedback_cleaned,
+                "Turnitin Score (%)": turnitin_score
+            })
+        
+        # Convert results to a DataFrame for display
+        df_results = pd.DataFrame(results)
+        st.dataframe(df_results)
 else:
-    st.write("Please enter a course code to continue.")
+    st.write("Unable to retrieve course details or assignments.")
