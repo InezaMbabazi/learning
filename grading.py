@@ -1,19 +1,19 @@
 import streamlit as st
 import openai
 import requests
-import re  # For regex pattern matching
+import pandas as pd
 
 # Canvas API credentials
-API_TOKEN = '1941~6UFFZfGaXzFf6P9cerGKLB6JauBGZA9VrTQBP7Q8PyJkRBEW7RHhu76x4QDVPNB6'
+API_TOKEN = '1941~FXJZ2tYC2DTWQr923eFTaXy473rK73A4KrYkT3uVy7WeYV9fyJQ4khH4MAGEH3Tf'
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Function to get all courses from Canvas
+# Function to get all available courses from Canvas
 def get_all_courses():
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
-    course_url = f'{BASE_URL}/accounts/1/courses?per_page=100'
+    course_url = f"{BASE_URL}/courses"
     response = requests.get(course_url, headers=headers)
     
     if response.status_code == 200:
@@ -23,15 +23,13 @@ def get_all_courses():
         st.error("Failed to fetch courses from Canvas.")
         return []
 
-# Function to get course details and assignments based on the selected course code
-def get_course_name_and_assignments(course_code):
+# Function to get course name and assignments from Canvas
+def get_course_name_and_assignments(course_name):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     
-    # Get courses by their code or ID
+    # Get the course by its name
     courses = get_all_courses()
-    
-    # Find the selected course
-    course = next((c for c in courses if course_code in c['course_code']), None)
+    course = next((c for c in courses if course_name.lower() in c['name'].lower()), None)
     
     if course:
         course_id = course['id']
@@ -48,7 +46,7 @@ def get_course_name_and_assignments(course_code):
             st.error("Failed to retrieve assignments.")
             return None, []
     else:
-        st.error("Course code not found.")
+        st.error("Course name not found.")
         return None, []
 
 # Function to get grading from OpenAI based on student submissions and proposed answers
@@ -75,65 +73,70 @@ def get_grading(student_submission, proposed_answer, content_type):
     feedback = response['choices'][0]['message']['content']
     return feedback
 
-# Helper function to extract grade from feedback (if needed)
-def extract_grade(feedback):
-    # Regex to find a grade in the format "X/10"
-    match = re.search(r'(\d+)/10', feedback)
-    return int(match.group(1)) if match else "N/A"
-
-# Helper function to clean feedback
-def clean_feedback(feedback):
-    # Remove any grades from the feedback text
-    return re.sub(r'\d+/10', '', feedback).strip()
-
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Grading Assistant")
 
-# Fetch all courses and their codes
+# Fetch and display all course names for selection
 courses = get_all_courses()
-if courses:
-    # Create a list of course codes for the dropdown
-    course_codes = [course['course_code'] for course in courses]
+course_names = [course['name'] for course in courses]
+
+# Input or select for course name
+selected_course_name = st.selectbox("Select Course Name:", course_names)
+
+# Fetch course details
+if selected_course_name:
+    course_name, assignments = get_course_name_and_assignments(selected_course_name)
     
-    # Dropdown to select the course code
-    selected_course_code = st.selectbox("Select Course Code:", course_codes)
-
-    if selected_course_code:
-        # Fetch course details and assignments based on the selected course code
-        course_name, assignments = get_course_name_and_assignments(selected_course_code)
+    if course_name and assignments:
+        st.subheader(f"Course: {course_name}")
         
-        if course_name and assignments:
-            st.subheader(f"Course: {course_name}")
+        # Display assignments for selection
+        assignment_names = [assignment['name'] for assignment in assignments]
+        selected_assignment = st.selectbox("Select Assignment to Grade:", assignment_names)
+        
+        # Input for the proposed answer
+        proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer you expect from the student here...")
+
+        # Dropdown for selecting content type
+        content_type = st.selectbox("Select Content Type", options=["Text", "Math (LaTeX)", "Programming (Code)"])
+        
+        # Submit to grade selected assignment
+        if selected_assignment and proposed_answer:
+            # Mock student submissions (replace with actual data retrieval logic from Canvas or a database)
+            student_submissions = [
+                {"name": "Student A", "submission": "Sample submission A", "turnitin": 12},
+                {"name": "Student B", "submission": "Sample submission B", "turnitin": 28},
+                {"name": "Student C", "submission": "Sample submission C", "turnitin": 5},
+            ]
             
-            # Display assignments for selection
-            assignment_names = [assignment['name'] for assignment in assignments]
-            selected_assignments = st.multiselect("Select Assignments to Grade:", assignment_names)
+            # Create a DataFrame to capture results
+            results = []
+
+            for student in student_submissions:
+                student_submission = student['submission']
+                turnitin_score = student['turnitin']
+                
+                # Get grading feedback
+                feedback = get_grading(student_submission.strip(), proposed_answer, content_type)
+
+                # Extract grade (you can add logic here to extract it automatically from feedback)
+                grade = "8/10"  # Replace with actual extraction logic if needed
+                
+                # Clean feedback to remove grades (if necessary)
+                feedback_cleaned = feedback.replace(grade, "").strip()
+
+                # Append to results
+                results.append({
+                    "Student Name": student['name'],
+                    "Submission": student_submission,
+                    "Grade": grade,
+                    "Feedback": feedback_cleaned,
+                    "Turnitin Score (%)": turnitin_score
+                })
             
-            # Input for the proposed answer
-            proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer you expect from the student here...")
-
-            # Dropdown for selecting content type
-            content_type = st.selectbox("Select Content Type", options=["Text", "Math (LaTeX)", "Programming (Code)"])
-
-            # Submit to grade selected assignments
-            if selected_assignments and proposed_answer:
-                for selected_assignment in selected_assignments:
-                    # Mocking student submission (replace with actual data retrieval logic)
-                    student_submission = "Sample student answer for " + selected_assignment  # Replace with actual student data
-                    
-                    # Get grading feedback
-                    feedback = get_grading(student_submission.strip(), proposed_answer, content_type)
-                    
-                    # Extract the grade from feedback
-                    grade = extract_grade(feedback)
-
-                    # Clean feedback to remove any mention of grades
-                    feedback_cleaned = clean_feedback(feedback)
-
-                    # Display results
-                    st.write(f"**Assignment:** {selected_assignment}")
-                    st.write(f"**Grade:** {grade}/10")
-                    st.write(f"**Feedback:** {feedback_cleaned}")
+            # Convert results to a DataFrame for display
+            df_results = pd.DataFrame(results)
+            st.dataframe(df_results)
 else:
-    st.write("No courses available.")
+    st.write("Please select a course name to continue.")
