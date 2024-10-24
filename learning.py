@@ -1,4 +1,3 @@
-
 import streamlit as st
 import openai
 import PyPDF2
@@ -28,6 +27,24 @@ def load_pdf_content(file):
             content += text + "\n"
     return content.strip()
 
+# Function to grade student answers and provide feedback using OpenAI
+def get_grading(student_answers, generated_questions, lesson_content):
+    feedback = []
+    
+    for i, (question, answer) in enumerate(zip(generated_questions, student_answers)):
+        # Create a prompt for OpenAI to provide feedback
+        prompt = f"Question: {question}\nStudent's Answer: {answer}\nLesson Content: {lesson_content}\nProvide feedback on the student's answer."
+        
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        
+        feedback_message = response['choices'][0]['message']['content'].strip()
+        feedback.append(f"Question {i + 1} Feedback: {feedback_message}")
+    
+    return "\n".join(feedback)
+
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Lesson Assistant")
@@ -56,7 +73,6 @@ lesson_content = None
 if uploaded_file is not None:
     lesson_content = load_pdf_content(uploaded_file)
     st.subheader("PDF Content")
-    # Streamlit has a built-in way to display files
     st.write(lesson_content)  # Display text content of PDF directly
 elif manual_content:
     lesson_content = manual_content
@@ -73,15 +89,15 @@ if lesson_content:
         student_answers = []
         with st.form(key='question_form'):
             for i, question in enumerate(st.session_state.generated_questions):
-                st.write(f"Question {i+1}: {question}")
-                answer = st.text_input(f"Your answer to question {i+1}", key=f"answer_{i}")
+                st.write(f"Question {i + 1}: {question}")
+                answer = st.text_input(f"Your answer to question {i + 1}", key=f"answer_{i}")
                 student_answers.append(answer)
             
             # Submit button for form
             submit = st.form_submit_button("Submit Answers")
             
             if submit and all(student_answers):
-                # Assuming you have a function get_grading for feedback
+                # Provide feedback using OpenAI
                 feedback = get_grading(student_answers, st.session_state.generated_questions, lesson_content)
                 st.subheader("Feedback on Your Answers:")
                 st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
