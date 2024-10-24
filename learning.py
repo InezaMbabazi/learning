@@ -44,6 +44,17 @@ def get_grading(student_answers, generated_questions, lesson_content):
     
     return "\n".join(feedback)
 
+# Function to handle chatbot interaction with lesson context
+def chat_with_bot(user_input, lesson_content):
+    prompt = f"You are an AI assistant. The user is asking questions about the following lesson content:\n{lesson_content}\nUser: {user_input}\nAI:"
+    
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    return response['choices'][0]['message']['content'].strip()
+
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Lesson Assistant")
@@ -73,8 +84,8 @@ if uploaded_file is not None:
     lesson_content = load_pdf_content(uploaded_file)
     st.subheader("PDF Content")
     
-    # Display PDF content in a scrollable text area
-    st.text_area("PDF Content", value=lesson_content, height=300, disabled=True)  # Set height as needed
+    # Display PDF content in an editable text area
+    st.text_area("PDF Content", value=lesson_content, height=300, disabled=False)  # Set disabled to False for editing
 
 elif manual_content:
     lesson_content = manual_content
@@ -114,5 +125,15 @@ if lesson_content:
                     st.markdown(f'<div style="background-color: #e0f7fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;">{feedback}</div>', unsafe_allow_html=True)
             elif submit:
                 st.warning("Please answer all questions before submitting.")
+
+# Chatbot interaction section
+st.subheader("Chat with the AI Assistant")
+user_input = st.text_input("Ask a question about the lesson content:")
+if st.button("Send"):
+    if user_input and lesson_content:
+        response = chat_with_bot(user_input, lesson_content)
+        st.markdown(f"<div style='background-color: #e0f7fa; padding: 10px; border-radius: 5px;'>{response}</div>", unsafe_allow_html=True)
+    elif not user_input:
+        st.warning("Please enter a question before sending.")
 else:
     st.write("Please upload a PDF file or enter the lesson content manually.")
