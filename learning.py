@@ -72,7 +72,10 @@ lesson_content = None
 if uploaded_file is not None:
     lesson_content = load_pdf_content(uploaded_file)
     st.subheader("PDF Content")
-    st.write(lesson_content)  # Display text content of PDF directly
+    
+    # Display PDF content in a scrollable text area
+    st.text_area("PDF Content", value=lesson_content, height=300, disabled=True)  # Set height as needed
+
 elif manual_content:
     lesson_content = manual_content
 
