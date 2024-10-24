@@ -4,7 +4,7 @@ import requests
 import re  # For regex pattern matching
 
 # Canvas API credentials
-API_TOKEN = '1941~FXJZ2tYC2DTWQr923eFTaXy473rK73A4KrYkT3uVy7WeYV9fyJQ4khH4MAGEH3Tf'
+API_TOKEN = '1941~6UFFZfGaXzFf6P9cerGKLB6JauBGZA9VrTQBP7Q8PyJkRBEW7RHhu76x4QDVPNB6'
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # Initialize OpenAI API with the secret key
