@@ -1,7 +1,6 @@
 import streamlit as st
 import openai
 import PyPDF2
-import base64  # Import base64 for encoding the PDF
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -27,13 +26,6 @@ def load_pdf_content(file):
         if text:
             content += text + "\n"
     return content.strip()
-
-# Display the PDF content using iframe
-def display_pdf(file):
-    with open(file.name, "wb") as f:
-        f.write(file.getbuffer())
-    pdf_display = f'<iframe src="data:application/pdf;base64,{base64.b64encode(file.getvalue()).decode()}" width="700" height="1000" type="application/pdf"></iframe>'
-    st.markdown(pdf_display, unsafe_allow_html=True)
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -63,7 +55,8 @@ lesson_content = None
 if uploaded_file is not None:
     lesson_content = load_pdf_content(uploaded_file)
     st.subheader("PDF Content")
-    display_pdf(uploaded_file)  # Display PDF in an iframe
+    # Streamlit has a built-in way to display files
+    st.write(lesson_content)  # Display text content of PDF directly
 elif manual_content:
     lesson_content = manual_content
 
@@ -87,6 +80,7 @@ if lesson_content:
             submit = st.form_submit_button("Submit Answers")
             
             if submit and all(student_answers):
+                # Assuming you have a function get_grading for feedback
                 feedback = get_grading(student_answers, st.session_state.generated_questions, lesson_content)
                 st.subheader("Feedback on Your Answers:")
                 st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
