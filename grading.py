@@ -13,7 +13,7 @@ openai.api_key = st.secrets["openai"]["api_key"]
 # Function to get all courses from Canvas
 def get_all_courses():
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
-    course_url = f"{BASE_URL}/courses"
+    course_url = f'{BASE_URL}/accounts/1/courses?per_page=100'
     response = requests.get(course_url, headers=headers)
     
     if response.status_code == 200:
