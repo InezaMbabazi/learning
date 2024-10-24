@@ -14,13 +14,15 @@ openai.api_key = st.secrets["openai"]["api_key"]
 def get_course_name_and_assignments(course_code):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     
-    # Get course by its code
+    # Get all courses from the correct URL
     course_url = f"{BASE_URL}/courses"
     response = requests.get(course_url, headers=headers)
     
     if response.status_code == 200:
         courses = response.json()
-        course = next((c for c in courses if course_code in c['course_code']), None)
+        
+        # Find the course by its code
+        course = next((c for c in courses if str(course_code) in c['course_code']), None)
         
         if course:
             course_id = course['id']
