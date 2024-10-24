@@ -27,16 +27,12 @@ def load_pdf_content(file):
         for page_num in range(len(doc)):
             page = doc[page_num]
             text = page.get_text("text")  # Get the text from the page
-            images = []
             
-            # Extract images
-            for img_index, img in enumerate(page.get_images(full=True)):
-                xref = img[0]
-                base_image = doc.extract_image(xref)
-                image_bytes = base_image["image"]
-                image_stream = io.BytesIO(image_bytes)
-                images.append((image_stream, page_num))  # Store image stream and page number
-
+            # Extract images (optional, you can remove this if not needed)
+            # Here we don't store images in content as per your requirement
+            images = []
+            # images would be added if needed, currently empty
+            
             content.append((text.strip(), images))  # Store text and images for each page
 
         return content
@@ -46,13 +42,9 @@ def load_pdf_content(file):
 
 # Function to display content for a specific page
 def display_page_content(page_content):
-    text, images = page_content
+    text, _ = page_content  # We are not displaying images
     st.subheader("Extracted Content")
     st.write(text)  # Display the extracted text content
-
-    for image_stream, page_num in images:
-        st.image(image_stream, use_column_width=True)
-        st.write(f"Image from Page {page_num + 1}")
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -74,7 +66,6 @@ st.subheader("Option 2: Paste Specific Lesson Content Here")
 manual_content = st.text_area("Paste lesson content here:")
 
 # Load content from PDF or manual input
-pdf_content = []
 if uploaded_file is not None:
     pdf_content = load_pdf_content(uploaded_file)  # Load the PDF content
     st.session_state.pdf_content = pdf_content  # Store in session state
@@ -87,7 +78,7 @@ elif manual_content:
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 0
 
-# Check if pdf_content is available
+# Display current page content if available
 if 'pdf_content' in st.session_state and st.session_state.pdf_content:
     # Ensure current_page is within bounds
     st.session_state.current_page = min(st.session_state.current_page, len(st.session_state.pdf_content) - 1)
@@ -95,23 +86,25 @@ if 'pdf_content' in st.session_state and st.session_state.pdf_content:
     display_page_content(current_page_content)  # Display the content for the current page
 
     # Pagination controls
-    if st.session_state.current_page > 0:
-        if st.button("Previous Page"):
-            st.session_state.current_page -= 1
+    col1, col2 = st.columns(2)  # Create two columns for pagination buttons
+    with col1:
+        if st.session_state.current_page > 0:
+            if st.button("Previous Page"):
+                st.session_state.current_page -= 1
 
-    if st.session_state.current_page < len(st.session_state.pdf_content) - 1:
-        if st.button("Next Page"):
-            st.session_state.current_page += 1
+    with col2:
+        if st.session_state.current_page < len(st.session_state.pdf_content) - 1:
+            if st.button("Next Page"):
+                st.session_state.current_page += 1
 
     # Show current page number
     st.write(f"Page {st.session_state.current_page + 1} of {len(st.session_state.pdf_content)}")
 
-# Generate questions if content is available
-if 'pdf_content' in st.session_state and st.session_state.pdf_content:
+    # Generate questions based on current page
     lesson_content = st.session_state.pdf_content[st.session_state.current_page][0]
     if st.button("Generate Questions"):
         st.session_state.generated_questions = generate_questions_from_content(lesson_content)
-    
+
     if 'generated_questions' in st.session_state and st.session_state.generated_questions:
         st.subheader("Test Questions")
 
