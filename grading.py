@@ -92,17 +92,18 @@ if assignment:
             results = []
 
             for submission in submissions:
-                if submission['submitted_at']:
-                    student_name = submission['user']['name']
-                    student_submission = submission['body']  # assuming text-based submission
-                    turnitin_score = submission.get('turnitin_score', 'N/A')
-                    
-                    # Get grading feedback
+                # Safely access 'user' and 'body' keys
+                student_name = submission.get('user', {}).get('name', 'Unknown')
+                student_submission = submission.get('body', 'No Submission')
+                turnitin_score = submission.get('turnitin_score', 'N/A')
+                
+                # Get grading feedback if there is a submission
+                if student_submission != 'No Submission':
                     feedback = get_grading(student_submission.strip(), proposed_answer, content_type)
 
                     # Extract grade (you can add logic here to extract it automatically from feedback)
                     grade = "8/10"  # Replace with actual extraction logic if needed
-                    
+
                     # Clean feedback to remove grades (if necessary)
                     feedback_cleaned = feedback.replace(grade, "").strip()
 
