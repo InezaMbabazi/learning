@@ -99,7 +99,8 @@ if assignment:
                 
                 # Get grading feedback if there is a submission
                 if student_submission != 'No Submission':
-                    feedback = get_grading(student_submission.strip(), proposed_answer, content_type)
+                    # Ensure that student_submission is treated as a string
+                    feedback = get_grading(str(student_submission).strip(), proposed_answer, content_type)
 
                     # Extract grade (you can add logic here to extract it automatically from feedback)
                     grade = "8/10"  # Replace with actual extraction logic if needed
