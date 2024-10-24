@@ -1,6 +1,7 @@
 import streamlit as st
 import openai
 import PyPDF2
+import base64  # Import base64 for encoding the PDF
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
