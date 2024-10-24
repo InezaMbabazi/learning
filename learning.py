@@ -28,7 +28,7 @@ def load_pdf_content(file):
         
         for page_num in range(len(doc)):
             page = doc[page_num]
-            text = page.get_text()
+            text = page.get_text("text")  # Get the text from the page
             content += text + "\n"
             
             # Extract images
@@ -44,8 +44,11 @@ def load_pdf_content(file):
         st.error(f"Error loading PDF: {str(e)}")
         return "", []
 
-# Function to display images
-def display_images(images):
+# Function to display images and their corresponding text
+def display_content(content, images):
+    st.subheader("Extracted Content")
+    st.write(content)  # Display the extracted text content
+
     for image_stream, page_num in images:
         st.image(image_stream, use_column_width=True)
         st.write(f"Image from Page {page_num + 1}")
@@ -78,8 +81,7 @@ lesson_content = None
 images = []
 if uploaded_file is not None:
     lesson_content, images = load_pdf_content(uploaded_file)
-    st.subheader("PDF Content")
-    display_images(images)  # Display images in their positions
+    display_content(lesson_content, images)  # Display text and images
 elif manual_content:
     lesson_content = manual_content
 
