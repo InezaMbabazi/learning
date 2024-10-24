@@ -1,7 +1,7 @@
 import streamlit as st
 import openai
 import fitz  # PyMuPDF for PDF handling
-import os
+import io  # Import io for BytesIO
 import base64
 
 # Initialize OpenAI API with the secret key
@@ -20,8 +20,10 @@ def generate_questions_from_content(lesson_content):
     return generated_questions
 
 # Function to load PDF content and images
-def load_pdf_content(file):
-    doc = fitz.open(file)
+def load_pdf_content(uploaded_file):
+    # Read the uploaded PDF file
+    file_stream = io.BytesIO(uploaded_file.read())
+    doc = fitz.open("pdf", file_stream)
     content = ''
     images = []
     
