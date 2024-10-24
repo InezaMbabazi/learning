@@ -1,8 +1,8 @@
 import streamlit as st
 import openai
-import fitz  # PyMuPDF for PDF handling
-import io  # Import io for BytesIO
+import fitz  # PyMuPDF
 import base64
+import io
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -19,15 +19,14 @@ def generate_questions_from_content(lesson_content):
     generated_questions = response['choices'][0]['message']['content'].strip().split("\n")
     return generated_questions
 
-# Function to load PDF content and images
-def load_pdf_content(uploaded_file):
-    # Read the uploaded PDF file
-    file_stream = io.BytesIO(uploaded_file.read())
-    doc = fitz.open("pdf", file_stream)
+# Function to load PDF content and extract images
+def load_pdf_content(file):
+    doc = fitz.open(file)
     content = ''
     images = []
     
-    for page in doc:
+    for page_num in range(len(doc)):
+        page = doc[page_num]
         text = page.get_text()
         content += text + "\n"
         
@@ -36,9 +35,16 @@ def load_pdf_content(uploaded_file):
             xref = img[0]
             base_image = doc.extract_image(xref)
             image_bytes = base_image["image"]
-            images.append(image_bytes)
-    
+            image_stream = io.BytesIO(image_bytes)
+            images.append((image_stream, page_num))  # Store image stream and page number
+
     return content.strip(), images
+
+# Function to display images
+def display_images(images):
+    for image_stream, page_num in images:
+        st.image(image_stream, use_column_width=True)
+        st.write(f"Image from Page {page_num + 1}")
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -68,18 +74,8 @@ lesson_content = None
 images = []
 if uploaded_file is not None:
     lesson_content, images = load_pdf_content(uploaded_file)
-    st.subheader("PDF Content (Scroll for details)")
-    
-    # Create a scrollable container
-    with st.container():
-        st.markdown('<div style="max-height: 400px; overflow-y: scroll;">', unsafe_allow_html=True)
-        st.write(lesson_content)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Display images below the text content
-    for img_bytes in images:
-        st.image(img_bytes, caption="Image from PDF", use_column_width=True)
-
+    st.subheader("PDF Content")
+    display_images(images)  # Display images in their positions
 elif manual_content:
     lesson_content = manual_content
 
@@ -103,7 +99,6 @@ if lesson_content:
             submit = st.form_submit_button("Submit Answers")
             
             if submit and all(student_answers):
-                # Assuming you have a function get_grading for feedback
                 feedback = get_grading(student_answers, st.session_state.generated_questions, lesson_content)
                 st.subheader("Feedback on Your Answers:")
                 st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
