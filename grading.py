@@ -16,6 +16,7 @@ def get_submissions(course_id, assignment_id):
     
     # Get submissions for the given assignment
     submissions_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions"
+    
     response = requests.get(submissions_url, headers=headers)
     
     if response.status_code == 200:
@@ -52,8 +53,8 @@ def get_grading(student_submission, proposed_answer, content_type):
 st.title("Canvas Assignment Grading Automation")
 
 # Course and Assignment ID
-course_id = 2850  # Replace with your course ID
-assignment_id = 46672  # Replace with your assignment ID
+course_id = 2624  # Replace with your course ID
+assignment_id = 41195  # Replace with your assignment ID
 
 # Proposed Answer Input
 proposed_answer = st.text_area("Proposed Answer:", placeholder="Enter the correct answer here...")
