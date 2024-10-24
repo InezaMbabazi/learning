@@ -1,7 +1,6 @@
 import streamlit as st
 import openai
 import fitz  # PyMuPDF
-import base64
 import io
 
 # Initialize OpenAI API with the secret key
@@ -23,13 +22,12 @@ def generate_questions_from_content(lesson_content):
 def load_pdf_content(file):
     try:
         doc = fitz.open(stream=file.read(), filetype="pdf")  # Use stream to read the file
-        content = ''
-        images = []
+        content = []
         
         for page_num in range(len(doc)):
             page = doc[page_num]
             text = page.get_text("text")  # Get the text from the page
-            content += text + "\n"
+            images = []
             
             # Extract images
             for img_index, img in enumerate(page.get_images(full=True)):
@@ -39,15 +37,18 @@ def load_pdf_content(file):
                 image_stream = io.BytesIO(image_bytes)
                 images.append((image_stream, page_num))  # Store image stream and page number
 
-        return content.strip(), images
+            content.append((text.strip(), images))  # Store text and images for each page
+
+        return content
     except Exception as e:
         st.error(f"Error loading PDF: {str(e)}")
-        return "", []
+        return []
 
-# Function to display images and their corresponding text
-def display_content(content, images):
+# Function to display content for a specific page
+def display_page_content(page_content):
+    text, images = page_content
     st.subheader("Extracted Content")
-    st.write(content)  # Display the extracted text content
+    st.write(text)  # Display the extracted text content
 
     for image_stream, page_num in images:
         st.image(image_stream, use_column_width=True)
@@ -72,25 +73,42 @@ uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 st.subheader("Option 2: Paste Specific Lesson Content Here")
 manual_content = st.text_area("Paste lesson content here:")
 
-# Session state to track if questions have been generated
-if 'generated_questions' not in st.session_state:
-    st.session_state.generated_questions = []
-
 # Load content from PDF or manual input
-lesson_content = None
-images = []
+pdf_content = []
 if uploaded_file is not None:
-    lesson_content, images = load_pdf_content(uploaded_file)
-    display_content(lesson_content, images)  # Display text and images
+    pdf_content = load_pdf_content(uploaded_file)  # Load the PDF content
+    st.session_state.pdf_content = pdf_content  # Store in session state
 elif manual_content:
-    lesson_content = manual_content
+    st.session_state.pdf_content = [(manual_content, [])]  # Store manual content as a single page
+
+# Pagination logic
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 0
+
+# Display the current page
+if st.session_state.pdf_content:
+    current_page_content = st.session_state.pdf_content[st.session_state.current_page]
+    display_page_content(current_page_content)  # Display the content for the current page
+
+    # Pagination controls
+    if st.session_state.current_page > 0:
+        if st.button("Previous Page"):
+            st.session_state.current_page -= 1
+
+    if st.session_state.current_page < len(st.session_state.pdf_content) - 1:
+        if st.button("Next Page"):
+            st.session_state.current_page += 1
+
+    # Show current page number
+    st.write(f"Page {st.session_state.current_page + 1} of {len(st.session_state.pdf_content)}")
 
 # Generate questions if content is available
-if lesson_content:
+if st.session_state.pdf_content:
+    lesson_content = st.session_state.pdf_content[st.session_state.current_page][0]
     if st.button("Generate Questions"):
         st.session_state.generated_questions = generate_questions_from_content(lesson_content)
     
-    if st.session_state.generated_questions:
+    if 'generated_questions' in st.session_state and st.session_state.generated_questions:
         st.subheader("Test Questions")
 
         # Student answers section
