@@ -1,6 +1,7 @@
+
 import streamlit as st
 import openai
-import fitz  # PyMuPDF
+import PyPDF2
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -17,28 +18,15 @@ def generate_questions_from_content(lesson_content):
     generated_questions = response['choices'][0]['message']['content'].strip().split("\n")
     return generated_questions
 
-# Function to load PDF content and extract images
+# Function to load PDF content
 def load_pdf_content(file):
-    try:
-        doc = fitz.open(stream=file.read(), filetype="pdf")  # Use stream to read the file
-        content = []
-        
-        for page_num in range(len(doc)):
-            page = doc[page_num]
-            text = page.get_text("text")  # Get the text from the page
-            
-            # Store text for each page
-            content.append(text.strip())  # Only store text
-
-        return content
-    except Exception as e:
-        st.error(f"Error loading PDF: {str(e)}")
-        return []
-
-# Function to display content for a specific page
-def display_page_content(page_content):
-    st.subheader("Extracted Content")
-    st.write(page_content)  # Display the extracted text content
+    reader = PyPDF2.PdfReader(file)
+    content = ''
+    for page in reader.pages:
+        text = page.extract_text()
+        if text:
+            content += text + "\n"
+    return content.strip()
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -59,63 +47,41 @@ uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 st.subheader("Option 2: Paste Specific Lesson Content Here")
 manual_content = st.text_area("Paste lesson content here:")
 
+# Session state to track if questions have been generated
+if 'generated_questions' not in st.session_state:
+    st.session_state.generated_questions = []
+
 # Load content from PDF or manual input
+lesson_content = None
 if uploaded_file is not None:
-    pdf_content = load_pdf_content(uploaded_file)  # Load the PDF content
-    st.session_state.pdf_content = pdf_content  # Store in session state
-    st.session_state.current_page = 0  # Reset to first page on new upload
+    lesson_content = load_pdf_content(uploaded_file)
+    st.subheader("PDF Content")
+    # Streamlit has a built-in way to display files
+    st.write(lesson_content)  # Display text content of PDF directly
 elif manual_content:
-    st.session_state.pdf_content = [manual_content]  # Store manual content as a single page
-    st.session_state.current_page = 0  # Reset to first page
+    lesson_content = manual_content
 
-# Initialize current_page if not already done
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 0
-
-# Display current page content if available
-if 'pdf_content' in st.session_state and st.session_state.pdf_content:
-    # Ensure current_page is within bounds
-    st.session_state.current_page = min(st.session_state.current_page, len(st.session_state.pdf_content) - 1)
-    
-    # Display the content for the current page
-    current_page_content = st.session_state.pdf_content[st.session_state.current_page]
-    display_page_content(current_page_content)
-
-    # Pagination controls
-    col1, col2 = st.columns(2)  # Create two columns for pagination buttons
-    with col1:
-        if st.session_state.current_page > 0:
-            if st.button("Previous Page"):
-                st.session_state.current_page -= 1
-
-    with col2:
-        if st.session_state.current_page < len(st.session_state.pdf_content) - 1:
-            if st.button("Next Page"):
-                st.session_state.current_page += 1
-
-    # Show current page number
-    st.write(f"Page {st.session_state.current_page + 1} of {len(st.session_state.pdf_content)}")
-
-    # Generate questions based on current page
-    lesson_content = st.session_state.pdf_content[st.session_state.current_page]
+# Generate questions if content is available
+if lesson_content:
     if st.button("Generate Questions"):
         st.session_state.generated_questions = generate_questions_from_content(lesson_content)
-
-    if 'generated_questions' in st.session_state and st.session_state.generated_questions:
+    
+    if st.session_state.generated_questions:
         st.subheader("Test Questions")
 
         # Student answers section
         student_answers = []
         with st.form(key='question_form'):
             for i, question in enumerate(st.session_state.generated_questions):
-                st.write(f"Question {i + 1}: {question}")
-                answer = st.text_input(f"Your answer to question {i + 1}", key=f"answer_{i}")
+                st.write(f"Question {i+1}: {question}")
+                answer = st.text_input(f"Your answer to question {i+1}", key=f"answer_{i}")
                 student_answers.append(answer)
             
             # Submit button for form
             submit = st.form_submit_button("Submit Answers")
             
             if submit and all(student_answers):
+                # Assuming you have a function get_grading for feedback
                 feedback = get_grading(student_answers, st.session_state.generated_questions, lesson_content)
                 st.subheader("Feedback on Your Answers:")
                 st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
