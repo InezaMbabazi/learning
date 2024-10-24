@@ -1,7 +1,6 @@
 import streamlit as st
 import openai
 import requests
-import pandas as pd
 import re  # For regex pattern matching
 
 # Canvas API credentials
@@ -11,21 +10,21 @@ BASE_URL = 'https://kepler.instructure.com/api/v1'
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Function to get module details from Canvas
-def get_module_name_and_assignments(module_code):
+# Function to get course details from Canvas using course code
+def get_course_name_and_assignments(course_code):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     
-    # Get course/module by its code or ID
+    # Get courses by their code or ID
     course_url = f"{BASE_URL}/courses"
     response = requests.get(course_url, headers=headers)
     
     if response.status_code == 200:
         courses = response.json()
-        course = next((c for c in courses if module_code in c['name'] or module_code in c['course_code']), None)
+        course = next((c for c in courses if course_code in c['name'] or course_code in c['course_code']), None)
         
         if course:
             course_id = course['id']
-            module_name = course['name']
+            course_name = course['name']
             
             # Fetch assignments for this course
             assignments_url = f"{BASE_URL}/courses/{course_id}/assignments"
@@ -33,12 +32,12 @@ def get_module_name_and_assignments(module_code):
             
             if assignments_response.status_code == 200:
                 assignments = assignments_response.json()
-                return module_name, assignments
+                return course_name, assignments
             else:
                 st.error("Failed to retrieve assignments.")
                 return None, []
         else:
-            st.error("Module code not found.")
+            st.error("Course code not found.")
             return None, []
     else:
         st.error("Failed to fetch courses from Canvas.")
@@ -68,19 +67,30 @@ def get_grading(student_submission, proposed_answer, content_type):
     feedback = response['choices'][0]['message']['content']
     return feedback
 
+# Helper function to extract grade from feedback (if needed)
+def extract_grade(feedback):
+    # Regex to find a grade in the format "X/10"
+    match = re.search(r'(\d+)/10', feedback)
+    return int(match.group(1)) if match else "N/A"
+
+# Helper function to clean feedback
+def clean_feedback(feedback):
+    # Remove any grades from the feedback text
+    return re.sub(r'\d+/10', '', feedback).strip()
+
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Grading Assistant")
 
-# Input for module code
-module_code = st.text_input("Enter Module Code:")
+# Input for course code
+course_code = st.text_input("Enter Course Code:")
 
-# Fetch module details
-if module_code:
-    module_name, assignments = get_module_name_and_assignments(module_code)
+# Fetch course details
+if course_code:
+    course_name, assignments = get_course_name_and_assignments(course_code)
     
-    if module_name and assignments:
-        st.subheader(f"Module: {module_name}")
+    if course_name and assignments:
+        st.subheader(f"Course: {course_name}")
         
         # Display assignments for selection
         assignment_names = [assignment['name'] for assignment in assignments]
@@ -112,4 +122,4 @@ if module_code:
                 st.write(f"**Grade:** {grade}/10")
                 st.write(f"**Feedback:** {feedback_cleaned}")
 else:
-    st.write("Please enter a module code to continue.")
+    st.write("Please enter a course code to continue.")
