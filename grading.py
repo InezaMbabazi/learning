@@ -90,7 +90,7 @@ if module_code:
         proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer you expect from the student here...")
 
         # Dropdown for selecting content type
-        content_type = st.selectbox("Select Content Type", options=["Text", Math (LaTeX)", "Programming (Code)"])
+        content_type = st.selectbox("Select Content Type", options=["Text", "Math (LaTeX)", "Programming (Code)"])
 
         # Submit to grade selected assignments
         if selected_assignments and proposed_answer:
