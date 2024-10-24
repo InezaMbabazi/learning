@@ -1,7 +1,8 @@
-import streamlit as st
+import streamlit as st 
 import openai
 import requests
 import pandas as pd
+from docx import Document  # Library to handle .docx files
 
 # Canvas API credentials
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
@@ -24,6 +25,12 @@ def get_submissions(course_id, assignment_id):
     else:
         st.error("Failed to retrieve submissions.")
         return []
+
+# Function to extract text from a .doc file
+def extract_text_from_doc(doc_path):
+    document = Document(doc_path)
+    text = "\n".join([para.text for para in document.paragraphs])
+    return text
 
 # Function to provide grading feedback using OpenAI
 def get_grading(student_submission, proposed_answer, content_type):
@@ -62,42 +69,41 @@ proposed_answer = st.text_area("Proposed Answer:", placeholder="Enter the correc
 # Select content type
 content_type = st.selectbox("Content Type:", options=["Text", "Math (LaTeX)", "Programming (Code)"])
 
+# File uploader for submissions
+uploaded_files = st.file_uploader("Upload Student Submissions (.docx)", accept_multiple_files=True)
+
 # Submit button
 if st.button("Grade Submissions"):
     if proposed_answer:
-        # Fetch submissions from Canvas
-        submissions = get_submissions(course_id, assignment_id)
-        
-        # If submissions exist, process them
-        if submissions:
+        # Check if files are uploaded
+        if uploaded_files:
             # DataFrame to store results
             results = []
 
-            for submission in submissions:
-                # Get student name and submission content
-                student_name = submission.get('user', {}).get('name', 'Unknown')
-                student_submission = submission.get('body', 'No Submission')
-                turnitin_score = submission.get('turnitin_score', 'N/A')
+            for uploaded_file in uploaded_files:
+                # Extract student name from file name
+                student_name = uploaded_file.name.replace(".docx", "")
+                
+                # Extract the content from the uploaded .docx file
+                student_submission = extract_text_from_doc(uploaded_file)
 
-                # Grade the submission if available
-                if student_submission != 'No Submission':
-                    feedback = get_grading(str(student_submission).strip(), proposed_answer, content_type)
-                    grade = "8/10"  # You can extract actual grade based on feedback logic
-                    feedback_cleaned = feedback.replace(grade, "").strip()
+                # Grade the submission
+                feedback = get_grading(student_submission, proposed_answer, content_type)
+                grade = "8/10"  # Example static grade (you can modify this based on feedback logic)
+                feedback_cleaned = feedback.replace(grade, "").strip()
 
-                    # Append the result to the list
-                    results.append({
-                        "Student Name": student_name,
-                        "Submission": student_submission,
-                        "Grade": grade,
-                        "Feedback": feedback_cleaned,
-                        "Turnitin Score (%)": turnitin_score
-                    })
+                # Append the result to the list
+                results.append({
+                    "Student Name": student_name,
+                    "Submission": student_submission,
+                    "Grade": grade,
+                    "Feedback": feedback_cleaned
+                })
 
             # Display results in a table
             df_results = pd.DataFrame(results)
             st.dataframe(df_results)
         else:
-            st.write("No submissions found.")
+            st.error("Please upload student submissions.")
     else:
         st.error("Please provide the proposed answer.")
