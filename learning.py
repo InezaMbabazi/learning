@@ -1,6 +1,8 @@
 import streamlit as st
 import openai
-import PyPDF2
+import fitz  # PyMuPDF for PDF handling
+import os
+import base64
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -17,15 +19,24 @@ def generate_questions_from_content(lesson_content):
     generated_questions = response['choices'][0]['message']['content'].strip().split("\n")
     return generated_questions
 
-# Function to load PDF content
+# Function to load PDF content and images
 def load_pdf_content(file):
-    reader = PyPDF2.PdfReader(file)
+    doc = fitz.open(file)
     content = ''
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            content += text + "\n"
-    return content.strip()
+    images = []
+    
+    for page in doc:
+        text = page.get_text()
+        content += text + "\n"
+        
+        # Extract images
+        for img_index, img in enumerate(page.get_images(full=True)):
+            xref = img[0]
+            base_image = doc.extract_image(xref)
+            image_bytes = base_image["image"]
+            images.append(image_bytes)
+    
+    return content.strip(), images
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -52,11 +63,21 @@ if 'generated_questions' not in st.session_state:
 
 # Load content from PDF or manual input
 lesson_content = None
+images = []
 if uploaded_file is not None:
-    lesson_content = load_pdf_content(uploaded_file)
-    st.subheader("PDF Content")
-    # Streamlit has a built-in way to display files
-    st.write(lesson_content)  # Display text content of PDF directly
+    lesson_content, images = load_pdf_content(uploaded_file)
+    st.subheader("PDF Content (Scroll for details)")
+    
+    # Create a scrollable container
+    with st.container():
+        st.markdown('<div style="max-height: 400px; overflow-y: scroll;">', unsafe_allow_html=True)
+        st.write(lesson_content)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Display images below the text content
+    for img_bytes in images:
+        st.image(img_bytes, caption="Image from PDF", use_column_width=True)
+
 elif manual_content:
     lesson_content = manual_content
 
