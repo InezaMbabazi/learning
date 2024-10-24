@@ -23,13 +23,13 @@ def get_all_courses():
         st.error("Failed to fetch courses from Canvas.")
         return []
 
-# Function to get course name and assignments from Canvas
-def get_course_name_and_assignments(course_name):
+# Function to get course by code and its assignments
+def get_course_by_code(course_code):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     
-    # Get the course by its name
+    # Get all courses
     courses = get_all_courses()
-    course = next((c for c in courses if course_name.lower() in c['name'].lower()), None)
+    course = next((c for c in courses if str(course_code) in c['course_code']), None)
     
     if course:
         course_id = course['id']
@@ -46,7 +46,7 @@ def get_course_name_and_assignments(course_name):
             st.error("Failed to retrieve assignments.")
             return None, []
     else:
-        st.error("Course name not found.")
+        st.error("Course code not found.")
         return None, []
 
 # Function to get grading from OpenAI based on student submissions and proposed answers
@@ -77,66 +77,61 @@ def get_grading(student_submission, proposed_answer, content_type):
 st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Grading Assistant")
 
-# Fetch and display all course names for selection
-courses = get_all_courses()
-course_names = [course['name'] for course in courses]
-
-# Input or select for course name
-selected_course_name = st.selectbox("Select Course Name:", course_names)
+# Fixed course code
+course_code = '2850'
 
 # Fetch course details
-if selected_course_name:
-    course_name, assignments = get_course_name_and_assignments(selected_course_name)
+course_name, assignments = get_course_by_code(course_code)
+
+if course_name and assignments:
+    st.subheader(f"Course: {course_name}")
     
-    if course_name and assignments:
-        st.subheader(f"Course: {course_name}")
-        
-        # Display assignments for selection
-        assignment_names = [assignment['name'] for assignment in assignments]
-        selected_assignment = st.selectbox("Select Assignment to Grade:", assignment_names)
-        
-        # Input for the proposed answer
-        proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer you expect from the student here...")
+    # Display assignments for selection
+    assignment_names = [assignment['name'] for assignment in assignments]
+    selected_assignment = st.selectbox("Select Assignment to Grade:", assignment_names)
+    
+    # Input for the proposed answer
+    proposed_answer = st.text_area("Proposed Answer:", placeholder="Type the answer you expect from the student here...")
 
-        # Dropdown for selecting content type
-        content_type = st.selectbox("Select Content Type", options=["Text", "Math (LaTeX)", "Programming (Code)"])
+    # Dropdown for selecting content type
+    content_type = st.selectbox("Select Content Type", options=["Text", "Math (LaTeX)", "Programming (Code)"])
+    
+    # Submit to grade selected assignment
+    if selected_assignment and proposed_answer:
+        # Mock student submissions (replace with actual data retrieval logic from Canvas or a database)
+        student_submissions = [
+            {"name": "Student A", "submission": "Sample submission A", "turnitin": 12},
+            {"name": "Student B", "submission": "Sample submission B", "turnitin": 28},
+            {"name": "Student C", "submission": "Sample submission C", "turnitin": 5},
+        ]
         
-        # Submit to grade selected assignment
-        if selected_assignment and proposed_answer:
-            # Mock student submissions (replace with actual data retrieval logic from Canvas or a database)
-            student_submissions = [
-                {"name": "Student A", "submission": "Sample submission A", "turnitin": 12},
-                {"name": "Student B", "submission": "Sample submission B", "turnitin": 28},
-                {"name": "Student C", "submission": "Sample submission C", "turnitin": 5},
-            ]
+        # Create a DataFrame to capture results
+        results = []
+
+        for student in student_submissions:
+            student_submission = student['submission']
+            turnitin_score = student['turnitin']
             
-            # Create a DataFrame to capture results
-            results = []
+            # Get grading feedback
+            feedback = get_grading(student_submission.strip(), proposed_answer, content_type)
 
-            for student in student_submissions:
-                student_submission = student['submission']
-                turnitin_score = student['turnitin']
-                
-                # Get grading feedback
-                feedback = get_grading(student_submission.strip(), proposed_answer, content_type)
-
-                # Extract grade (you can add logic here to extract it automatically from feedback)
-                grade = "8/10"  # Replace with actual extraction logic if needed
-                
-                # Clean feedback to remove grades (if necessary)
-                feedback_cleaned = feedback.replace(grade, "").strip()
-
-                # Append to results
-                results.append({
-                    "Student Name": student['name'],
-                    "Submission": student_submission,
-                    "Grade": grade,
-                    "Feedback": feedback_cleaned,
-                    "Turnitin Score (%)": turnitin_score
-                })
+            # Extract grade (you can add logic here to extract it automatically from feedback)
+            grade = "8/10"  # Replace with actual extraction logic if needed
             
-            # Convert results to a DataFrame for display
-            df_results = pd.DataFrame(results)
-            st.dataframe(df_results)
+            # Clean feedback to remove grades (if necessary)
+            feedback_cleaned = feedback.replace(grade, "").strip()
+
+            # Append to results
+            results.append({
+                "Student Name": student['name'],
+                "Submission": student_submission,
+                "Grade": grade,
+                "Feedback": feedback_cleaned,
+                "Turnitin Score (%)": turnitin_score
+            })
+        
+        # Convert results to a DataFrame for display
+        df_results = pd.DataFrame(results)
+        st.dataframe(df_results)
 else:
-    st.write("Please select a course name to continue.")
+    st.write("Course code 2850 not found.")
