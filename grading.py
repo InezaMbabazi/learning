@@ -4,7 +4,7 @@ import os
 from docx import Document
 
 # Canvas API token and base URL
-API_TOKEN = 'YOUR_ACTUAL_CANVAS_API_TOKEN'  # Replace with your Canvas API token
+API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # Function to get submissions for an assignment
