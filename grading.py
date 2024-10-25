@@ -102,12 +102,23 @@ if st.button("Download All Submissions", key='download_button'):
             user_id = submission['user_id']
             attachments = submission.get('attachments', [])
             
+            submission_text = ""
             for attachment in attachments:
                 file_url = attachment['url']
                 filename = os.path.join(download_folder, f"{user_id}_{attachment['filename']}")
                 
                 if download_submission_file(file_url, filename):
                     st.success(f"Downloaded {filename}")
+                    
+                    # Display the content of the downloaded file
+                    if filename.endswith(".txt"):
+                        with open(filename, "r") as f:
+                            submission_text = f.read()
+                            st.write(f"Submission Content from User {user_id}:\n{submission_text}")  # Display submission content
+                    elif filename.endswith(".docx"):
+                        doc = Document(filename)
+                        doc_text = "\n".join([para.text for para in doc.paragraphs])
+                        st.write(f"Submission Content from User {user_id}:\n{doc_text}")  # Display docx content
                 else:
                     st.error(f"Failed to download file for user {user_id}")
         
@@ -164,14 +175,14 @@ h1 {
     color: #2c3e50; /* Darker text for headings */
 }
 h2 {
-    color: #2980b9; /* Blue color for subheadings */
+    color: #34495e; /* Darker text for subheadings */
 }
 .stButton {
-    background-color: #27ae60; /* Green color for buttons */
-    color: white;
+    background-color: #3498db; /* Button color */
+    color: white; /* Button text color */
 }
 .stButton:hover {
-    background-color: #2ecc71; /* Lighter green on hover */
+    background-color: #2980b9; /* Button hover color */
 }
 </style>
 """, unsafe_allow_html=True)
