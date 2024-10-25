@@ -52,11 +52,13 @@ def generate_grading_feedback(submission_text, proposed_answer):
         st.error("OpenAI API key is not configured. Cannot generate feedback.")
         return None
     
-    prompt = f"Grade the following submission based on the proposed answer:\n\n" \
-             f"Submission: {submission_text}\n" \
-             f"Proposed Answer: {proposed_answer}\n" \
-             f"Provide a grade (out of 100) and detailed feedback on the submission's strengths and weaknesses, " \
-             f"especially in relation to the proposed answer. Highlight any discrepancies or areas of improvement."
+    prompt = (
+        f"Grade the following submission based on the proposed answer:\n\n"
+        f"Submission: {submission_text}\n"
+        f"Proposed Answer: {proposed_answer}\n"
+        f"Provide a grade (out of 100) and detailed feedback on the submission's strengths and weaknesses, "
+        f"especially in relation to the proposed answer. Highlight any discrepancies or areas of improvement."
+    )
     
     try:
         response = openai.ChatCompletion.create(
@@ -89,7 +91,7 @@ if st.button("Download All Submissions", key='download_button'):
 
         for submission in submissions:
             user_id = submission['user_id']
-            user_name = submission['user']['name'] if 'user' in submission else f"User {user_id}"
+            user_name = submission.get('user', {}).get('name', f"User {user_id}")  # Safe access to user name
             attachments = submission.get('attachments', [])
             
             submission_text = ""
@@ -131,6 +133,7 @@ if 'submissions' in locals() and submissions:
 
         for submission in submissions:
             user_id = submission['user_id']
+            user_name = submission.get('user', {}).get('name', f"User {user_id}")  # Safe access to user name
             attachments = submission.get('attachments', [])
             
             submission_text = ""
@@ -153,7 +156,7 @@ if 'submissions' in locals() and submissions:
                         # Split into grade and feedback
                         grade, feedback = feedback_output.split('\n', 1)  
                         feedback_data.append({
-                            "Student Name": submission['user']['name'],
+                            "Student Name": user_name,
                             "Submission": submission_text,
                             "Grade": grade.strip(),
                             "Feedback": feedback.strip()
