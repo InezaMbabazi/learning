@@ -6,7 +6,7 @@ import openai
 import pandas as pd
 
 # Canvas API token and base URL
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
+API_TOKEN = 1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key from Streamlit secrets
@@ -54,7 +54,8 @@ def generate_grading_feedback(submission_text, proposed_answer):
 
     prompt = (
         f"Evaluate the following student's submission against the proposed answer. "
-        f"Assess how well the submission aligns with the proposed answer and rate it on a scale of 0 to 100.\n\n"
+        f"Assess how well the submission aligns with the proposed answer and rate it on a scale of 0 to 100. "
+        f"Give zero if the submission is not aligned at all and provide detailed feedback.\n\n"
         f"Submission: {submission_text}\n"
         f"Proposed Answer: {proposed_answer}\n\n"
         f"Provide a detailed assessment of the alignment, including strengths, weaknesses, and areas for improvement. "
@@ -142,7 +143,7 @@ if 'submissions' in locals() and submissions:
             submission_text = row['Submission']
             user_name = row['Student Name']
 
-            # Generate feedback from OpenAI directly
+            # Generate feedback from OpenAI
             feedback_output = generate_grading_feedback(submission_text, proposed_answer)
             if feedback_output:
                 try:
