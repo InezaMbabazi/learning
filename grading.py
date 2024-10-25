@@ -9,59 +9,47 @@ API_TOKEN = 'your_canvas_api_token'  # Replace with your actual Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key
-openai.api_key = st.secrets["openai"]["api_key"]
+OPENAI_API_KEY = 'your_openai_api_key'  # Replace with your OpenAI API key
+openai.api_key = OPENAI_API_KEY
 
 # Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     submissions_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions"
     
-    response = requests.get(submissions_url, headers=headers)
-    
-    if response.status_code == 200:
+    try:
+        response = requests.get(submissions_url, headers=headers)
+        response.raise_for_status()  # Raise error for unsuccessful status
         return response.json()
-    else:
-        st.error("Failed to retrieve submissions.")
+    except requests.RequestException as e:
+        st.error(f"Failed to retrieve submissions: {e}")
         return []
 
 # Function to download a submission file
 def download_submission_file(file_url, filename):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
-    response = requests.get(file_url, headers=headers)
-    
-    if response.status_code == 200:
+    try:
+        response = requests.get(file_url, headers=headers)
+        response.raise_for_status()
         with open(filename, 'wb') as f:
             f.write(response.content)
         return True
-    else:
+    except requests.RequestException:
         return False
 
 # Function to grade and provide feedback using OpenAI API
 def grade_with_openai(submission_text, proposed_answer):
     prompt = f"Grade the following submission based on the provided answer:\n\nSubmission:\n{submission_text}\n\nProposed Answer:\n{proposed_answer}\n\nProvide a grade out of 100 and feedback on how closely it matches the proposed answer."
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    feedback = response.choices[0].message['content']
-    return feedback
-
-# Function to submit grade and feedback to Canvas
-def submit_grade_feedback(course_id, assignment_id, user_id, grade, feedback):
-    headers = {"Authorization": f"Bearer {API_TOKEN}"}
-    grade_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
-    
-    data = {
-        "submission": {
-            "posted_grade": grade,
-            "comment": {
-                "text_comment": feedback
-            }
-        }
-    }
-    
-    response = requests.put(grade_url, headers=headers, json=data)
-    return response.status_code == 200
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        feedback = response.choices[0].message['content']
+        return feedback
+    except Exception as e:
+        st.error(f"Error generating feedback: {e}")
+        return "Feedback could not be generated."
 
 # Streamlit UI
 st.title("Canvas Assignment Submissions with Automated Grading and Feedback")
@@ -70,31 +58,15 @@ st.title("Canvas Assignment Submissions with Automated Grading and Feedback")
 course_id = 2850  # Replace with your course ID
 assignment_id = 45964  # Replace with your assignment ID
 
-# Fetch and display submissions
-if st.button("Download All Submissions"):
+# Fetch submissions
+submissions = []
+
+if st.button("Fetch Submissions"):
     submissions = get_submissions(course_id, assignment_id)
-    
     if submissions:
-        download_folder = "submissions"
-        if not os.path.exists(download_folder):
-            os.makedirs(download_folder)
-        
-        for submission in submissions:
-            user_id = submission['user_id']
-            attachments = submission.get('attachments', [])
-            
-            for attachment in attachments:
-                file_url = attachment['url']
-                filename = os.path.join(download_folder, f"{user_id}_{attachment['filename']}")
-                
-                if download_submission_file(file_url, filename):
-                    st.write(f"Downloaded {filename}")
-                else:
-                    st.write(f"Failed to download file for user {user_id}")
-        
-        st.success("All submissions downloaded successfully.")
+        st.success("Submissions retrieved successfully.")
     else:
-        st.warning("No submissions found for this assignment.")
+        st.warning("No submissions found for this assignment or failed to retrieve submissions.")
 
 # Input for the correct answer
 st.header("Provide the Correct Answer")
@@ -110,6 +82,8 @@ if submissions and proposed_answer:
         
         # Find downloaded files
         download_folder = "submissions"
+        os.makedirs(download_folder, exist_ok=True)
+        
         user_files = [f for f in os.listdir(download_folder) if f.startswith(str(user_id))]
 
         for user_file in user_files:
@@ -130,14 +104,5 @@ if submissions and proposed_answer:
                 st.write(f"Generated Grade: {grade}")
                 st.write("Feedback:")
                 st.write(detailed_feedback)
-
-                # Submit grade and feedback
-                if st.button(f"Submit Grade and Feedback for User {user_id}", key=f"{user_id}_submit"):
-                    if submit_grade_feedback(course_id, assignment_id, user_id, grade, detailed_feedback):
-                        st.success(f"Grade and feedback submitted for User {user_id}")
-                    else:
-                        st.error(f"Failed to submit grade and feedback for User {user_id}")
-            else:
-                st.write(f"File type not supported for preview: {user_file}")
 else:
-    st.warning("Please download submissions and enter the proposed answer before grading.")
+    st.info("Please fetch submissions and enter the proposed answer before grading.")
