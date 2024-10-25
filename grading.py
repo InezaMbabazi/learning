@@ -2,14 +2,10 @@ import streamlit as st
 import requests
 import os
 from docx import Document
-import openai
 
 # Canvas API token and base URL
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your actual Canvas API token
+API_TOKEN = 'YOUR_ACTUAL_CANVAS_API_TOKEN'  # Replace with your Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
-
-# OpenAI API Key
-openai.api_key = st.secrets["openai"]["api_key"]
 
 # Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
@@ -18,11 +14,13 @@ def get_submissions(course_id, assignment_id):
     
     try:
         response = requests.get(submissions_url, headers=headers)
-        response.raise_for_status()  # Raise error for unsuccessful status
+        response.raise_for_status()  # Raise an error for HTTP errors
         return response.json()
-    except requests.RequestException as e:
-        st.error(f"Failed to retrieve submissions: {e}")
-        return []
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"HTTP error occurred: {http_err}")
+    except Exception as err:
+        st.error(f"An error occurred: {err}")
+    return []
 
 # Function to download a submission file
 def download_submission_file(file_url, filename):
@@ -33,75 +31,131 @@ def download_submission_file(file_url, filename):
         with open(filename, 'wb') as f:
             f.write(response.content)
         return True
-    except requests.RequestException:
-        return False
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"HTTP error occurred while downloading: {http_err}")
+    except Exception as err:
+        st.error(f"An error occurred while downloading: {err}")
+    return False
 
-# Function to grade and provide feedback using OpenAI API
-def grade_with_openai(submission_text, proposed_answer):
-    prompt = f"Grade the following submission based on the provided answer:\n\nSubmission:\n{submission_text}\n\nProposed Answer:\n{proposed_answer}\n\nProvide a grade out of 100 and feedback on how closely it matches the proposed answer."
+# Function to submit grade and feedback
+def submit_grade_feedback(course_id, assignment_id, user_id, grade, feedback):
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    grade_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
+    
+    data = {
+        "submission": {
+            "posted_grade": grade,
+            "comment": {
+                "text_comment": feedback
+            }
+        }
+    }
+    
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        feedback = response.choices[0].message['content']
-        return feedback
-    except Exception as e:
-        st.error(f"Error generating feedback: {e}")
-        return "Feedback could not be generated."
+        response = requests.put(grade_url, headers=headers, json=data)
+        response.raise_for_status()
+        return True
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"HTTP error occurred while submitting grade: {http_err}")
+    except Exception as err:
+        st.error(f"An error occurred while submitting grade: {err}")
+    return False
 
 # Streamlit UI
-st.title("Canvas Assignment Submissions with Automated Grading and Feedback")
+st.title("Canvas Assignment Submissions Downloader, Grader, and Preview")
 
-# Course and Assignment ID
+# Set Course and Assignment IDs
 course_id = 2850  # Replace with your course ID
 assignment_id = 45964  # Replace with your assignment ID
 
-# Fetch submissions
-submissions = []
-
-if st.button("Fetch Submissions"):
+# Download submissions when the button is pressed
+if st.button("Download All Submissions", key='download_button'):
     submissions = get_submissions(course_id, assignment_id)
+    
     if submissions:
-        st.success("Submissions retrieved successfully.")
+        download_folder = "submissions"
+        if not os.path.exists(download_folder):
+            os.makedirs(download_folder)
+        
+        for submission in submissions:
+            user_id = submission['user_id']
+            attachments = submission.get('attachments', [])
+            
+            for attachment in attachments:
+                file_url = attachment['url']
+                filename = os.path.join(download_folder, f"{user_id}_{attachment['filename']}")
+                
+                if download_submission_file(file_url, filename):
+                    st.success(f"Downloaded {filename}")
+                else:
+                    st.error(f"Failed to download file for user {user_id}")
+        
+        st.success("All submissions downloaded successfully.")
     else:
-        st.warning("No submissions found for this assignment or failed to retrieve submissions.")
-
-# Input for the correct answer
-st.header("Provide the Correct Answer")
-proposed_answer = st.text_area("Enter the ideal answer for automatic grading:", "")
+        st.warning("No submissions found for this assignment.")
 
 # Grading and Feedback Section
 st.header("Grade, Provide Feedback, and Preview Submission")
 
-if submissions and proposed_answer:
+# Check if submissions were retrieved before displaying grading options
+if 'submissions' in locals() and submissions:
     for submission in submissions:
         user_id = submission['user_id']
         st.subheader(f"Submission for User {user_id}")
-        
+
         # Find downloaded files
         download_folder = "submissions"
-        os.makedirs(download_folder, exist_ok=True)
-        
         user_files = [f for f in os.listdir(download_folder) if f.startswith(str(user_id))]
 
+        # Display each file
         for user_file in user_files:
             file_path = os.path.join(download_folder, user_file)
-            if user_file.endswith(".docx"):
+            if user_file.endswith(".txt"):
+                with open(file_path, "r") as f:
+                    st.text(f.read())
+            elif user_file.endswith(".pdf"):
+                st.write("PDF file:", user_file)
+                st.download_button("Download PDF", open(file_path, "rb"), file_name=user_file)
+            elif user_file.endswith((".jpg", ".jpeg", ".png")):
+                st.image(file_path)
+            elif user_file.endswith(".docx"):
                 # Read and display .docx content
                 doc = Document(file_path)
-                submission_text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
-                st.text(submission_text)
+                doc_text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+                st.text(doc_text)
+            else:
+                st.write(f"File type not supported for preview: {user_file}")
 
-                # Use OpenAI to grade and give feedback
-                feedback = grade_with_openai(submission_text, proposed_answer)
-                
-                # Parse grade and feedback from OpenAI response
-                grade = feedback.split("\n")[0].replace("Grade:", "").strip()
-                detailed_feedback = "\n".join(feedback.split("\n")[1:])
+        # Grade and feedback inputs
+        grade = st.text_input(f"Grade for User {user_id}", "")
+        feedback = st.text_area(f"Feedback for User {user_id}", "", height=100)
 
-                st.write(f"Generated Grade: {grade}")
-                st.write("Feedback:")
-                st.write(detailed_feedback)
+        if st.button(f"Submit Grade and Feedback for User {user_id}", key=f'submit_{user_id}'):
+            if submit_grade_feedback(course_id, assignment_id, user_id, grade, feedback):
+                st.success(f"Grade and feedback submitted for User {user_id}")
+            else:
+                st.error(f"Failed to submit grade and feedback for User {user_id}")
 else:
-    st.info("Please fetch submissions and enter the proposed answer before grading.")
+    st.warning("Please download submissions before grading.")
+
+# Add some color for better user experience
+st.markdown("""
+<style>
+body {
+    background-color: #f0f4f7; /* Light background color */
+}
+h1 {
+    color: #2c3e50; /* Darker text for headings */
+}
+h2 {
+    color: #2980b9; /* Blue color for subheadings */
+}
+.stButton {
+    background-color: #27ae60; /* Green color for buttons */
+    color: white;
+}
+.stButton:hover {
+    background-color: #2ecc71; /* Lighter green on hover */
+}
+</style>
+""", unsafe_allow_html=True)
