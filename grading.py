@@ -2,10 +2,14 @@ import streamlit as st
 import requests
 import os
 from docx import Document
+import openai
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
+
+# OpenAI API Key
+openai.api_key = 'YOUR_OPENAI_API_KEY'  # Replace with your OpenAI API key
 
 # Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
@@ -61,6 +65,23 @@ def submit_grade_feedback(course_id, assignment_id, user_id, grade, feedback):
         st.error(f"An error occurred while submitting grade: {err}")
     return False
 
+# Function to generate grading and feedback using OpenAI
+def generate_grading_feedback(submission_text, proposed_answer):
+    prompt = f"Grade the following submission based on the proposed answer:\n\n" \
+             f"Submission: {submission_text}\n" \
+             f"Proposed Answer: {proposed_answer}\n" \
+             f"Provide a grade (out of 100) and feedback."
+    
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response['choices'][0]['message']['content'].strip()
+    except Exception as e:
+        st.error(f"Error in OpenAI API call: {e}")
+        return None
+
 # Streamlit UI
 st.title("Canvas Assignment Submissions Downloader, Grader, and Preview")
 
@@ -97,6 +118,9 @@ if st.button("Download All Submissions", key='download_button'):
 # Grading and Feedback Section
 st.header("Grade, Provide Feedback, and Preview Submission")
 
+# Proposed answers input
+proposed_answer = st.text_area("Enter Proposed Answer:", height=100)
+
 # Check if submissions were retrieved before displaying grading options
 if 'submissions' in locals() and submissions:
     for submission in submissions:
@@ -126,15 +150,34 @@ if 'submissions' in locals() and submissions:
             else:
                 st.write(f"File type not supported for preview: {user_file}")
 
-        # Grade and feedback inputs
-        grade = st.text_input(f"Grade for User {user_id}", "")
-        feedback = st.text_area(f"Feedback for User {user_id}", "", height=100)
+        # Generate grade and feedback using OpenAI when button is clicked
+        if st.button(f"Generate Grade and Feedback for User {user_id}", key=f'generate_{user_id}'):
+            # Read the submission content
+            if user_files:
+                submission_text = ""
+                for user_file in user_files:
+                    file_path = os.path.join(download_folder, user_file)
+                    if user_file.endswith(".txt"):
+                        with open(file_path, "r") as f:
+                            submission_text += f.read() + "\n"
+                    elif user_file.endswith(".docx"):
+                        doc = Document(file_path)
+                        submission_text += "\n".join([paragraph.text for paragraph in doc.paragraphs]) + "\n"
 
-        if st.button(f"Submit Grade and Feedback for User {user_id}", key=f'submit_{user_id}'):
-            if submit_grade_feedback(course_id, assignment_id, user_id, grade, feedback):
-                st.success(f"Grade and feedback submitted for User {user_id}")
-            else:
-                st.error(f"Failed to submit grade and feedback for User {user_id}")
+                # Generate grading and feedback
+                feedback_output = generate_grading_feedback(submission_text, proposed_answer)
+                if feedback_output:
+                    # Split feedback output into grade and feedback
+                    grade, feedback = feedback_output.split('\n', 1)
+                    st.text(f"Generated Grade: {grade.strip()}")
+                    st.text_area(f"Generated Feedback for User {user_id}", feedback.strip(), height=100)
+
+                    # Submit grade and feedback if requested
+                    if st.button(f"Submit Grade and Feedback for User {user_id}", key=f'submit_{user_id}'):
+                        if submit_grade_feedback(course_id, assignment_id, user_id, grade.strip(), feedback.strip()):
+                            st.success(f"Grade and feedback submitted for User {user_id}")
+                        else:
+                            st.error(f"Failed to submit grade and feedback for User {user_id}")
 else:
     st.warning("Please download submissions before grading.")
 
