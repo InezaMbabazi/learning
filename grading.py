@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import openai
 import requests
 import pandas as pd
@@ -87,7 +87,12 @@ if assignments:
     submissions = get_submissions(course_id, selected_assignment_id)
     
     if submissions:
-        st.write(f"Total Submissions for '{selected_assignment_name}': {len(submissions)}")
+        total_submissions = len(submissions)
+        st.write(f"Total Submissions for '{selected_assignment_name}': {total_submissions}")
+        
+        # Add count of unique students who submitted
+        unique_student_ids = set(submission['user_id'] for submission in submissions)
+        st.write(f"Number of Unique Students who Submitted: {len(unique_student_ids)}")
         
         # Proposed Answer Input
         proposed_answer = st.text_area("Proposed Answer:", placeholder="Enter the correct answer here...")
