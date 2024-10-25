@@ -129,20 +129,27 @@ if 'submissions' in locals() and submissions:
                 file_url = attachment['url']
                 filename = os.path.join(download_folder, f"{user_id}_{attachment['filename']}")
                 
+                # Read the submission text based on the file type
                 if filename.endswith(".txt"):
                     with open(filename, "r") as f:
                         submission_text = f.read()
-                        st.write(f"Evaluating Submission from User {user_id}:\n{submission_text}")  # Display submission text
+                elif filename.endswith(".docx"):
+                    doc = Document(filename)
+                    submission_text = "\n".join([para.text for para in doc.paragraphs])
+
+                # Display the submission text
+                st.write(f"Evaluating Submission from User {user_id}:\n{submission_text}")  # Display submission text
                         
-                        # Generate feedback
-                        feedback_output = generate_grading_feedback(submission_text, proposed_answer)
-                        if feedback_output:
-                            try:
-                                grade, feedback = feedback_output.split('\n', 1)  # Split into grade and feedback
-                                st.text(f"Generated Grade: {grade.strip()}")
-                                st.text_area(f"Generated Feedback for User {user_id}", feedback.strip(), height=100)
-                            except ValueError:
-                                st.error(f"Failed to parse feedback for User {user_id}: {feedback_output}")
+                # Generate feedback
+                feedback_output = generate_grading_feedback(submission_text, proposed_answer)
+                if feedback_output:
+                    try:
+                        # Split into grade and feedback
+                        grade, feedback = feedback_output.split('\n', 1)  
+                        st.text(f"Generated Grade: {grade.strip()}")
+                        st.text_area(f"Generated Feedback for User {user_id}", feedback.strip(), height=100)
+                    except ValueError:
+                        st.error(f"Failed to parse feedback for User {user_id}: {feedback_output}")
 else:
     st.warning("Please download submissions before grading.")
 
