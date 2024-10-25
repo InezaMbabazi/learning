@@ -111,7 +111,7 @@ if st.button("Download All Submissions", key='download_button'):
         st.warning("No submissions found for this assignment.")
 
 # Grading and Feedback Section
-st.header("Grade, Provide Feedback, and Preview Submission")
+st.header("Grade and Provide Feedback on Submission")
 
 # Proposed answers input
 proposed_answer = st.text_area("Enter Proposed Answer:", height=100)
