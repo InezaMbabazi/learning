@@ -146,8 +146,8 @@ if 'submissions' in locals() and submissions:
                     try:
                         # Split into grade and feedback
                         grade, feedback = feedback_output.split('\n', 1)  
-                        st.text(f"Generated Grade: {grade.strip()}")
-                        st.text_area(f"Generated Feedback for User {user_id}", feedback.strip(), height=100)
+                        st.markdown(f"<p style='color: green;'>Generated Grade: {grade.strip()}</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='color: blue;'>Generated Feedback for User {user_id}: {feedback.strip()}</p>", unsafe_allow_html=True)
                     except ValueError:
                         st.error(f"Failed to parse feedback for User {user_id}: {feedback_output}")
 else:
