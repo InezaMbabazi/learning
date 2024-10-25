@@ -1,30 +1,13 @@
 import streamlit as st
-import openai
 import requests
 import pandas as pd
-from docx import Document  # Library to handle .docx files
+import os
 
-# Canvas API credentials
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your actual token
+# Canvas API token and base URL
+API_TOKEN = 'YOUR_API_TOKEN_HERE'  # Replace with your actual Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
-# Initialize OpenAI API with the secret key
-openai.api_key = st.secrets["openai"]["api_key"]
-
-# Function to get all assignments for a course
-def get_assignments(course_id):
-    headers = {"Authorization": f"Bearer {API_TOKEN}"}
-    assignments_url = f"{BASE_URL}/courses/{course_id}/assignments"
-    
-    response = requests.get(assignments_url, headers=headers)
-    
-    if response.status_code == 200:
-        return response.json()
-    else:
-        st.error("Failed to retrieve assignments.")
-        return []
-
-# Function to get submissions for the selected assignment
+# Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     submissions_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions"
@@ -37,115 +20,47 @@ def get_submissions(course_id, assignment_id):
         st.error("Failed to retrieve submissions.")
         return []
 
-# Function to extract text from a .docx file
-def extract_text_from_doc(doc_path):
-    document = Document(doc_path)
-    text = "\n".join([para.text for para in document.paragraphs])
-    return text
-
-# Function to provide grading feedback using OpenAI
-def get_grading(student_submission, proposed_answer, content_type):
-    grading_prompt = f"Evaluate the student's submission based on the proposed answer:\n\n"
-    if content_type == "Math (LaTeX)":
-        grading_prompt += f"**Proposed Answer (LaTeX)**: {proposed_answer}\n\n"
-        grading_prompt += f"**Student Submission (LaTeX)**: {student_submission}\n\n"
-        grading_prompt += "Provide feedback on correctness, grade out of 10, and suggest improvements."
-    elif content_type == "Programming (Code)":
-        grading_prompt += f"**Proposed Code**: {proposed_answer}\n\n"
-        grading_prompt += f"**Student Code Submission**: {student_submission}\n\n"
-        grading_prompt += "Check logic, efficiency, correctness, and grade out of 10."
+# Function to download a submission file
+def download_submission_file(file_url, filename):
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    response = requests.get(file_url, headers=headers)
+    
+    if response.status_code == 200:
+        with open(filename, 'wb') as f:
+            f.write(response.content)
+        return True
     else:
-        grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
-        grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-        grading_prompt += "Provide detailed feedback and grade out of 10. Suggest improvements."
-    
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": grading_prompt}]
-    )
-    
-    feedback = response['choices'][0]['message']['content']
-    return feedback
+        return False
 
 # Streamlit UI
-st.title("Canvas Assignment Grading Automation")
+st.title("Canvas Assignment Submissions Downloader")
 
-# Course ID
-course_id = 2624  # Replace with your course ID
+# Course and Assignment ID
+course_id = 2850  # Replace with your course ID
+assignment_id = 45964  # Replace with your assignment ID
 
-# Fetch all assignments for the course
-assignments = get_assignments(course_id)
-
-# Check if there are assignments
-if assignments:
-    # Display assignments in a selectbox
-    assignment_names = {assignment['name']: assignment['id'] for assignment in assignments}
-    selected_assignment_name = st.selectbox("Select an Assignment:", list(assignment_names.keys()))
-    selected_assignment_id = assignment_names[selected_assignment_name]
-    
-    # Fetch and display the submissions for the selected assignment
-    submissions = get_submissions(course_id, selected_assignment_id)
+# Fetch and display submissions
+if st.button("Download All Submissions"):
+    submissions = get_submissions(course_id, assignment_id)
     
     if submissions:
-        total_submissions = len(submissions)
-        st.write(f"Total Submissions for '{selected_assignment_name}': {total_submissions}")
+        download_folder = "submissions"
+        if not os.path.exists(download_folder):
+            os.makedirs(download_folder)
         
-        # Add count of unique students who submitted
-        unique_student_ids = set(submission['user_id'] for submission in submissions)
-        st.write(f"Number of Unique Students who Submitted: {len(unique_student_ids)}")
-        
-        # Proposed Answer Input
-        proposed_answer = st.text_area("Proposed Answer:", placeholder="Enter the correct answer here...")
-        
-        # Select content type
-        content_type = st.selectbox("Content Type:", options=["Text", "Math (LaTeX)", "Programming (Code)"])
-        
-        # Submit button to grade submissions
-        if st.button("Grade Submissions"):
-            if proposed_answer:
-                # DataFrame to store results
-                results = []
-
-                for submission in submissions:
-                    student_name = submission['user_id']  # Replace with actual student name retrieval logic
-                    student_submission = submission.get('submission_text', 'No submission text available')  # Example of getting the submission text
-
-                    # Grade the submission
-                    feedback = get_grading(student_submission, proposed_answer, content_type)
-                    grade = "8/10"  # Example static grade (you can modify this based on feedback logic)
-                    feedback_cleaned = feedback.replace(grade, "").strip()
-
-                    # Append the result to the list
-                    results.append({
-                        "Student Name": student_name,
-                        "Submission": student_submission,
-                        "Grade": grade,
-                        "Feedback": feedback_cleaned
-                    })
-
-                # Display results in a table
-                df_results = pd.DataFrame(results)
-                st.dataframe(df_results)
-
-                # Prepare the submission content for download
-                submission_content = "\n\n".join(
-                    [f"Student Name: {result['Student Name']}\n"
-                     f"Grade: {result['Grade']}\n"
-                     f"Feedback: {result['Feedback']}\n"
-                     f"Submission:\n{result['Submission']}\n" 
-                     for result in results]
-                )
+        for submission in submissions:
+            user_id = submission['user_id']
+            attachments = submission.get('attachments', [])
+            
+            for attachment in attachments:
+                file_url = attachment['url']
+                filename = os.path.join(download_folder, f"{user_id}_{attachment['filename']}")
                 
-                # Add a download button
-                st.download_button(
-                    label="Download Grading Results",
-                    data=submission_content,
-                    file_name="grading_results.txt",
-                    mime="text/plain"
-                )
-            else:
-                st.error("Please provide the proposed answer.")
+                if download_submission_file(file_url, filename):
+                    st.write(f"Downloaded {filename}")
+                else:
+                    st.write(f"Failed to download file for user {user_id}")
+        
+        st.success("All submissions downloaded successfully.")
     else:
         st.warning("No submissions found for this assignment.")
-else:
-    st.error("No assignments found for the course.")
