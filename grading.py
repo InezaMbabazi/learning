@@ -54,7 +54,7 @@ def generate_grading_feedback(submission_text, proposed_answer):
     prompt = f"Grade the following submission based on the proposed answer:\n\n" \
              f"Submission: {submission_text}\n" \
              f"Proposed Answer: {proposed_answer}\n" \
-             f"Provide a grade (out of 100) and feedback."
+             f"Provide a grade (out of 100) and detailed feedback on the submission's strengths and weaknesses."
     
     try:
         response = openai.ChatCompletion.create(
