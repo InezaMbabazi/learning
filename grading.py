@@ -134,6 +134,23 @@ if assignments:
                     # Display results in a table
                     df_results = pd.DataFrame(results)
                     st.dataframe(df_results)
+
+                    # Prepare the submission content for download
+                    submission_content = "\n\n".join(
+                        [f"Student Name: {result['Student Name']}\n"
+                         f"Grade: {result['Grade']}\n"
+                         f"Feedback: {result['Feedback']}\n"
+                         f"Submission:\n{result['Submission']}\n" 
+                         for result in results]
+                    )
+                    
+                    # Add a download button
+                    st.download_button(
+                        label="Download Submission Content",
+                        data=submission_content,
+                        file_name="submissions.txt",
+                        mime="text/plain"
+                    )
                 else:
                     st.error("Please upload student submissions.")
             else:
