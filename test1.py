@@ -2,7 +2,7 @@ import requests
 
 # Replace with your Canvas API URL and token
 canvas_url = 'https://kepler.instructure.com/api/v1'
-api_token = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your actual API token
+api_token = 'y1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your actual API token
 course_id = '2624'  # Course ID from the link you provided
 
 # Set the headers for authentication
@@ -11,13 +11,18 @@ headers = {
 }
 
 # 1. Get all assignments for the course
-assignments_url = f'{canvas_url}/api/v1/courses/{course_id}/assignments?per_page=100'
+assignments_url = f'{canvas_url}/courses/{course_id}/assignments?per_page=100'
+
+print(f"Fetching assignments from: {assignments_url}")
 
 response = requests.get(assignments_url, headers=headers)
 
 # Check status code for successful request
+print(f"Status code: {response.status_code}")  # This will show if the request was successful
 if response.status_code == 200:
     assignments = response.json()
+    
+    print(f"Response JSON: {assignments}")  # Print the raw response JSON
     
     if assignments:
         print("Assignments in this course:")
@@ -31,7 +36,8 @@ if response.status_code == 200:
         print(f"\nYou selected: {selected_assignment['name']} (ID: {assignment_id})")
         
         # 3. Retrieve submissions for the selected assignment
-        submission_url = f'{canvas_url}/api/v1/courses/{course_id}/assignments/{assignment_id}/submissions?per_page=100'
+        submission_url = f'{canvas_url}/courses/{course_id}/assignments/{assignment_id}/submissions?per_page=100'
+        print(f"Fetching submissions from: {submission_url}")
         
         # Initialize an empty list to hold all submissions
         all_submissions = []
@@ -39,6 +45,8 @@ if response.status_code == 200:
         # Make requests and handle pagination
         while submission_url:
             response = requests.get(submission_url, headers=headers)
+            print(f"Fetching page: {submission_url}")  # Show the URL being fetched
+            print(f"Status code for submissions: {response.status_code}")
             if response.status_code == 200:
                 data = response.json()
                 all_submissions.extend(data)  # Add the submissions to our list
@@ -46,10 +54,12 @@ if response.status_code == 200:
                 # Check if there are more pages
                 if 'next' in response.links:
                     submission_url = response.links['next']['url']  # Move to the next page
+                    print("Moving to next page...")
                 else:
                     submission_url = None  # No more pages
             else:
                 print(f"Failed to retrieve submissions: {response.status_code}")
+                print("Error response:", response.text)  # Print error details
                 break
 
         # Display or download submissions (this example just prints the submission IDs and users)
