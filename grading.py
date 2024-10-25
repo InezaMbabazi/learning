@@ -52,7 +52,7 @@ def submit_grade_feedback(course_id, assignment_id, user_id, grade, feedback):
     return response.status_code == 200
 
 # Streamlit UI
-st.title("Canvas Assignment Submissions Downloader and Grader")
+st.title("Canvas Assignment Submissions Downloader, Grader, and Preview")
 
 # Course and Assignment ID
 course_id = 2850  # Replace with your course ID
@@ -85,7 +85,7 @@ if st.button("Download All Submissions"):
         st.warning("No submissions found for this assignment.")
 
 # Grading and Feedback Section
-st.header("Grade and Provide Feedback")
+st.header("Grade, Provide Feedback, and Preview Submission")
 
 # Check if submissions were retrieved before displaying grading options
 if submissions:
@@ -93,6 +93,25 @@ if submissions:
         user_id = submission['user_id']
         st.subheader(f"Submission for User {user_id}")
         
+        # Find downloaded files
+        download_folder = "submissions"
+        user_files = [f for f in os.listdir(download_folder) if f.startswith(str(user_id))]
+
+        # Display each file
+        for user_file in user_files:
+            file_path = os.path.join(download_folder, user_file)
+            if user_file.endswith(".txt"):
+                with open(file_path, "r") as f:
+                    st.text(f.read())
+            elif user_file.endswith(".pdf"):
+                st.write("PDF file:", user_file)
+                st.download_button("Download PDF", open(file_path, "rb"), file_name=user_file)
+            elif user_file.endswith((".jpg", ".jpeg", ".png")):
+                st.image(file_path)
+            else:
+                st.write(f"File type not supported for preview: {user_file}")
+
+        # Grade and feedback inputs
         grade = st.text_input(f"Grade for User {user_id}", "")
         feedback = st.text_area(f"Feedback for User {user_id}", "")
 
