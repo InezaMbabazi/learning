@@ -8,7 +8,7 @@ import openai
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
-# OpenAI API Key
+# Load OpenAI API Key from Streamlit secrets
 openai.api_key = st.secrets["openai"]["api_key"]
 
 # Function to get submissions for an assignment
