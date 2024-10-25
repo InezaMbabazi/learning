@@ -1,7 +1,7 @@
 import requests
 
 # Replace with your Canvas API URL and token
-canvas_url = 'https://kepler.instructure.com'
+canvas_url = 'https://kepler.instructure.com/api/v1'
 api_token = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your actual API token
 course_id = '2624'  # Course ID from the link you provided
 
