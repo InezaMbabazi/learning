@@ -52,13 +52,11 @@ def generate_grading_feedback(submission_text, proposed_answer):
         st.error("OpenAI API key is not configured. Cannot generate feedback.")
         return None
     
-    prompt = (
-        f"Grade the following submission based on the proposed answer:\n\n"
-        f"Submission: {submission_text}\n"
-        f"Proposed Answer: {proposed_answer}\n"
-        f"Provide a grade (out of 100) and detailed feedback on the submission's strengths and weaknesses, "
-        f"especially in relation to the proposed answer. Highlight any discrepancies or areas of improvement."
-    )
+    prompt = f"Grade the following submission based on the proposed answer:\n\n" \
+             f"Submission: {submission_text}\n" \
+             f"Proposed Answer: {proposed_answer}\n" \
+             f"Provide a grade (out of 100) and detailed feedback on the submission's strengths and weaknesses, " \
+             f"especially in relation to the proposed answer. Highlight any discrepancies or areas of improvement."
     
     try:
         response = openai.ChatCompletion.create(
@@ -91,7 +89,7 @@ if st.button("Download All Submissions", key='download_button'):
 
         for submission in submissions:
             user_id = submission['user_id']
-            user_name = submission.get('user', {}).get('name', f"User {user_id}")  # Safe access to user name
+            user_name = submission['user']['name'] if 'user' in submission else f"User {user_id}"
             attachments = submission.get('attachments', [])
             
             submission_text = ""
@@ -119,6 +117,9 @@ if st.button("Download All Submissions", key='download_button'):
         submissions_df = pd.DataFrame(table_data)
         st.dataframe(submissions_df)
 
+        # Save submissions to a CSV file for later comparison
+        submissions_df.to_csv("submissions_data.csv", index=False)
+
 # Grading and Feedback Section
 st.header("Grade and Provide Feedback on Submission")
 
@@ -131,38 +132,27 @@ if 'submissions' in locals() and submissions:
     if proposed_answer:
         feedback_data = []
 
-        for submission in submissions:
-            user_id = submission['user_id']
-            user_name = submission.get('user', {}).get('name', f"User {user_id}")  # Safe access to user name
-            attachments = submission.get('attachments', [])
-            
-            submission_text = ""
-            for attachment in attachments:
-                file_url = attachment['url']
-                filename = os.path.join(download_folder, f"{user_id}_{attachment['filename']}")
-                
-                # Read the submission text based on the file type
-                if filename.endswith(".txt"):
-                    with open(filename, "r") as f:
-                        submission_text = f.read()
-                elif filename.endswith(".docx"):
-                    doc = Document(filename)
-                    submission_text = "\n".join([para.text for para in doc.paragraphs])
+        # Load submissions from the saved CSV file
+        submissions_df = pd.read_csv("submissions_data.csv")
 
-                # Generate feedback
-                feedback_output = generate_grading_feedback(submission_text, proposed_answer)
-                if feedback_output:
-                    try:
-                        # Split into grade and feedback
-                        grade, feedback = feedback_output.split('\n', 1)  
-                        feedback_data.append({
-                            "Student Name": user_name,
-                            "Submission": submission_text,
-                            "Grade": grade.strip(),
-                            "Feedback": feedback.strip()
-                        })
-                    except ValueError:
-                        st.error(f"Failed to parse feedback for User {user_id}: {feedback_output}")
+        for index, row in submissions_df.iterrows():
+            submission_text = row['Submission']
+            user_name = row['Student Name']
+
+            # Generate feedback
+            feedback_output = generate_grading_feedback(submission_text, proposed_answer)
+            if feedback_output:
+                try:
+                    # Split into grade and feedback
+                    grade, feedback = feedback_output.split('\n', 1)  
+                    feedback_data.append({
+                        "Student Name": user_name,
+                        "Submission": submission_text,
+                        "Grade": grade.strip(),
+                        "Feedback": feedback.strip()
+                    })
+                except ValueError:
+                    st.error(f"Failed to parse feedback for {user_name}: {feedback_output}")
 
         # Display feedback in a table
         feedback_df = pd.DataFrame(feedback_data)
