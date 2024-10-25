@@ -1,11 +1,13 @@
 import streamlit as st
 import requests
-import pandas as pd
 import os
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your actual Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
+
+# Initialize submissions as an empty list
+submissions = []
 
 # Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
@@ -85,16 +87,19 @@ if st.button("Download All Submissions"):
 # Grading and Feedback Section
 st.header("Grade and Provide Feedback")
 
-# Loop through each submission and allow grading
-for submission in submissions:
-    user_id = submission['user_id']
-    st.subheader(f"Submission for User {user_id}")
-    
-    grade = st.text_input(f"Grade for User {user_id}", "")
-    feedback = st.text_area(f"Feedback for User {user_id}", "")
+# Check if submissions were retrieved before displaying grading options
+if submissions:
+    for submission in submissions:
+        user_id = submission['user_id']
+        st.subheader(f"Submission for User {user_id}")
+        
+        grade = st.text_input(f"Grade for User {user_id}", "")
+        feedback = st.text_area(f"Feedback for User {user_id}", "")
 
-    if st.button(f"Submit Grade and Feedback for User {user_id}"):
-        if submit_grade_feedback(course_id, assignment_id, user_id, grade, feedback):
-            st.success(f"Grade and feedback submitted for User {user_id}")
-        else:
-            st.error(f"Failed to submit grade and feedback for User {user_id}")
+        if st.button(f"Submit Grade and Feedback for User {user_id}"):
+            if submit_grade_feedback(course_id, assignment_id, user_id, grade, feedback):
+                st.success(f"Grade and feedback submitted for User {user_id}")
+            else:
+                st.error(f"Failed to submit grade and feedback for User {user_id}")
+else:
+    st.warning("Please download submissions before grading.")
