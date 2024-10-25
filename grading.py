@@ -5,11 +5,11 @@ from docx import Document
 import openai
 
 # Canvas API token and base URL
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
+API_TOKEN = 'Y1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key
-openai.api_key = st.secrets["openai"]["api_key"]
+openai.api_key = 'YOUR_OPENAI_API_KEY'  # Replace with your OpenAI API key
 
 # Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
@@ -90,7 +90,7 @@ course_id = 2850  # Replace with your course ID
 assignment_id = 45964  # Replace with your assignment ID
 
 # Download submissions when the button is pressed
-if st.button("Download All Submissions", key='download_button'):
+if st.button("Download All Submissions", key='download_button', style="color: white; background-color: #27ae60;"):
     submissions = get_submissions(course_id, assignment_id)
     
     if submissions:
@@ -131,24 +131,27 @@ if 'submissions' in locals() and submissions:
         download_folder = "submissions"
         user_files = [f for f in os.listdir(download_folder) if f.startswith(str(user_id))]
 
-        # Display each file
+        # Display each file in a bordered section
         for user_file in user_files:
             file_path = os.path.join(download_folder, user_file)
-            if user_file.endswith(".txt"):
-                with open(file_path, "r") as f:
-                    st.text(f.read())
-            elif user_file.endswith(".pdf"):
-                st.write("PDF file:", user_file)
-                st.download_button("Download PDF", open(file_path, "rb"), file_name=user_file)
-            elif user_file.endswith((".jpg", ".jpeg", ".png")):
-                st.image(file_path)
-            elif user_file.endswith(".docx"):
-                # Read and display .docx content
-                doc = Document(file_path)
-                doc_text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
-                st.text(doc_text)
-            else:
-                st.write(f"File type not supported for preview: {user_file}")
+            with st.container():  # Create a bordered container
+                st.markdown(f"<div style='border: 2px solid #2980b9; padding: 10px; border-radius: 5px;'>", unsafe_allow_html=True)
+                if user_file.endswith(".txt"):
+                    with open(file_path, "r") as f:
+                        st.text(f.read())
+                elif user_file.endswith(".pdf"):
+                    st.write("PDF file:", user_file)
+                    st.download_button("Download PDF", open(file_path, "rb"), file_name=user_file)
+                elif user_file.endswith((".jpg", ".jpeg", ".png")):
+                    st.image(file_path)
+                elif user_file.endswith(".docx"):
+                    # Read and display .docx content
+                    doc = Document(file_path)
+                    doc_text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+                    st.text(doc_text)
+                else:
+                    st.write(f"File type not supported for preview: {user_file}")
+                st.markdown("</div>", unsafe_allow_html=True)  # Close the bordered container
 
         # Generate grade and feedback using OpenAI when button is clicked
         if st.button(f"Generate Grade and Feedback for User {user_id}", key=f'generate_{user_id}'):
@@ -170,11 +173,11 @@ if 'submissions' in locals() and submissions:
                     # Split feedback output into grade and feedback
                     grade, feedback = feedback_output.split('\n', 1)
                     st.text(f"Generated Grade: {grade.strip()}")
-                    st.text_area(f"Generated Feedback for User {user_id}", feedback.strip(), height=100)
+                    feedback_area = st.text_area(f"Generated Feedback for User {user_id}", feedback.strip(), height=100)
 
-                    # Submit grade and feedback if requested
-                    if st.button(f"Submit Grade and Feedback for User {user_id}", key=f'submit_{user_id}'):
-                        if submit_grade_feedback(course_id, assignment_id, user_id, grade.strip(), feedback.strip()):
+                    # Separate button to submit grade and feedback
+                    if st.button(f"Submit Grade and Feedback for User {user_id}", key=f'submit_{user_id}', style="color: white; background-color: #27ae60;"):
+                        if submit_grade_feedback(course_id, assignment_id, user_id, grade.strip(), feedback_area.strip()):
                             st.success(f"Grade and feedback submitted for User {user_id}")
                         else:
                             st.error(f"Failed to submit grade and feedback for User {user_id}")
