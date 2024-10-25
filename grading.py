@@ -1,21 +1,32 @@
-import streamlit as st 
+import streamlit as st
 import openai
 import requests
 import pandas as pd
 from docx import Document  # Library to handle .docx files
 
 # Canvas API credentials
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
+API_TOKEN = 'your_canvas_api_token'  # Replace with your actual token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Function to get submissions for the assignment
+# Function to get all assignments for a course
+def get_assignments(course_id):
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    assignments_url = f"{BASE_URL}/courses/{course_id}/assignments"
+    
+    response = requests.get(assignments_url, headers=headers)
+    
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error("Failed to retrieve assignments.")
+        return []
+
+# Function to get submissions for the selected assignment
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
-    
-    # Get submissions for the given assignment
     submissions_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions"
     
     response = requests.get(submissions_url, headers=headers)
@@ -26,7 +37,7 @@ def get_submissions(course_id, assignment_id):
         st.error("Failed to retrieve submissions.")
         return []
 
-# Function to extract text from a .doc file
+# Function to extract text from a .docx file
 def extract_text_from_doc(doc_path):
     document = Document(doc_path)
     text = "\n".join([para.text for para in document.paragraphs])
@@ -59,51 +70,70 @@ def get_grading(student_submission, proposed_answer, content_type):
 # Streamlit UI
 st.title("Canvas Assignment Grading Automation")
 
-# Course and Assignment ID
+# Course ID
 course_id = 2624  # Replace with your course ID
-assignment_id = 41195  # Replace with your assignment ID
 
-# Proposed Answer Input
-proposed_answer = st.text_area("Proposed Answer:", placeholder="Enter the correct answer here...")
+# Fetch all assignments for the course
+assignments = get_assignments(course_id)
 
-# Select content type
-content_type = st.selectbox("Content Type:", options=["Text", "Math (LaTeX)", "Programming (Code)"])
+# Check if there are assignments
+if assignments:
+    # Display assignments in a selectbox
+    assignment_names = {assignment['name']: assignment['id'] for assignment in assignments}
+    selected_assignment_name = st.selectbox("Select an Assignment:", list(assignment_names.keys()))
+    selected_assignment_id = assignment_names[selected_assignment_name]
+    
+    # Fetch and display the submissions for the selected assignment
+    submissions = get_submissions(course_id, selected_assignment_id)
+    
+    if submissions:
+        st.write(f"Total Submissions for '{selected_assignment_name}': {len(submissions)}")
+        
+        # Proposed Answer Input
+        proposed_answer = st.text_area("Proposed Answer:", placeholder="Enter the correct answer here...")
+        
+        # Select content type
+        content_type = st.selectbox("Content Type:", options=["Text", "Math (LaTeX)", "Programming (Code)"])
+        
+        # File uploader for submissions
+        uploaded_files = st.file_uploader("Upload Student Submissions (.docx)", accept_multiple_files=True)
+        
+        # Submit button to grade submissions
+        if st.button("Grade Submissions"):
+            if proposed_answer:
+                # Check if files are uploaded
+                if uploaded_files:
+                    # DataFrame to store results
+                    results = []
 
-# File uploader for submissions
-uploaded_files = st.file_uploader("Upload Student Submissions (.docx)", accept_multiple_files=True)
+                    for uploaded_file in uploaded_files:
+                        # Extract student name from file name
+                        student_name = uploaded_file.name.replace(".docx", "")
+                        
+                        # Extract the content from the uploaded .docx file
+                        student_submission = extract_text_from_doc(uploaded_file)
 
-# Submit button
-if st.button("Grade Submissions"):
-    if proposed_answer:
-        # Check if files are uploaded
-        if uploaded_files:
-            # DataFrame to store results
-            results = []
+                        # Grade the submission
+                        feedback = get_grading(student_submission, proposed_answer, content_type)
+                        grade = "8/10"  # Example static grade (you can modify this based on feedback logic)
+                        feedback_cleaned = feedback.replace(grade, "").strip()
 
-            for uploaded_file in uploaded_files:
-                # Extract student name from file name
-                student_name = uploaded_file.name.replace(".docx", "")
-                
-                # Extract the content from the uploaded .docx file
-                student_submission = extract_text_from_doc(uploaded_file)
+                        # Append the result to the list
+                        results.append({
+                            "Student Name": student_name,
+                            "Submission": student_submission,
+                            "Grade": grade,
+                            "Feedback": feedback_cleaned
+                        })
 
-                # Grade the submission
-                feedback = get_grading(student_submission, proposed_answer, content_type)
-                grade = "8/10"  # Example static grade (you can modify this based on feedback logic)
-                feedback_cleaned = feedback.replace(grade, "").strip()
-
-                # Append the result to the list
-                results.append({
-                    "Student Name": student_name,
-                    "Submission": student_submission,
-                    "Grade": grade,
-                    "Feedback": feedback_cleaned
-                })
-
-            # Display results in a table
-            df_results = pd.DataFrame(results)
-            st.dataframe(df_results)
-        else:
-            st.error("Please upload student submissions.")
+                    # Display results in a table
+                    df_results = pd.DataFrame(results)
+                    st.dataframe(df_results)
+                else:
+                    st.error("Please upload student submissions.")
+            else:
+                st.error("Please provide the proposed answer.")
     else:
-        st.error("Please provide the proposed answer.")
+        st.warning("No submissions found for this assignment.")
+else:
+    st.error("No assignments found for the course.")
