@@ -1,29 +1,15 @@
 import streamlit as st
 import requests
 import os
+from docx import Document
 import openai
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
-# Load OpenAI API Key from Streamlit secrets
+# OpenAI API Key from Streamlit secrets
 openai.api_key = st.secrets["openai"]["api_key"]
-
-# Function to get assignment details
-def get_assignment_details(course_id, assignment_id):
-    headers = {"Authorization": f"Bearer {API_TOKEN}"}
-    assignment_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}"
-    
-    try:
-        response = requests.get(assignment_url, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.HTTPError as http_err:
-        st.error(f"HTTP error occurred: {http_err}")
-    except Exception as err:
-        st.error(f"An error occurred: {err}")
-    return None
 
 # Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
@@ -32,7 +18,7 @@ def get_submissions(course_id, assignment_id):
     
     try:
         response = requests.get(submissions_url, headers=headers)
-        response.raise_for_status()
+        response.raise_for_status()  # Raise an error for HTTP errors
         return response.json()
     except requests.exceptions.HTTPError as http_err:
         st.error(f"HTTP error occurred: {http_err}")
@@ -103,20 +89,6 @@ st.title("Canvas Assignment Submissions Downloader, Grader, and Preview")
 course_id = 2850  # Replace with your course ID
 assignment_id = 45964  # Replace with your assignment ID
 
-# Display Assignment Details
-assignment_details = get_assignment_details(course_id, assignment_id)
-if assignment_details:
-    st.header(f"Assignment Title: {assignment_details['name']}")
-    st.subheader("Description:")
-    st.write(assignment_details['description'])
-
-# Proposed answers input
-proposed_answer = st.text_area("Enter Proposed Answer:", height=100)
-
-# Initialize feedback storage in session state if not already present
-if 'feedbacks' not in st.session_state:
-    st.session_state.feedbacks = {}
-
 # Download submissions when the button is pressed
 if st.button("Download All Submissions", key='download_button'):
     submissions = get_submissions(course_id, assignment_id)
@@ -140,54 +112,47 @@ if st.button("Download All Submissions", key='download_button'):
                     st.error(f"Failed to download file for user {user_id}")
         
         st.success("All submissions downloaded successfully.")
+    else:
+        st.warning("No submissions found for this assignment.")
 
-        # Automatically generate grades and feedback for all submissions
-        if proposed_answer:
-            for submission in submissions:
-                user_id = submission['user_id']
-                attachments = submission.get('attachments', [])
+# Grading and Feedback Section
+st.header("Grade, Provide Feedback, and Preview Submission")
+
+# Proposed answers input
+proposed_answer = st.text_area("Enter Proposed Answer:", height=100)
+
+# Check if submissions were retrieved before displaying grading options
+if 'submissions' in locals() and submissions:
+    # Automatically generate grades and feedback for all submissions
+    if proposed_answer:
+        for submission in submissions:
+            user_id = submission['user_id']
+            attachments = submission.get('attachments', [])
+            
+            submission_text = ""
+            for attachment in attachments:
+                file_url = attachment['url']
+                filename = os.path.join(download_folder, f"{user_id}_{attachment['filename']}")
                 
-                for attachment in attachments:
-                    file_url = attachment['url']
-                    filename = os.path.join(download_folder, f"{user_id}_{attachment['filename']}")
-                    
-                    if filename.endswith(".txt"):
-                        with open(filename, "r") as f:
-                            submission_text = f.read()
-                            st.write(f"Evaluating Submission from User {user_id}:\n{submission_text})  # Debugging line
-                            
-                            # Generate feedback
-                            feedback_output = generate_grading_feedback(submission_text, proposed_answer)
-                            if feedback_output:
-                                # Debugging: Check if output is not None
-                                st.write(f"Feedback Output for User {user_id}: {feedback_output}")  # Debugging line
-                                try:
-                                    grade, feedback = feedback_output.split('\n', 1)  # Split into grade and feedback
-                                    st.session_state.feedbacks[user_id] = (grade.strip(), feedback.strip())
-                                except ValueError:
-                                    st.error(f"Failed to parse feedback for User {user_id}: {feedback_output}")
-        
-        # Display generated feedback
-        if st.session_state.feedbacks:
-            st.header("Generated Grades and Feedback")
-            for user_id, (grade, feedback) in st.session_state.feedbacks.items():
-                st.subheader(f"Feedback for User {user_id}")
-                st.text(f"Generated Grade: {grade.strip()}")
-                st.text(f"Generated Feedback: {feedback.strip()}")
-
-# Submit grades and feedback
-if st.session_state.feedbacks:
-    st.header("Submit Grades and Feedback")
-    
-    for user_id, (grade, feedback) in st.session_state.feedbacks.items():
-        feedback_area = st.text_area(f"Feedback for User {user_id}", feedback.strip(), height=100)
-
-        # Separate button to submit grade and feedback
-        if st.button(f"Submit Grade and Feedback for User {user_id}", key=f'submit_{user_id}'):
-            if submit_grade_feedback(course_id, assignment_id, user_id, grade.strip(), feedback_area.strip()):
-                st.success(f"Grade and feedback submitted for User {user_id}")
-            else:
-                st.error(f"Failed to submit grade and feedback for User {user_id}")
+                if filename.endswith(".txt"):
+                    with open(filename, "r") as f:
+                        submission_text = f.read()
+                        st.write(f"Evaluating Submission from User {user_id}:\n{submission_text}")  # Display submission text
+                        
+                        # Generate feedback
+                        feedback_output = generate_grading_feedback(submission_text, proposed_answer)
+                        if feedback_output:
+                            # Debugging: Check if output is not None
+                            st.write(f"Feedback Output for User {user_id}: {feedback_output}")  # Debugging line
+                            try:
+                                grade, feedback = feedback_output.split('\n', 1)  # Split into grade and feedback
+                                st.session_state.feedbacks[user_id] = (grade.strip(), feedback.strip())
+                                st.text(f"Generated Grade: {grade.strip()}")
+                                st.text_area(f"Generated Feedback for User {user_id}", feedback.strip(), height=100)
+                            except ValueError:
+                                st.error(f"Failed to parse feedback for User {user_id}: {feedback_output}")
+else:
+    st.warning("Please download submissions before grading.")
 
 # Add some color for better user experience
 st.markdown("""
