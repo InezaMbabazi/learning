@@ -144,11 +144,11 @@ if assignments:
                          for result in results]
                     )
                     
-                    # Add a download button
+                    # Add a download button for the submission content
                     st.download_button(
-                        label="Download Submission Content",
+                        label="Download Graded Submissions",
                         data=submission_content,
-                        file_name="submissions.txt",
+                        file_name="graded_submissions.txt",
                         mime="text/plain"
                     )
                 else:
