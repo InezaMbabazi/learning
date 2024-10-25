@@ -6,7 +6,7 @@ import openai
 import pandas as pd
 
 # Canvas API token and base URL
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
+API_TOKEN = 'YOUR_CANVAS_API_TOKEN'  # Replace with your Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key from Streamlit secrets
@@ -51,12 +51,14 @@ def generate_grading_feedback(submission_text, proposed_answer):
     if openai.api_key is None:
         st.error("OpenAI API key is not configured. Cannot generate feedback.")
         return None
-    
-    prompt = f"Grade the following submission based on the proposed answer:\n\n" \
-             f"Submission: {submission_text}\n" \
-             f"Proposed Answer: {proposed_answer}\n" \
-             f"Provide a grade (out of 100) and detailed feedback on the submission's strengths and weaknesses, " \
-             f"especially in relation to the proposed answer. Highlight any discrepancies or areas of improvement."
+
+    prompt = (
+        f"Assess the following student's submission against the proposed answer:\n\n"
+        f"Submission: {submission_text}\n"
+        f"Proposed Answer: {proposed_answer}\n\n"
+        f"Grade the submission on a scale of 0 to 100 and provide detailed feedback on its strengths and weaknesses. "
+        f"If the submission does not adequately respond to the proposed answer, assign a score of 0 and provide specific feedback for improvement."
+    )
     
     try:
         response = openai.ChatCompletion.create(
@@ -139,20 +141,23 @@ if 'submissions' in locals() and submissions:
             submission_text = row['Submission']
             user_name = row['Student Name']
 
-            # Generate feedback
+            # Generate feedback from OpenAI directly
             feedback_output = generate_grading_feedback(submission_text, proposed_answer)
             if feedback_output:
                 try:
                     # Split into grade and feedback
                     grade, feedback = feedback_output.split('\n', 1)  
-                    feedback_data.append({
-                        "Student Name": user_name,
-                        "Submission": submission_text,
-                        "Grade": grade.strip(),
-                        "Feedback": feedback.strip()
-                    })
                 except ValueError:
                     st.error(f"Failed to parse feedback for {user_name}: {feedback_output}")
+                    grade, feedback = "N/A", "Feedback generation error."
+
+                # Append feedback data
+                feedback_data.append({
+                    "Student Name": user_name,
+                    "Submission": submission_text,
+                    "Grade": grade,
+                    "Feedback": feedback
+                })
 
         # Display feedback in a table
         feedback_df = pd.DataFrame(feedback_data)
