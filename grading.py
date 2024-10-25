@@ -5,11 +5,11 @@ from docx import Document
 import openai
 
 # Canvas API token and base URL
-API_TOKEN = 'Y1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
+API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key
-openai.api_key = st.secrets["openai"]["api_key"]
+openai.api_key = 'YOUR_OPENAI_API_KEY'  # Replace with your OpenAI API key
 
 # Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
@@ -90,7 +90,7 @@ course_id = 2850  # Replace with your course ID
 assignment_id = 45964  # Replace with your assignment ID
 
 # Download submissions when the button is pressed
-if st.button("Download All Submissions", key='download_button', style="color: white; background-color: #27ae60;"):
+if st.button("Download All Submissions", key='download_button'):
     submissions = get_submissions(course_id, assignment_id)
     
     if submissions:
@@ -176,7 +176,7 @@ if 'submissions' in locals() and submissions:
                     feedback_area = st.text_area(f"Generated Feedback for User {user_id}", feedback.strip(), height=100)
 
                     # Separate button to submit grade and feedback
-                    if st.button(f"Submit Grade and Feedback for User {user_id}", key=f'submit_{user_id}', style="color: white; background-color: #27ae60;"):
+                    if st.button(f"Submit Grade and Feedback for User {user_id}", key=f'submit_{user_id}'):
                         if submit_grade_feedback(course_id, assignment_id, user_id, grade.strip(), feedback_area.strip()):
                             st.success(f"Grade and feedback submitted for User {user_id}")
                         else:
