@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 import os
-from docx import Document
 import openai
 
 # Canvas API token and base URL
@@ -11,6 +10,21 @@ BASE_URL = 'https://kepler.instructure.com/api/v1'
 # Load OpenAI API Key from Streamlit secrets
 openai.api_key = st.secrets["openai"]["api_key"]
 
+# Function to get assignment details
+def get_assignment_details(course_id, assignment_id):
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    assignment_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}"
+    
+    try:
+        response = requests.get(assignment_url, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"HTTP error occurred: {http_err}")
+    except Exception as err:
+        st.error(f"An error occurred: {err}")
+    return None
+
 # Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
@@ -18,7 +32,7 @@ def get_submissions(course_id, assignment_id):
     
     try:
         response = requests.get(submissions_url, headers=headers)
-        response.raise_for_status()  # Raise an error for HTTP errors
+        response.raise_for_status()
         return response.json()
     except requests.exceptions.HTTPError as http_err:
         st.error(f"HTTP error occurred: {http_err}")
@@ -89,6 +103,13 @@ st.title("Canvas Assignment Submissions Downloader, Grader, and Preview")
 course_id = 2850  # Replace with your course ID
 assignment_id = 45964  # Replace with your assignment ID
 
+# Display Assignment Details
+assignment_details = get_assignment_details(course_id, assignment_id)
+if assignment_details:
+    st.header(f"Assignment Title: {assignment_details['name']}")
+    st.subheader("Description:")
+    st.write(assignment_details['description'])
+
 # Proposed answers input
 proposed_answer = st.text_area("Enter Proposed Answer:", height=100)
 
@@ -133,7 +154,7 @@ if st.button("Download All Submissions", key='download_button'):
                     if filename.endswith(".txt"):
                         with open(filename, "r") as f:
                             submission_text = f.read()
-                            st.write(f"Evaluating Submission from User {user_id}:\n{submission_text}")  # Debugging line
+                            st.write(f"Evaluating Submission from User {user_id}:\n{submission_text})  # Debugging line
                             
                             # Generate feedback
                             feedback_output = generate_grading_feedback(submission_text, proposed_answer)
