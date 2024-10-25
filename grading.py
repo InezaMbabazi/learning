@@ -71,7 +71,7 @@ def get_grading(student_submission, proposed_answer, content_type):
 st.title("Canvas Assignment Grading Automation")
 
 # Course ID
-course_id = 2624  # Replace with your course ID
+course_id = 2850  # Replace with your course ID
 
 # Fetch all assignments for the course
 assignments = get_assignments(course_id)
