@@ -55,7 +55,7 @@ st.title("Canvas Assignment Submissions with Automated Grading and Feedback")
 
 # Course and Assignment ID
 course_id = 2850  # Replace with your course ID
-assignment_id = 46672  # Replace with your assignment ID
+assignment_id = 45964  # Replace with your assignment ID
 
 # Fetch submissions
 submissions = []
