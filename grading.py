@@ -105,12 +105,8 @@ if st.button("Download All Submissions", key='download_button'):
         if not os.path.exists(download_folder):
             os.makedirs(download_folder)
         
-        submission_texts = []  # To store all submission texts
-        user_ids = []          # To store user IDs
-        
         for submission in submissions:
             user_id = submission['user_id']
-            user_ids.append(user_id)
             attachments = submission.get('attachments', [])
             
             for attachment in attachments:
@@ -128,7 +124,6 @@ if st.button("Download All Submissions", key='download_button'):
         if proposed_answer:
             for submission in submissions:
                 user_id = submission['user_id']
-                user_ids.append(user_id)
                 attachments = submission.get('attachments', [])
                 
                 for attachment in attachments:
@@ -138,13 +133,18 @@ if st.button("Download All Submissions", key='download_button'):
                     if filename.endswith(".txt"):
                         with open(filename, "r") as f:
                             submission_text = f.read()
-                            submission_texts.append(submission_text)  # Collect submission text
+                            st.write(f"Evaluating Submission from User {user_id}:\n{submission_text}")  # Debugging line
                             
                             # Generate feedback
                             feedback_output = generate_grading_feedback(submission_text, proposed_answer)
                             if feedback_output:
-                                grade, feedback = feedback_output.split('\n', 1)  # Split into grade and feedback
-                                st.session_state.feedbacks[user_id] = (grade.strip(), feedback.strip())
+                                # Debugging: Check if output is not None
+                                st.write(f"Feedback Output for User {user_id}: {feedback_output}")  # Debugging line
+                                try:
+                                    grade, feedback = feedback_output.split('\n', 1)  # Split into grade and feedback
+                                    st.session_state.feedbacks[user_id] = (grade.strip(), feedback.strip())
+                                except ValueError:
+                                    st.error(f"Failed to parse feedback for User {user_id}: {feedback_output}")
         
         # Display generated feedback
         if st.session_state.feedbacks:
