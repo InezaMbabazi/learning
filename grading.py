@@ -166,7 +166,7 @@ if 'submissions' in locals() and submissions:
         st.dataframe(feedback_df)
 
 # Add some color for better user experience
-st.markdown("""
+st.markdown(""" 
 <style>
 body {
     background-color: #f0f4f7; /* Light background color */
