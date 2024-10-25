@@ -9,8 +9,7 @@ API_TOKEN = 'your_canvas_api_token'  # Replace with your actual Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key
-OPENAI_API_KEY = 'your_openai_api_key'  # Replace with your OpenAI API key
-openai.api_key = OPENAI_API_KEY
+openai.api_key = st.secrets["openai"]["api_key"]
 
 # Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
