@@ -11,7 +11,6 @@ BASE_URL = 'https://kepler.instructure.com/api/v1'
 # OpenAI API Key
 openai.api_key = st.secrets["openai"]["api_key"]
 
-
 # Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
@@ -124,6 +123,8 @@ proposed_answer = st.text_area("Enter Proposed Answer:", height=100)
 
 # Check if submissions were retrieved before displaying grading options
 if 'submissions' in locals() and submissions:
+    feedback_list = []  # List to hold generated feedback for each user
+
     for submission in submissions:
         user_id = submission['user_id']
         st.subheader(f"Submission for User {user_id}")
@@ -154,34 +155,38 @@ if 'submissions' in locals() and submissions:
                     st.write(f"File type not supported for preview: {user_file}")
                 st.markdown("</div>", unsafe_allow_html=True)  # Close the bordered container
 
-        # Generate grade and feedback using OpenAI when button is clicked
-        if st.button(f"Generate Grade and Feedback for User {user_id}", key=f'generate_{user_id}'):
+        # Generate grade and feedback for all submissions when button is clicked
+        if st.button(f"Generate All Grades and Feedback", key=f'generate_all_{user_id}'):
             # Read the submission content
-            if user_files:
-                submission_text = ""
-                for user_file in user_files:
-                    file_path = os.path.join(download_folder, user_file)
-                    if user_file.endswith(".txt"):
-                        with open(file_path, "r") as f:
-                            submission_text += f.read() + "\n"
-                    elif user_file.endswith(".docx"):
-                        doc = Document(file_path)
-                        submission_text += "\n".join([paragraph.text for paragraph in doc.paragraphs]) + "\n"
+            submission_text = ""
+            for user_file in user_files:
+                file_path = os.path.join(download_folder, user_file)
+                if user_file.endswith(".txt"):
+                    with open(file_path, "r") as f:
+                        submission_text += f.read() + "\n"
+                elif user_file.endswith(".docx"):
+                    doc = Document(file_path)
+                    submission_text += "\n".join([paragraph.text for paragraph in doc.paragraphs]) + "\n"
 
-                # Generate grading and feedback
-                feedback_output = generate_grading_feedback(submission_text, proposed_answer)
-                if feedback_output:
-                    # Split feedback output into grade and feedback
-                    grade, feedback = feedback_output.split('\n', 1)
-                    st.text(f"Generated Grade: {grade.strip()}")
-                    feedback_area = st.text_area(f"Generated Feedback for User {user_id}", feedback.strip(), height=100)
+            # Generate grading and feedback
+            feedback_output = generate_grading_feedback(submission_text, proposed_answer)
+            if feedback_output:
+                # Split feedback output into grade and feedback
+                grade, feedback = feedback_output.split('\n', 1)
+                st.text(f"Generated Grade: {grade.strip()}")
+                feedback_area = st.text_area(f"Generated Feedback for User {user_id}", feedback.strip(), height=100)
+                
+                # Store the feedback for submission later
+                feedback_list.append((user_id, grade.strip(), feedback_area.strip()))
 
-                    # Separate button to submit grade and feedback
-                    if st.button(f"Submit Grade and Feedback for User {user_id}", key=f'submit_{user_id}'):
-                        if submit_grade_feedback(course_id, assignment_id, user_id, grade.strip(), feedback_area.strip()):
-                            st.success(f"Grade and feedback submitted for User {user_id}")
-                        else:
-                            st.error(f"Failed to submit grade and feedback for User {user_id}")
+    # Submit all grades and feedback at once
+    if st.button("Submit All Grades and Feedback"):
+        for user_id, grade, feedback in feedback_list:
+            if submit_grade_feedback(course_id, assignment_id, user_id, grade, feedback):
+                st.success(f"Grade and feedback submitted for User {user_id}")
+            else:
+                st.error(f"Failed to submit grade and feedback for User {user_id}")
+
 else:
     st.warning("Please download submissions before grading.")
 
