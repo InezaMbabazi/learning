@@ -57,7 +57,8 @@ def generate_grading_feedback(submission_text, proposed_answer):
         f"Assess how well the submission aligns with the proposed answer and rate it on a scale of 0 to 100.\n\n"
         f"Submission: {submission_text}\n"
         f"Proposed Answer: {proposed_answer}\n\n"
-        f"Provide a detailed assessment of the alignment, including strengths, weaknesses, and areas for improvement."
+        f"Provide a detailed assessment of the alignment, including strengths, weaknesses, and areas for improvement. "
+        f"Return the grade first followed by the feedback."
     )
     
     try:
