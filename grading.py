@@ -9,7 +9,7 @@ API_TOKEN = 'Y1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key
-openai.api_key = 'YOUR_OPENAI_API_KEY'  # Replace with your OpenAI API key
+openai.api_key = st.secrets["openai"]["api_key"]
 
 # Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
