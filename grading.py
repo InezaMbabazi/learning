@@ -3,9 +3,10 @@ import requests
 import os
 from docx import Document
 import openai
+import pandas as pd
 
 # Canvas API token and base URL
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
+API_TOKEN = 'YOUR_CANVAS_API_TOKEN'  # Replace with your Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key from Streamlit secrets
@@ -83,8 +84,12 @@ if st.button("Download All Submissions", key='download_button'):
         if not os.path.exists(download_folder):
             os.makedirs(download_folder)
         
+        # Prepare data for displaying in a table
+        table_data = []
+
         for submission in submissions:
             user_id = submission['user_id']
+            user_name = submission['user']['name'] if 'user' in submission else f"User {user_id}"
             attachments = submission.get('attachments', [])
             
             submission_text = ""
@@ -99,17 +104,18 @@ if st.button("Download All Submissions", key='download_button'):
                     if filename.endswith(".txt"):
                         with open(filename, "r") as f:
                             submission_text = f.read()
-                            st.write(f"Submission Content from User {user_id}:\n{submission_text}")  # Display submission content
                     elif filename.endswith(".docx"):
                         doc = Document(filename)
-                        doc_text = "\n".join([para.text for para in doc.paragraphs])
-                        st.write(f"Submission Content from User {user_id}:\n{doc_text}")  # Display docx content
-                else:
-                    st.error(f"Failed to download file for user {user_id}")
+                        submission_text = "\n".join([para.text for para in doc.paragraphs])
+                
+                # Collect data for the table
+                table_data.append({"Student Name": user_name, "Submission": submission_text})
         
         st.success("All submissions downloaded successfully.")
-    else:
-        st.warning("No submissions found for this assignment.")
+        
+        # Display submissions in a table
+        submissions_df = pd.DataFrame(table_data)
+        st.dataframe(submissions_df)
 
 # Grading and Feedback Section
 st.header("Grade and Provide Feedback on Submission")
@@ -121,6 +127,8 @@ proposed_answer = st.text_area("Enter Proposed Answer:", height=100)
 if 'submissions' in locals() and submissions:
     # Automatically generate grades and feedback for all submissions
     if proposed_answer:
+        feedback_data = []
+
         for submission in submissions:
             user_id = submission['user_id']
             attachments = submission.get('attachments', [])
@@ -138,21 +146,24 @@ if 'submissions' in locals() and submissions:
                     doc = Document(filename)
                     submission_text = "\n".join([para.text for para in doc.paragraphs])
 
-                # Display the submission text
-                st.write(f"Evaluating Submission from User {user_id}:\n{submission_text}")  # Display submission text
-                        
                 # Generate feedback
                 feedback_output = generate_grading_feedback(submission_text, proposed_answer)
                 if feedback_output:
                     try:
                         # Split into grade and feedback
                         grade, feedback = feedback_output.split('\n', 1)  
-                        st.markdown(f"<p style='color: green;'>Generated Grade: {grade.strip()}</p>", unsafe_allow_html=True)
-                        st.markdown(f"<p style='color: blue;'>Generated Feedback for User {user_id}: {feedback.strip()}</p>", unsafe_allow_html=True)
+                        feedback_data.append({
+                            "Student Name": submission['user']['name'],
+                            "Submission": submission_text,
+                            "Grade": grade.strip(),
+                            "Feedback": feedback.strip()
+                        })
                     except ValueError:
                         st.error(f"Failed to parse feedback for User {user_id}: {feedback_output}")
-else:
-    st.warning("Please download submissions before grading.")
+
+        # Display feedback in a table
+        feedback_df = pd.DataFrame(feedback_data)
+        st.dataframe(feedback_df)
 
 # Add some color for better user experience
 st.markdown("""
