@@ -121,6 +121,10 @@ st.header("Grade, Provide Feedback, and Preview Submission")
 # Proposed answers input
 proposed_answer = st.text_area("Enter Proposed Answer:", height=100)
 
+# Initialize feedback storage in session state if not already present
+if 'feedbacks' not in st.session_state:
+    st.session_state.feedbacks = {}
+
 # Check if submissions were retrieved before displaying grading options
 if 'submissions' in locals() and submissions:
     submission_texts = []  # To store all submission texts
@@ -162,19 +166,20 @@ if 'submissions' in locals() and submissions:
 
     # Generate grade and feedback for all submissions when the button is clicked
     if st.button("Generate Grades and Feedback for All Submissions", key='generate_all'):
-        all_feedbacks = []
-        for submission_text in submission_texts:
+        all_feedbacks = {}
+        for user_id, submission_text in zip(user_ids, submission_texts):
             feedback_output = generate_grading_feedback(submission_text, proposed_answer)
             if feedback_output:
-                all_feedbacks.append(feedback_output)
+                grade, feedback = feedback_output.split('\n', 1)  # Split into grade and feedback
+                all_feedbacks[user_id] = (grade.strip(), feedback.strip())
         
         # Store the feedback results
         if all_feedbacks:
-            st.session_state.feedbacks = {user_id: feedback.split('\n', 1) for user_id, feedback in zip(user_ids, all_feedbacks)}
+            st.session_state.feedbacks = all_feedbacks
             st.success("Grades and feedback generated successfully.")
 
 # Submit grades and feedback
-if 'feedbacks' in st.session_state:
+if st.session_state.feedbacks:
     st.header("Submit Grades and Feedback")
     
     for user_id, (grade, feedback) in st.session_state.feedbacks.items():
