@@ -1,9 +1,9 @@
 import requests
 
 # Replace with your Canvas API URL and token
-canvas_url = 'https://kepler.instructure.com/api/v1'
-api_token = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your actual API token
-course_id = '2624'  # Replace with your actual course ID
+API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
+BASE_URL = 'https://kepler.instructure.com/api/v1'
+course_id = '2624'  # Course ID from the link you provided
 
 # Set the headers for authentication
 headers = {
@@ -14,8 +14,11 @@ headers = {
 assignments_url = f'{canvas_url}/api/v1/courses/{course_id}/assignments?per_page=100'
 
 response = requests.get(assignments_url, headers=headers)
+
+# Check status code for successful request
 if response.status_code == 200:
     assignments = response.json()
+    
     if assignments:
         print("Assignments in this course:")
         for idx, assignment in enumerate(assignments, 1):
@@ -25,7 +28,7 @@ if response.status_code == 200:
         assignment_choice = int(input("Enter the number of the assignment you want to view submissions for: ")) - 1
         selected_assignment = assignments[assignment_choice]
         assignment_id = selected_assignment['id']
-        print(f"\nYou selected: {selected_assignment['name']}")
+        print(f"\nYou selected: {selected_assignment['name']} (ID: {assignment_id})")
         
         # 3. Retrieve submissions for the selected assignment
         submission_url = f'{canvas_url}/api/v1/courses/{course_id}/assignments/{assignment_id}/submissions?per_page=100'
@@ -49,14 +52,15 @@ if response.status_code == 200:
                 print(f"Failed to retrieve submissions: {response.status_code}")
                 break
 
-        # Save or process submissions (this example just prints the submission IDs)
+        # Display or download submissions (this example just prints the submission IDs and users)
         if all_submissions:
             print(f"\nTotal submissions retrieved for {selected_assignment['name']}: {len(all_submissions)}")
             for submission in all_submissions:
-                print(f"Submission ID: {submission['id']}, Submitted by: {submission['user_id']}")
+                print(f"Submission ID: {submission['id']}, Submitted by User ID: {submission['user_id']}")
         else:
             print("No submissions found.")
     else:
         print("No assignments found in this course.")
 else:
-    print(f"Failed to retrieve assignments: {response.status_code}")
+    print(f"Failed to retrieve assignments. Status code: {response.status_code}")
+    print("Response details:", response.text)  # Print the full response details if needed
