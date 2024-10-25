@@ -5,7 +5,7 @@ import pandas as pd
 from docx import Document  # Library to handle .docx files
 
 # Canvas API credentials
-API_TOKEN = 'your_canvas_api_token'  # Replace with your actual token
+API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your actual token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # Initialize OpenAI API with the secret key
