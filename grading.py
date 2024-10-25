@@ -9,7 +9,11 @@ API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9C
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key from Streamlit secrets
-openai.api_key = st.secrets["openai"]["api_key"]
+try:
+    openai.api_key = st.secrets["openai"]["api_key"]
+except KeyError:
+    st.error("OpenAI API key is missing. Please check your configuration.")
+    openai.api_key = None
 
 # Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
@@ -41,32 +45,12 @@ def download_submission_file(file_url, filename):
         st.error(f"An error occurred while downloading: {err}")
     return False
 
-# Function to submit grade and feedback
-def submit_grade_feedback(course_id, assignment_id, user_id, grade, feedback):
-    headers = {"Authorization": f"Bearer {API_TOKEN}"}
-    grade_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
-    
-    data = {
-        "submission": {
-            "posted_grade": grade,
-            "comment": {
-                "text_comment": feedback
-            }
-        }
-    }
-    
-    try:
-        response = requests.put(grade_url, headers=headers, json=data)
-        response.raise_for_status()
-        return True
-    except requests.exceptions.HTTPError as http_err:
-        st.error(f"HTTP error occurred while submitting grade: {http_err}")
-    except Exception as err:
-        st.error(f"An error occurred while submitting grade: {err}")
-    return False
-
 # Function to generate grading and feedback using OpenAI
 def generate_grading_feedback(submission_text, proposed_answer):
+    if openai.api_key is None:
+        st.error("OpenAI API key is not configured. Cannot generate feedback.")
+        return None
+    
     prompt = f"Grade the following submission based on the proposed answer:\n\n" \
              f"Submission: {submission_text}\n" \
              f"Proposed Answer: {proposed_answer}\n" \
@@ -153,11 +137,8 @@ if 'submissions' in locals() and submissions:
                         # Generate feedback
                         feedback_output = generate_grading_feedback(submission_text, proposed_answer)
                         if feedback_output:
-                            # Debugging: Check if output is not None
-                            st.write(f"Feedback Output for User {user_id}: {feedback_output}")  # Debugging line
                             try:
                                 grade, feedback = feedback_output.split('\n', 1)  # Split into grade and feedback
-                                st.session_state.feedbacks[user_id] = (grade.strip(), feedback.strip())
                                 st.text(f"Generated Grade: {grade.strip()}")
                                 st.text_area(f"Generated Feedback for User {user_id}", feedback.strip(), height=100)
                             except ValueError:
