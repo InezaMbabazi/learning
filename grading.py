@@ -56,7 +56,7 @@ st.title("Canvas Assignment Submissions Downloader, Grader, and Preview")
 
 # Course and Assignment ID
 course_id = 2850  # Replace with your course ID
-assignment_id = 45964  # Replace with your assignment ID
+assignment_id = 46672  # Replace with your assignment ID
 
 # Fetch and display submissions
 if st.button("Download All Submissions"):
