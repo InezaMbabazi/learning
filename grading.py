@@ -123,10 +123,12 @@ proposed_answer = st.text_area("Enter Proposed Answer:", height=100)
 
 # Check if submissions were retrieved before displaying grading options
 if 'submissions' in locals() and submissions:
-    feedback_list = []  # List to hold generated feedback for each user
+    submission_texts = []  # To store all submission texts
+    user_ids = []          # To store user IDs
 
     for submission in submissions:
         user_id = submission['user_id']
+        user_ids.append(user_id)
         st.subheader(f"Submission for User {user_id}")
 
         # Find downloaded files
@@ -140,7 +142,9 @@ if 'submissions' in locals() and submissions:
                 st.markdown(f"<div style='border: 2px solid #2980b9; padding: 10px; border-radius: 5px;'>", unsafe_allow_html=True)
                 if user_file.endswith(".txt"):
                     with open(file_path, "r") as f:
-                        st.text(f.read())
+                        submission_text = f.read()
+                        submission_texts.append(submission_text)  # Collect submission text
+                        st.text(submission_text)
                 elif user_file.endswith(".pdf"):
                     st.write("PDF file:", user_file)
                     st.download_button("Download PDF", open(file_path, "rb"), file_name=user_file)
@@ -150,45 +154,40 @@ if 'submissions' in locals() and submissions:
                     # Read and display .docx content
                     doc = Document(file_path)
                     doc_text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+                    submission_texts.append(doc_text)  # Collect submission text
                     st.text(doc_text)
                 else:
                     st.write(f"File type not supported for preview: {user_file}")
                 st.markdown("</div>", unsafe_allow_html=True)  # Close the bordered container
 
-        # Generate grade and feedback for all submissions when button is clicked
-        if st.button(f"Generate All Grades and Feedback", key=f'generate_all_{user_id}'):
-            # Read the submission content
-            submission_text = ""
-            for user_file in user_files:
-                file_path = os.path.join(download_folder, user_file)
-                if user_file.endswith(".txt"):
-                    with open(file_path, "r") as f:
-                        submission_text += f.read() + "\n"
-                elif user_file.endswith(".docx"):
-                    doc = Document(file_path)
-                    submission_text += "\n".join([paragraph.text for paragraph in doc.paragraphs]) + "\n"
-
-            # Generate grading and feedback
+    # Generate grade and feedback for all submissions when the button is clicked
+    if st.button("Generate Grades and Feedback for All Submissions", key='generate_all'):
+        all_feedbacks = []
+        for submission_text in submission_texts:
             feedback_output = generate_grading_feedback(submission_text, proposed_answer)
             if feedback_output:
-                # Split feedback output into grade and feedback
-                grade, feedback = feedback_output.split('\n', 1)
-                st.text(f"Generated Grade: {grade.strip()}")
-                feedback_area = st.text_area(f"Generated Feedback for User {user_id}", feedback.strip(), height=100)
-                
-                # Store the feedback for submission later
-                feedback_list.append((user_id, grade.strip(), feedback_area.strip()))
+                all_feedbacks.append(feedback_output)
+        
+        # Store the feedback results
+        if all_feedbacks:
+            st.session_state.feedbacks = {user_id: feedback.split('\n', 1) for user_id, feedback in zip(user_ids, all_feedbacks)}
+            st.success("Grades and feedback generated successfully.")
 
-    # Submit all grades and feedback at once
-    if st.button("Submit All Grades and Feedback"):
-        for user_id, grade, feedback in feedback_list:
-            if submit_grade_feedback(course_id, assignment_id, user_id, grade, feedback):
+# Submit grades and feedback
+if 'feedbacks' in st.session_state:
+    st.header("Submit Grades and Feedback")
+    
+    for user_id, (grade, feedback) in st.session_state.feedbacks.items():
+        st.subheader(f"Feedback for User {user_id}")
+        st.text(f"Generated Grade: {grade.strip()}")
+        feedback_area = st.text_area(f"Generated Feedback for User {user_id}", feedback.strip(), height=100)
+
+        # Separate button to submit grade and feedback
+        if st.button(f"Submit Grade and Feedback for User {user_id}", key=f'submit_{user_id}'):
+            if submit_grade_feedback(course_id, assignment_id, user_id, grade.strip(), feedback_area.strip()):
                 st.success(f"Grade and feedback submitted for User {user_id}")
             else:
                 st.error(f"Failed to submit grade and feedback for User {user_id}")
-
-else:
-    st.warning("Please download submissions before grading.")
 
 # Add some color for better user experience
 st.markdown("""
