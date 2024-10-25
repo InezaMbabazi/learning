@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import os
+from docx import Document  # Import for reading .docx files
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your actual Canvas API token
@@ -56,7 +57,7 @@ st.title("Canvas Assignment Submissions Downloader, Grader, and Preview")
 
 # Course and Assignment ID
 course_id = 2850  # Replace with your course ID
-assignment_id = 46672  # Replace with your assignment ID
+assignment_id = 45964  # Replace with your assignment ID
 
 # Fetch and display submissions
 if st.button("Download All Submissions"):
@@ -108,6 +109,11 @@ if submissions:
                 st.download_button("Download PDF", open(file_path, "rb"), file_name=user_file)
             elif user_file.endswith((".jpg", ".jpeg", ".png")):
                 st.image(file_path)
+            elif user_file.endswith(".docx"):
+                # Read and display .docx content
+                doc = Document(file_path)
+                doc_text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+                st.text(doc_text)
             else:
                 st.write(f"File type not supported for preview: {user_file}")
 
