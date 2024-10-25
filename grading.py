@@ -1,4 +1,4 @@
-import streamlit as st 
+import streamlit as st
 import openai
 import requests
 import pandas as pd
@@ -100,59 +100,49 @@ if assignments:
         # Select content type
         content_type = st.selectbox("Content Type:", options=["Text", "Math (LaTeX)", "Programming (Code)"])
         
-        # File uploader for submissions
-        uploaded_files = st.file_uploader("Upload Student Submissions (.docx)", accept_multiple_files=True)
-        
         # Submit button to grade submissions
         if st.button("Grade Submissions"):
             if proposed_answer:
-                # Check if files are uploaded
-                if uploaded_files:
-                    # DataFrame to store results
-                    results = []
+                # DataFrame to store results
+                results = []
 
-                    for uploaded_file in uploaded_files:
-                        # Extract student name from file name
-                        student_name = uploaded_file.name.replace(".docx", "")
-                        
-                        # Extract the content from the uploaded .docx file
-                        student_submission = extract_text_from_doc(uploaded_file)
+                for submission in submissions:
+                    student_name = submission['user_id']  # Replace with actual student name retrieval logic
+                    student_submission = submission.get('submission_text', 'No submission text available')  # Example of getting the submission text
 
-                        # Grade the submission
-                        feedback = get_grading(student_submission, proposed_answer, content_type)
-                        grade = "8/10"  # Example static grade (you can modify this based on feedback logic)
-                        feedback_cleaned = feedback.replace(grade, "").strip()
+                    # Grade the submission
+                    feedback = get_grading(student_submission, proposed_answer, content_type)
+                    grade = "8/10"  # Example static grade (you can modify this based on feedback logic)
+                    feedback_cleaned = feedback.replace(grade, "").strip()
 
-                        # Append the result to the list
-                        results.append({
-                            "Student Name": student_name,
-                            "Submission": student_submission,
-                            "Grade": grade,
-                            "Feedback": feedback_cleaned
-                        })
+                    # Append the result to the list
+                    results.append({
+                        "Student Name": student_name,
+                        "Submission": student_submission,
+                        "Grade": grade,
+                        "Feedback": feedback_cleaned
+                    })
 
-                    # Display results in a table
-                    df_results = pd.DataFrame(results)
-                    st.dataframe(df_results)
+                # Display results in a table
+                df_results = pd.DataFrame(results)
+                st.dataframe(df_results)
 
-                    # Prepare the submission content for download
-                    submission_content = "\n\n".join(
-                        [f"Student Name: {result['Student Name']}\n"
-                         f"Grade: {result['Grade']}\n"
-                         f"Feedback: {result['Feedback']}\n"
-                         f"Submission:\n{result['Submission']}\n" 
-                         for result in results]
-                    )
-                    
-                    # Add a download button for the submission content
-                    st.download_button(
-                        label="Download Graded Submissions",
-                        data=submission_content,
-                        file_name="graded_submissions.txt",
-                        mime="text/plain"
-                    )
-                else:
-                    st.error("Please upload student submissions.")
+                # Prepare the submission content for download
+                submission_content = "\n\n".join(
+                    [f"Student Name: {result['Student Name']}\n"
+                     f"Grade: {result['Grade']}\n"
+                     f"Feedback: {result['Feedback']}\n"
+                     f"Submission:\n{result['Submission']}\n" 
+                     for result in results]
+                )
+                
+                # Add a download button
+                st.download_button(
+                    label="Download Grading Results",
+                    data=submission_content,
+                    file_name="grading_results.txt",
+                    mime="text/plain"
+                )
             else:
                 st.error("Please provide the proposed answer.")
     else:
