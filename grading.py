@@ -5,7 +5,7 @@ from docx import Document
 import openai
 
 # Canvas API token and base URL
-API_TOKEN = 'YOUR_CANVAS_API_TOKEN'  # Replace with your Canvas API token
+API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key from Streamlit secrets
