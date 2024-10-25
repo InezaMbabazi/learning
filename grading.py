@@ -5,7 +5,7 @@ from docx import Document
 import openai
 
 # Canvas API token and base URL
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
+API_TOKEN = 'YOUR_CANVAS_API_TOKEN'  # Replace with your Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key from Streamlit secrets
@@ -55,7 +55,7 @@ def generate_grading_feedback(submission_text, proposed_answer):
              f"Submission: {submission_text}\n" \
              f"Proposed Answer: {proposed_answer}\n" \
              f"Provide a grade (out of 100) and detailed feedback on the submission's strengths and weaknesses, " \
-             f"especially in relation to the proposed answer."
+             f"especially in relation to the proposed answer. Highlight any discrepancies or areas of improvement."
     
     try:
         response = openai.ChatCompletion.create(
