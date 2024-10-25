@@ -55,11 +55,11 @@ def generate_grading_feedback(submission_text, proposed_answer):
     prompt = (
         f"Evaluate the following student's submission against the proposed answer. "
         f"Assess how well the submission aligns with the proposed answer and rate it on a scale of 0 to 100. "
-        f"Give zero if the submission is not aligned at all and provide detailed feedback.\n\n"
+        f"If the submission does not directly respond to the proposed answer, give zero and provide detailed feedback.\n\n"
         f"Submission: {submission_text}\n"
         f"Proposed Answer: {proposed_answer}\n\n"
         f"Provide a detailed assessment of the alignment, including strengths, weaknesses, and areas for improvement. "
-        f"Return the grade first followed by the feedback."
+        f"Make sure the feedback reflects whether the submission answers the proposed question correctly."
     )
     
     try:
