@@ -4,6 +4,7 @@ import os
 from docx import Document
 import openai
 import pandas as pd
+from io import BytesIO
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
@@ -174,6 +175,29 @@ if 'submissions' in locals() and submissions:
         # Display feedback in a table with grade column
         feedback_df = pd.DataFrame(feedback_data)
         st.dataframe(feedback_df)
+
+        # Allow users to download the feedback as Excel and Text files
+        st.markdown("### Download Grading Results")
+
+        # Excel file download
+        excel_buffer = BytesIO()
+        feedback_df.to_excel(excel_buffer, index=False, engine='xlsxwriter')
+        excel_buffer.seek(0)
+        st.download_button(
+            label="Download as Excel",
+            data=excel_buffer,
+            file_name="grading_feedback.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+        # Text file download
+        text_data = feedback_df.to_string(index=False)
+        st.download_button(
+            label="Download as Text",
+            data=text_data,
+            file_name="grading_feedback.txt",
+            mime="text/plain"
+        )
 
 # Add some color for better user experience
 st.markdown(""" 
