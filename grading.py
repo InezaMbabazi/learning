@@ -59,7 +59,7 @@ def generate_grading_feedback(submission_text, proposed_answer):
         f"Submission: {submission_text}\n"
         f"Proposed Answer: {proposed_answer}\n\n"
         f"Provide a detailed assessment of the alignment, including strengths, weaknesses, and areas for improvement. "
-        f"Make sure the feedback reflects whether the submission answers the proposed question correctly."
+        f"Do not mention 'Strengths' if there is no alignment with the proposed answer."
     )
     
     try:
