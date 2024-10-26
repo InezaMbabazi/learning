@@ -94,6 +94,7 @@ if st.button("Download All Submissions", key='download_button'):
         for submission in submissions:
             user_id = submission['user_id']
             user_name = submission['user']['name'] if 'user' in submission else f"User {user_id}"
+            originality_score = submission.get('originality_score', 'N/A')  # Retrieve originality score if available
             attachments = submission.get('attachments', [])
             
             submission_text = ""
@@ -112,12 +113,16 @@ if st.button("Download All Submissions", key='download_button'):
                         doc = Document(filename)
                         submission_text = "\n".join([para.text for para in doc.paragraphs])
                 
-                # Collect data for the table
-                table_data.append({"Student Name": user_name, "Submission": submission_text})
+            # Collect data for the table, including the originality score
+            table_data.append({
+                "Student Name": user_name,
+                "Submission": submission_text,
+                "Originality Score (%)": originality_score
+            })
         
         st.success("All submissions downloaded successfully.")
         
-        # Display submissions in a table
+        # Display submissions in a table with the originality score column
         submissions_df = pd.DataFrame(table_data)
         st.dataframe(submissions_df)
 
