@@ -2,9 +2,8 @@ import streamlit as st
 import requests
 import os
 from docx import Document
-import pandas as pd
 import openai
-from openpyxl import load_workbook
+import pandas as pd
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
@@ -24,7 +23,7 @@ def get_submissions(course_id, assignment_id):
     
     try:
         response = requests.get(submissions_url, headers=headers)
-        response.raise_for_status()
+        response.raise_for_status()  # Raise an error for HTTP errors
         return response.json()
     except requests.exceptions.HTTPError as http_err:
         st.error(f"HTTP error occurred: {http_err}")
@@ -47,29 +46,11 @@ def download_submission_file(file_url, filename):
         st.error(f"An error occurred while downloading: {err}")
     return False
 
-# Function to extract content based on file type
-def extract_file_content(filename):
-    if filename.endswith(".txt"):
-        with open(filename, "r") as f:
-            return f.read()
-    elif filename.endswith(".docx"):
-        doc = Document(filename)
-        return "\n".join([para.text for para in doc.paragraphs])
-    elif filename.endswith(".xlsx"):
-        workbook = load_workbook(filename=filename)
-        sheet = workbook.active
-        data = []
-        for row in sheet.iter_rows(values_only=True):
-            data.append(row)
-        return pd.DataFrame(data[1:], columns=data[0])  # Use headers as columns
-    else:
-        return "Unsupported file type"
-
 # Function to generate grading and feedback using OpenAI
 def generate_grading_feedback(submission_text, proposed_answer):
     if openai.api_key is None:
         st.error("OpenAI API key is not configured. Cannot generate feedback.")
-        return None, None
+        return None
 
     prompt = (
         f"Evaluate the following student's submission against the proposed answer. "
@@ -77,7 +58,8 @@ def generate_grading_feedback(submission_text, proposed_answer):
         f"If the submission does not directly respond to the proposed answer, give zero and provide detailed feedback.\n\n"
         f"Submission: {submission_text}\n"
         f"Proposed Answer: {proposed_answer}\n\n"
-        f"Provide a detailed assessment of the alignment, including strengths, weaknesses, and areas for improvement."
+        f"Provide a detailed assessment of the alignment, including strengths, weaknesses, and areas for improvement. "
+        f"Do not mention 'Strengths' if there is no alignment with the proposed answer."
     )
     
     try:
@@ -85,21 +67,10 @@ def generate_grading_feedback(submission_text, proposed_answer):
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}]
         )
-        feedback = response['choices'][0]['message']['content'].strip()
-        
-        # Attempt to extract grade from feedback if in format 'Grade: X' or similar
-        grade = "N/A"
-        for line in feedback.splitlines():
-            if "grade" in line.lower():
-                try:
-                    grade = int(''.join(filter(str.isdigit, line)))
-                except ValueError:
-                    grade = "N/A"
-                break
-        return grade, feedback
+        return response['choices'][0]['message']['content'].strip()
     except Exception as e:
         st.error(f"Error in OpenAI API call: {e}")
-        return None, "Feedback generation error."
+        return None
 
 # Streamlit UI
 st.title("Canvas Assignment Submissions Downloader, Grader, and Preview")
@@ -123,7 +94,6 @@ if st.button("Download All Submissions", key='download_button'):
         for submission in submissions:
             user_id = submission['user_id']
             user_name = submission['user']['name'] if 'user' in submission else f"User {user_id}"
-            originality_score = submission.get('originality_score', 'N/A')
             attachments = submission.get('attachments', [])
             
             submission_text = ""
@@ -134,26 +104,20 @@ if st.button("Download All Submissions", key='download_button'):
                 if download_submission_file(file_url, filename):
                     st.success(f"Downloaded {filename}")
                     
-                    # Extract the content based on file type
-                    file_content = extract_file_content(filename)
-                    if isinstance(file_content, pd.DataFrame):
-                        st.write(f"Excel Submission for {user_name}:")
-                        st.dataframe(file_content)
-                        submission_text = file_content.to_string(index=False)
-                    else:
-                        st.write(f"Submission Text for {user_name}: {file_content}")
-                        submission_text = file_content
+                    # Display the content of the downloaded file
+                    if filename.endswith(".txt"):
+                        with open(filename, "r") as f:
+                            submission_text = f.read()
+                    elif filename.endswith(".docx"):
+                        doc = Document(filename)
+                        submission_text = "\n".join([para.text for para in doc.paragraphs])
                 
-            # Collect data for the table, including the originality score
-            table_data.append({
-                "Student Name": user_name,
-                "Submission": submission_text,
-                "Originality Score (%)": originality_score
-            })
+                # Collect data for the table
+                table_data.append({"Student Name": user_name, "Submission": submission_text})
         
         st.success("All submissions downloaded successfully.")
         
-        # Display submissions in a table with the originality score column
+        # Display submissions in a table
         submissions_df = pd.DataFrame(table_data)
         st.dataframe(submissions_df)
 
@@ -180,19 +144,28 @@ if 'submissions' in locals() and submissions:
             user_name = row['Student Name']
 
             # Generate feedback from OpenAI
-            grade, feedback = generate_grading_feedback(submission_text, proposed_answer)
-            if grade is None:
-                grade = "N/A"
+            feedback_output = generate_grading_feedback(submission_text, proposed_answer)
+            if feedback_output:
+                try:
+                    # Split into grade and feedback
+                    grade, feedback = feedback_output.split('\n', 1)  
+                    
+                    # Check if the grade is not valid and set to zero if there's no alignment
+                    if "no alignment" in feedback.lower() or "zero" in feedback.lower():
+                        grade = "0"
+                except ValueError:
+                    st.error(f"Failed to parse feedback for {user_name}: {feedback_output}")
+                    grade, feedback = "N/A", "Feedback generation error."
 
-            # Append feedback data with grade
-            feedback_data.append({
-                "Student Name": user_name,
-                "Submission": submission_text,
-                "Grade": grade,
-                "Feedback": feedback
-            })
+                # Append feedback data
+                feedback_data.append({
+                    "Student Name": user_name,
+                    "Submission": submission_text,
+                    "Grade": grade,
+                    "Feedback": feedback
+                })
 
-        # Display feedback in a table with grade column
+        # Display feedback in a table
         feedback_df = pd.DataFrame(feedback_data)
         st.dataframe(feedback_df)
 
@@ -200,20 +173,20 @@ if 'submissions' in locals() and submissions:
 st.markdown(""" 
 <style>
 body {
-    background-color: #f0f4f7;
+    background-color: #f0f4f7; /* Light background color */
 }
 h1 {
-    color: #2c3e50;
+    color: #2c3e50; /* Darker text for headings */
 }
 h2 {
-    color: #34495e;
+    color: #34495e; /* Darker text for subheadings */
 }
 .stButton {
-    background-color: #3498db;
-    color: white;
+    background-color: #3498db; /* Button color */
+    color: white; /* Button text color */
 }
 .stButton:hover {
-    background-color: #2980b9;
+    background-color: #2980b9; /* Button hover color */
 }
 </style>
 """, unsafe_allow_html=True)
