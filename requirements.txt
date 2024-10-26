@@ -8,3 +8,4 @@ watchdog
 pylint
 sympy==1.12
 xlsxwriter
+openpyxl
