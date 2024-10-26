@@ -2,9 +2,9 @@ import streamlit as st
 import requests
 import os
 from docx import Document
-import openai
 import pandas as pd
-from io import BytesIO
+import openai
+from openpyxl import load_workbook
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
@@ -46,6 +46,24 @@ def download_submission_file(file_url, filename):
     except Exception as err:
         st.error(f"An error occurred while downloading: {err}")
     return False
+
+# Function to extract content based on file type
+def extract_file_content(filename):
+    if filename.endswith(".txt"):
+        with open(filename, "r") as f:
+            return f.read()
+    elif filename.endswith(".docx"):
+        doc = Document(filename)
+        return "\n".join([para.text for para in doc.paragraphs])
+    elif filename.endswith(".xlsx"):
+        workbook = load_workbook(filename=filename)
+        sheet = workbook.active
+        data = []
+        for row in sheet.iter_rows(values_only=True):
+            data.append(row)
+        return pd.DataFrame(data[1:], columns=data[0])  # Use headers as columns
+    else:
+        return "Unsupported file type"
 
 # Function to generate grading and feedback using OpenAI
 def generate_grading_feedback(submission_text, proposed_answer):
@@ -116,13 +134,15 @@ if st.button("Download All Submissions", key='download_button'):
                 if download_submission_file(file_url, filename):
                     st.success(f"Downloaded {filename}")
                     
-                    # Display the content of the downloaded file
-                    if filename.endswith(".txt"):
-                        with open(filename, "r") as f:
-                            submission_text = f.read()
-                    elif filename.endswith(".docx"):
-                        doc = Document(filename)
-                        submission_text = "\n".join([para.text for para in doc.paragraphs])
+                    # Extract the content based on file type
+                    file_content = extract_file_content(filename)
+                    if isinstance(file_content, pd.DataFrame):
+                        st.write(f"Excel Submission for {user_name}:")
+                        st.dataframe(file_content)
+                        submission_text = file_content.to_string(index=False)
+                    else:
+                        st.write(f"Submission Text for {user_name}: {file_content}")
+                        submission_text = file_content
                 
             # Collect data for the table, including the originality score
             table_data.append({
@@ -175,29 +195,6 @@ if 'submissions' in locals() and submissions:
         # Display feedback in a table with grade column
         feedback_df = pd.DataFrame(feedback_data)
         st.dataframe(feedback_df)
-
-        # Allow users to download the feedback as Excel and Text files
-        st.markdown("### Download Grading Results")
-
-        # Excel file download
-        excel_buffer = BytesIO()
-        feedback_df.to_excel(excel_buffer, index=False, engine='xlsxwriter')
-        excel_buffer.seek(0)
-        st.download_button(
-            label="Download as Excel",
-            data=excel_buffer,
-            file_name="grading_feedback.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-        # Text file download
-        text_data = feedback_df.to_string(index=False)
-        st.download_button(
-            label="Download as Text",
-            data=text_data,
-            file_name="grading_feedback.txt",
-            mime="text/plain"
-        )
 
 # Add some color for better user experience
 st.markdown(""" 
