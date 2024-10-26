@@ -23,7 +23,7 @@ def get_submissions(course_id, assignment_id):
     
     try:
         response = requests.get(submissions_url, headers=headers)
-        response.raise_for_status()  # Raise an error for HTTP errors
+        response.raise_for_status()
         return response.json()
     except requests.exceptions.HTTPError as http_err:
         st.error(f"HTTP error occurred: {http_err}")
@@ -50,7 +50,7 @@ def download_submission_file(file_url, filename):
 def generate_grading_feedback(submission_text, proposed_answer):
     if openai.api_key is None:
         st.error("OpenAI API key is not configured. Cannot generate feedback.")
-        return None
+        return None, None
 
     prompt = (
         f"Evaluate the following student's submission against the proposed answer. "
@@ -58,8 +58,7 @@ def generate_grading_feedback(submission_text, proposed_answer):
         f"If the submission does not directly respond to the proposed answer, give zero and provide detailed feedback.\n\n"
         f"Submission: {submission_text}\n"
         f"Proposed Answer: {proposed_answer}\n\n"
-        f"Provide a detailed assessment of the alignment, including strengths, weaknesses, and areas for improvement. "
-        f"Do not mention 'Strengths' if there is no alignment with the proposed answer."
+        f"Provide a detailed assessment of the alignment, including strengths, weaknesses, and areas for improvement."
     )
     
     try:
@@ -67,10 +66,21 @@ def generate_grading_feedback(submission_text, proposed_answer):
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}]
         )
-        return response['choices'][0]['message']['content'].strip()
+        feedback = response['choices'][0]['message']['content'].strip()
+        
+        # Attempt to extract grade from feedback if in format 'Grade: X' or similar
+        grade = "N/A"
+        for line in feedback.splitlines():
+            if "grade" in line.lower():
+                try:
+                    grade = int(''.join(filter(str.isdigit, line)))
+                except ValueError:
+                    grade = "N/A"
+                break
+        return grade, feedback
     except Exception as e:
         st.error(f"Error in OpenAI API call: {e}")
-        return None
+        return None, "Feedback generation error."
 
 # Streamlit UI
 st.title("Canvas Assignment Submissions Downloader, Grader, and Preview")
@@ -94,7 +104,7 @@ if st.button("Download All Submissions", key='download_button'):
         for submission in submissions:
             user_id = submission['user_id']
             user_name = submission['user']['name'] if 'user' in submission else f"User {user_id}"
-            originality_score = submission.get('originality_score', 'N/A')  # Retrieve originality score if available
+            originality_score = submission.get('originality_score', 'N/A')
             attachments = submission.get('attachments', [])
             
             submission_text = ""
@@ -149,28 +159,19 @@ if 'submissions' in locals() and submissions:
             user_name = row['Student Name']
 
             # Generate feedback from OpenAI
-            feedback_output = generate_grading_feedback(submission_text, proposed_answer)
-            if feedback_output:
-                try:
-                    # Split into grade and feedback
-                    grade, feedback = feedback_output.split('\n', 1)  
-                    
-                    # Check if the grade is not valid and set to zero if there's no alignment
-                    if "no alignment" in feedback.lower() or "zero" in feedback.lower():
-                        grade = "0"
-                except ValueError:
-                    st.error(f"Failed to parse feedback for {user_name}: {feedback_output}")
-                    grade, feedback = "N/A", "Feedback generation error."
+            grade, feedback = generate_grading_feedback(submission_text, proposed_answer)
+            if grade is None:
+                grade = "N/A"
 
-                # Append feedback data
-                feedback_data.append({
-                    "Student Name": user_name,
-                    "Submission": submission_text,
-                    "Grade": grade,
-                    "Feedback": feedback
-                })
+            # Append feedback data with grade
+            feedback_data.append({
+                "Student Name": user_name,
+                "Submission": submission_text,
+                "Grade": grade,
+                "Feedback": feedback
+            })
 
-        # Display feedback in a table
+        # Display feedback in a table with grade column
         feedback_df = pd.DataFrame(feedback_data)
         st.dataframe(feedback_df)
 
@@ -178,20 +179,20 @@ if 'submissions' in locals() and submissions:
 st.markdown(""" 
 <style>
 body {
-    background-color: #f0f4f7; /* Light background color */
+    background-color: #f0f4f7;
 }
 h1 {
-    color: #2c3e50; /* Darker text for headings */
+    color: #2c3e50;
 }
 h2 {
-    color: #34495e; /* Darker text for subheadings */
+    color: #34495e;
 }
 .stButton {
-    background-color: #3498db; /* Button color */
-    color: white; /* Button text color */
+    background-color: #3498db;
+    color: white;
 }
 .stButton:hover {
-    background-color: #2980b9; /* Button hover color */
+    background-color: #2980b9;
 }
 </style>
 """, unsafe_allow_html=True)
