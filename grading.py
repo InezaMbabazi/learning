@@ -149,6 +149,10 @@ if 'submissions' in locals() and submissions:
                 try:
                     # Split into grade and feedback
                     grade, feedback = feedback_output.split('\n', 1)  
+                    
+                    # Check if the grade is not valid and set to zero if there's no alignment
+                    if "no alignment" in feedback.lower() or "zero" in feedback.lower():
+                        grade = "0"
                 except ValueError:
                     st.error(f"Failed to parse feedback for {user_name}: {feedback_output}")
                     grade, feedback = "N/A", "Feedback generation error."
