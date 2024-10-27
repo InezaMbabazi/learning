@@ -1,6 +1,7 @@
 import streamlit as st 
 import requests
 import os
+import io  # Import io to handle in-memory byte streams
 from docx import Document
 import openai
 import pandas as pd
