@@ -23,7 +23,7 @@ def get_submissions(course_id, assignment_id):
     
     try:
         response = requests.get(submissions_url, headers=headers)
-        response.raise_for_status()  # Raise an error for HTTP errors
+        response.raise_for_status()
         return response.json()
     except requests.exceptions.HTTPError as http_err:
         st.error(f"HTTP error occurred: {http_err}")
@@ -50,7 +50,7 @@ def download_submission_file(file_url, filename):
 def generate_grading_feedback(submission_text, proposed_answer):
     if openai.api_key is None:
         st.error("OpenAI API key is not configured. Cannot generate feedback.")
-        return None
+        return None, None
 
     prompt = (
         f"Evaluate the following student's submission against the proposed answer. "
@@ -58,8 +58,7 @@ def generate_grading_feedback(submission_text, proposed_answer):
         f"If the submission does not directly respond to the proposed answer, give zero and provide detailed feedback.\n\n"
         f"Submission: {submission_text}\n"
         f"Proposed Answer: {proposed_answer}\n\n"
-        f"Provide a detailed assessment of the alignment, including strengths, weaknesses, and areas for improvement. "
-        f"Do not mention 'Strengths' if there is no alignment with the proposed answer."
+        f"Provide a detailed assessment of the alignment, including strengths, weaknesses, and areas for improvement."
     )
     
     try:
@@ -67,10 +66,17 @@ def generate_grading_feedback(submission_text, proposed_answer):
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}]
         )
-        return response['choices'][0]['message']['content'].strip()
+        feedback_content = response['choices'][0]['message']['content'].strip()
+        
+        # Extract grade from feedback_content (assuming feedback follows "Grade: <number>/100")
+        grade_line = feedback_content.split("\n")[0]
+        grade = grade_line.split(": ")[1].split("/")[0] if "Grade:" in grade_line else "0"
+        feedback = "\n".join(feedback_content.split("\n")[1:])  # Separate out the feedback text
+        
+        return grade, feedback
     except Exception as e:
         st.error(f"Error in OpenAI API call: {e}")
-        return None
+        return None, None
 
 # Streamlit UI
 st.title("Canvas Assignment Submissions Downloader, Grader, and Preview")
@@ -132,7 +138,6 @@ proposed_answer = st.text_area("Enter Proposed Answer:", height=100)
 
 # Check if submissions were retrieved before displaying grading options
 if 'submissions' in locals() and submissions:
-    # Automatically generate grades and feedback for all submissions
     if proposed_answer:
         feedback_data = []
 
@@ -143,12 +148,15 @@ if 'submissions' in locals() and submissions:
             submission_text = row['Submission']
             user_name = row['Student Name']
 
+            # Automatically generate grade and feedback
+            auto_grade, auto_feedback = generate_grading_feedback(submission_text, proposed_answer)
+            
             # Display submission text area with a unique key
             st.text_area(f"Submission by {user_name}", submission_text, height=200, disabled=True, key=f"submission_{index}")
 
             # Editable fields for grade and feedback, with unique keys
-            grade = st.text_input("Grade", value="Enter grade here", key=f"grade_{index}")
-            feedback = st.text_area("Feedback", value="Enter feedback here", height=100, key=f"feedback_{index}")
+            grade = st.text_input("Grade", value=auto_grade if auto_grade else "Enter grade here", key=f"grade_{index}")
+            feedback = st.text_area("Feedback", value=auto_feedback if auto_feedback else "Enter feedback here", height=100, key=f"feedback_{index}")
 
             # Append feedback data
             feedback_data.append({
