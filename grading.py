@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import requests
 import os
 from docx import Document
@@ -31,6 +31,21 @@ def get_submissions(course_id, assignment_id):
         st.error(f"An error occurred: {err}")
     return []
 
+# Function to download a submission file
+def download_submission_file(file_url, filename):
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    try:
+        response = requests.get(file_url, headers=headers)
+        response.raise_for_status()
+        with open(filename, 'wb') as f:
+            f.write(response.content)
+        return True
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"HTTP error occurred while downloading: {http_err}")
+    except Exception as err:
+        st.error(f"An error occurred while downloading: {err}")
+    return False
+
 # Function to generate grading and feedback using OpenAI
 def generate_grading_feedback(submission_text, proposed_answer):
     if openai.api_key is None:
@@ -43,7 +58,8 @@ def generate_grading_feedback(submission_text, proposed_answer):
         f"If the submission does not directly respond to the proposed answer, give zero and provide detailed feedback.\n\n"
         f"Submission: {submission_text}\n"
         f"Proposed Answer: {proposed_answer}\n\n"
-        f"Provide a detailed assessment of the alignment, including strengths, weaknesses, and areas for improvement."
+        f"Provide a detailed assessment of the alignment, including strengths, weaknesses, and areas for improvement. "
+        f"Do not mention 'Strengths' if there is no alignment with the proposed answer."
     )
     
     try:
@@ -66,36 +82,104 @@ assignment_id = 45964  # Replace with your assignment ID
 # Download submissions when the button is pressed
 if st.button("Download All Submissions", key='download_button'):
     submissions = get_submissions(course_id, assignment_id)
-    table_data = []
-
-    for submission in submissions:
-        user_id = submission['user_id']
-        user_name = submission['user']['name'] if 'user' in submission else f"User {user_id}"
-        submission_text = submission.get('body', "No submission text available")
-
-        table_data.append({"Student Name": user_name, "Submission": submission_text, "Grade": "", "Feedback": ""})
     
-    st.success("All submissions downloaded successfully.")
-    
-    # Display submissions in a table and make fields editable
-    for index, data in enumerate(table_data):
-        st.subheader(f"Student: {data['Student Name']}")
-        st.text_area("Submission", data['Submission'], height=200, disabled=True)
+    if submissions:
+        download_folder = "submissions"
+        if not os.path.exists(download_folder):
+            os.makedirs(download_folder)
         
-        # Editable grade and feedback inputs
-        grade = st.text_input(f"Grade for {data['Student Name']}", key=f"grade_{index}")
-        feedback = st.text_area(f"Feedback for {data['Student Name']}", key=f"feedback_{index}", height=100)
-        
-        # Button to submit the grade and feedback to Canvas
-        if st.button(f"Submit Grade & Feedback for {data['Student Name']}", key=f"submit_{index}"):
-            headers = {"Authorization": f"Bearer {API_TOKEN}"}
-            update_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
-            payload = {"submission": {"posted_grade": grade, "text_comment": feedback}}
+        # Prepare data for displaying in a table
+        table_data = []
+
+        for submission in submissions:
+            user_id = submission['user_id']
+            user_name = submission['user']['name'] if 'user' in submission else f"User {user_id}"
+            attachments = submission.get('attachments', [])
             
-            response = requests.put(update_url, headers=headers, json=payload)
-            if response.status_code == 200:
-                st.success(f"Grade and feedback for {data['Student Name']} submitted successfully!")
-            else:
-                st.error(f"Failed to submit grade and feedback for {data['Student Name']}.")
+            submission_text = ""
+            for attachment in attachments:
+                file_url = attachment['url']
+                filename = os.path.join(download_folder, f"{user_id}_{attachment['filename']}")
+                
+                if download_submission_file(file_url, filename):
+                    st.success(f"Downloaded {filename}")
+                    
+                    # Display the content of the downloaded file
+                    if filename.endswith(".txt"):
+                        with open(filename, "r") as f:
+                            submission_text = f.read()
+                    elif filename.endswith(".docx"):
+                        doc = Document(filename)
+                        submission_text = "\n".join([para.text for para in doc.paragraphs])
+                
+                # Collect data for the table
+                table_data.append({"Student Name": user_name, "Submission": submission_text})
+        
+        st.success("All submissions downloaded successfully.")
+        
+        # Display submissions in a table
+        submissions_df = pd.DataFrame(table_data)
+        st.dataframe(submissions_df)
 
-# Note: Add style for better UI if needed
+        # Save submissions to a CSV file for later comparison
+        submissions_df.to_csv("submissions_data.csv", index=False)
+
+# Grading and Feedback Section
+st.header("Grade and Provide Feedback on Submission")
+
+# Proposed answers input
+proposed_answer = st.text_area("Enter Proposed Answer:", height=100)
+
+# Check if submissions were retrieved before displaying grading options
+if 'submissions' in locals() and submissions:
+    # Automatically generate grades and feedback for all submissions
+    if proposed_answer:
+        feedback_data = []
+
+        # Load submissions from the saved CSV file
+        submissions_df = pd.read_csv("submissions_data.csv")
+
+        for index, row in submissions_df.iterrows():
+            submission_text = row['Submission']
+            user_name = row['Student Name']
+
+            # Display submission text area with a unique key
+            st.text_area(f"Submission by {user_name}", submission_text, height=200, disabled=True, key=f"submission_{index}")
+
+            # Editable fields for grade and feedback, with unique keys
+            grade = st.text_input("Grade", value="Enter grade here", key=f"grade_{index}")
+            feedback = st.text_area("Feedback", value="Enter feedback here", height=100, key=f"feedback_{index}")
+
+            # Append feedback data
+            feedback_data.append({
+                "Student Name": user_name,
+                "Submission": submission_text,
+                "Grade": grade,
+                "Feedback": feedback
+            })
+
+        # Display feedback in a table
+        feedback_df = pd.DataFrame(feedback_data)
+        st.dataframe(feedback_df)
+
+# Add some color for better user experience
+st.markdown(""" 
+<style>
+body {
+    background-color: #f0f4f7; /* Light background color */
+}
+h1 {
+    color: #2c3e50; /* Darker text for headings */
+}
+h2 {
+    color: #34495e; /* Darker text for subheadings */
+}
+.stButton {
+    background-color: #3498db; /* Button color */
+    color: white; /* Button text color */
+}
+.stButton:hover {
+    background-color: #2980b9; /* Button hover color */
+}
+</style>
+""", unsafe_allow_html=True)
