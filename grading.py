@@ -45,21 +45,25 @@ def generate_grading_feedback(submission_text, proposed_answer):
         return None, None
 
     prompt = (
-        f"Evaluate the student's submission and compare it with the proposed answer provided. "
-        f"Provide a grade out of 100 based on content accuracy and completeness, "
-        f"and give specific feedback on areas of improvement and strengths.\n\n"
-        f"Student's Submission:\n{submission_text}\n\n"
-        f"Proposed Answer:\n{proposed_answer}\n\n"
+        "Evaluate the following code submission based on correctness, efficiency, and clarity. "
+        "Please compare it to the proposed answer and provide a grade out of 100, along with detailed feedback highlighting strengths and areas for improvement.\n\n"
+        "Student's Submission:\n"
+        f"{submission_text}\n\n"
+        "Proposed Answer:\n"
+        f"{proposed_answer}\n\n"
     )
-    
+
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}]
     )
-    feedback_content = response['choices'][0]['message']['content'].strip()
     
-    # Parse grade and feedback from response
-    grade, feedback = None, None
+    feedback_content = response['choices'][0]['message']['content'].strip()
+
+    # Parse grade and feedback
+    grade = None
+    feedback = None
+    
     if "Grade:" in feedback_content:
         lines = feedback_content.split("\n")
         for line in lines:
@@ -67,8 +71,8 @@ def generate_grading_feedback(submission_text, proposed_answer):
                 grade = line.split(": ")[1].strip()
                 feedback = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
                 break
-    
-    # If grade is not found in the expected format, extract the first numeric value as the grade
+
+    # If grade is not found, extract the first numeric value
     if not grade:
         import re
         match = re.search(r'(\d+)(?: out of 100)?', feedback_content)
@@ -76,6 +80,7 @@ def generate_grading_feedback(submission_text, proposed_answer):
             grade = match.group(1)
 
     return grade, feedback
+
 
 # Function to submit feedback to Canvas
 def submit_feedback_to_canvas(course_id, assignment_id, user_id, grade, feedback):
