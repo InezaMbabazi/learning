@@ -33,6 +33,15 @@ st.markdown("""
         font-size: 24px;
         color: #4B0082;
     }
+    .submission-text {
+        font-size: 20px;
+        border: 2px solid #4B0082;
+        padding: 10px;
+        background-color: #E6E6FA;
+        border-radius: 10px;
+        color: #333;
+        font-weight: bold;
+    }
     .feedback-title {
         color: #FF4500;
         font-weight: bold;
@@ -158,7 +167,7 @@ if st.button("Download and Grade Submissions", key="download_btn") and proposed_
                 
                 if submission_text:
                     st.markdown(f'<div class="submission-title">Submission by {user_name}</div>', unsafe_allow_html=True)
-                    st.text_area("Submission Text", submission_text, height=300, disabled=True)
+                    st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
                     # Generate feedback and grade
                     grade, feedback = generate_grading_feedback(submission_text, proposed_answer)
