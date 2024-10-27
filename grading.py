@@ -67,6 +67,11 @@ def download_submission_file(file_url):
     response = requests.get(file_url, headers=headers)
     return response.content if response.status_code == 200 else None
 
+# Function to extract text from Excel files
+def read_excel_file(file_content):
+    df = pd.read_excel(io.BytesIO(file_content))
+    return df.to_string(index=False)
+
 # Function to generate grading and feedback using OpenAI
 def generate_grading_feedback(submission_text, proposed_answer):
     if openai.api_key is None:
@@ -140,19 +145,23 @@ if st.button("Download and Grade Submissions", key="download_btn") and proposed_
                 elif filename.endswith(".docx") and file_content:
                     doc = Document(io.BytesIO(file_content))
                     submission_text = "\n".join([para.text for para in doc.paragraphs])
-            
+                elif filename.endswith(".xlsx") and file_content:
+                    submission_text = read_excel_file(file_content)
+
             if submission_text:
                 # Display submission and auto-generate grade and feedback
                 st.markdown(f'<div class="content"><h2 class="submission-title">Submission by {user_name}</h2>', unsafe_allow_html=True)
-                st.text_area("Submission Text", submission_text, height=200, disabled=True)
+                st.text_area("Submission Text", submission_text, height=300, disabled=True)
                 
-                grade = st.text_input(f"Grade for {user_name}", value=generate_grading_feedback(submission_text, proposed_answer)[0], key=f"grade_{user_id}")
-                feedback = st.text_area(f"Feedback for {user_name}", value=generate_grading_feedback(submission_text, proposed_answer)[1], height=100, key=f"feedback_{user_id}")
+                # Generate feedback and grade
+                grade, feedback = generate_grading_feedback(submission_text, proposed_answer)
+                grade_input = st.text_input(f"Grade for {user_name}", value=grade, key=f"grade_{user_id}")
+                feedback_input = st.text_area(f"Feedback for {user_name}", value=feedback, height=100, key=f"feedback_{user_id}")
                 
                 feedback_data.append({
                     "Student Name": user_name,
-                    "Grade": grade,
-                    "Feedback": feedback,
+                    "Grade": grade_input,
+                    "Feedback": feedback_input,
                     "User ID": user_id
                 })
                 st.markdown('</div>', unsafe_allow_html=True)
