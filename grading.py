@@ -1,7 +1,7 @@
 import streamlit as st 
 import requests
 import os
-import io  # Import io to handle in-memory byte streams
+import io
 from docx import Document
 import openai
 import pandas as pd
@@ -67,10 +67,10 @@ def download_submission_file(file_url):
     response = requests.get(file_url, headers=headers)
     return response.content if response.status_code == 200 else None
 
-# Function to extract text from Excel files
-def read_excel_file(file_content):
+# Function to extract and display Excel content in columns
+def display_excel_content(file_content):
     df = pd.read_excel(io.BytesIO(file_content))
-    return df.to_string(index=False)
+    st.dataframe(df)  # Display as a structured table in columns
 
 # Function to generate grading and feedback using OpenAI
 def generate_grading_feedback(submission_text, proposed_answer):
@@ -80,7 +80,7 @@ def generate_grading_feedback(submission_text, proposed_answer):
 
     prompt = (
         f"Evaluate the following student's submission against the proposed answer. "
-        f"Assess alignment and rate it from 0 to 100. Provide feedback.\n\n"
+        f"Assess alignment and rate it from 0 to 100. If there is no alignment, respond that there is no alignment and don't give a grade.\n\n"
         f"Submission: {submission_text}\n"
         f"Proposed Answer: {proposed_answer}\n\n"
     )
@@ -90,9 +90,15 @@ def generate_grading_feedback(submission_text, proposed_answer):
         messages=[{"role": "user", "content": prompt}]
     )
     feedback_content = response['choices'][0]['message']['content'].strip()
-    lines = feedback_content.split("\n")
-    grade = lines[0].split(": ")[1].strip() if "Grade:" in lines[0] else "0"
-    feedback = "\n".join(lines[1:]).strip()
+    
+    if "no alignment" in feedback_content.lower():
+        grade = None  # No grade if no alignment
+        feedback = "No alignment with the proposed answer."
+    else:
+        lines = feedback_content.split("\n")
+        grade = lines[0].split(": ")[1].strip() if "Grade:" in lines[0] else "Not Assigned"
+        feedback = "\n".join(lines[1:]).strip()
+    
     return grade, feedback
 
 # Function to submit feedback to Canvas
@@ -103,7 +109,7 @@ def submit_feedback_to_canvas(course_id, assignment_id, user_id, grade, feedback
     }
     submission_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
     payload = {
-        "submission": {"posted_grade": grade},
+        "submission": {"posted_grade": grade} if grade else {},
         "comment": {"text_comment": feedback}
     }
     response = requests.put(submission_url, headers=headers, json=payload)
@@ -146,26 +152,26 @@ if st.button("Download and Grade Submissions", key="download_btn") and proposed_
                     doc = Document(io.BytesIO(file_content))
                     submission_text = "\n".join([para.text for para in doc.paragraphs])
                 elif filename.endswith(".xlsx") and file_content:
-                    submission_text = read_excel_file(file_content)
+                    st.markdown(f'<div class="submission-title">Excel Submission from {user_name}</div>', unsafe_allow_html=True)
+                    display_excel_content(file_content)
+                    continue  # Skip the text display for Excel files
+                
+                if submission_text:
+                    st.markdown(f'<div class="submission-title">Submission by {user_name}</div>', unsafe_allow_html=True)
+                    st.text_area("Submission Text", submission_text, height=300, disabled=True)
 
-            if submission_text:
-                # Display submission and auto-generate grade and feedback
-                st.markdown(f'<div class="content"><h2 class="submission-title">Submission by {user_name}</h2>', unsafe_allow_html=True)
-                st.text_area("Submission Text", submission_text, height=300, disabled=True)
-                
-                # Generate feedback and grade
-                grade, feedback = generate_grading_feedback(submission_text, proposed_answer)
-                grade_input = st.text_input(f"Grade for {user_name}", value=grade, key=f"grade_{user_id}")
-                feedback_input = st.text_area(f"Feedback for {user_name}", value=feedback, height=100, key=f"feedback_{user_id}")
-                
-                feedback_data.append({
-                    "Student Name": user_name,
-                    "Grade": grade_input,
-                    "Feedback": feedback_input,
-                    "User ID": user_id
-                })
-                st.markdown('</div>', unsafe_allow_html=True)
-        
+                    # Generate feedback and grade
+                    grade, feedback = generate_grading_feedback(submission_text, proposed_answer)
+                    grade_input = st.text_input(f"Grade for {user_name}", value=grade or "Not Assigned", key=f"grade_{user_id}")
+                    feedback_input = st.text_area(f"Feedback for {user_name}", value=feedback, height=100, key=f"feedback_{user_id}")
+                    
+                    feedback_data.append({
+                        "Student Name": user_name,
+                        "Grade": grade_input,
+                        "Feedback": feedback_input,
+                        "User ID": user_id
+                    })
+
         # Submit feedback to Canvas for each student when button is clicked
         if st.button("Submit Feedback to Canvas", key="submit_btn"):
             for entry in feedback_data:
