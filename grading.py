@@ -74,11 +74,15 @@ st.title("Canvas Assignment Grader")
 course_id = 2850  # Replace with your course ID
 assignment_id = 45964  # Replace with your assignment ID
 
-# Download submissions when button is clicked
-if st.button("Download and Grade Submissions"):
+# Proposed Answer Input
+proposed_answer = st.text_area("Proposed Answer for Evaluation:", height=100)
+if not proposed_answer:
+    st.warning("Please enter the proposed answer before downloading submissions.")
+
+# Download submissions only if proposed answer is provided
+if st.button("Download and Grade Submissions") and proposed_answer:
     submissions = get_submissions(course_id, assignment_id)
     if submissions:
-        proposed_answer = st.text_area("Proposed Answer for Evaluation:", height=100)
         feedback_data = []
 
         for submission in submissions:
