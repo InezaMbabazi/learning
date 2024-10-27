@@ -13,6 +13,43 @@ BASE_URL = 'https://kepler.instructure.com/api/v1'
 # OpenAI API Key from Streamlit secrets
 openai.api_key = st.secrets.get("openai", {}).get("api_key")
 
+# Streamlit styling
+st.set_page_config(page_title="Kepler College Grading System", page_icon="📚", layout="wide")
+st.markdown("""
+<style>
+    .header {
+        text-align: center;
+        color: #4B0082;
+        font-size: 30px;
+        font-weight: bold;
+    }
+    .content {
+        border: 2px solid #4B0082;
+        padding: 20px;
+        border-radius: 10px;
+        background-color: #F3F4F6;
+    }
+    .submission-title {
+        font-size: 24px;
+        color: #4B0082;
+    }
+    .feedback-title {
+        color: #FF4500;
+        font-weight: bold;
+    }
+    .btn {
+        background-color: #4B0082;
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    .btn:hover {
+        background-color: #5E2B91;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
@@ -68,7 +105,8 @@ def submit_feedback_to_canvas(course_id, assignment_id, user_id, grade, feedback
     return response.status_code == 200
 
 # Streamlit UI
-st.title("Canvas Assignment Grader")
+st.image("header.png", use_column_width=True)  # Display header image
+st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allow_html=True)
 
 # Set Course and Assignment IDs
 course_id = 2850  # Replace with your course ID
@@ -80,7 +118,7 @@ if not proposed_answer:
     st.warning("Please enter the proposed answer before downloading submissions.")
 
 # Download submissions only if proposed answer is provided
-if st.button("Download and Grade Submissions") and proposed_answer:
+if st.button("Download and Grade Submissions", key="download_btn") and proposed_answer:
     submissions = get_submissions(course_id, assignment_id)
     if submissions:
         feedback_data = []
@@ -105,13 +143,11 @@ if st.button("Download and Grade Submissions") and proposed_answer:
             
             if submission_text:
                 # Display submission and auto-generate grade and feedback
-                auto_grade, auto_feedback = generate_grading_feedback(submission_text, proposed_answer)
-                
-                st.subheader(f"Submission by {user_name}")
+                st.markdown(f'<div class="content"><h2 class="submission-title">Submission by {user_name}</h2>', unsafe_allow_html=True)
                 st.text_area("Submission Text", submission_text, height=200, disabled=True)
                 
-                grade = st.text_input(f"Grade for {user_name}", value=auto_grade, key=f"grade_{user_id}")
-                feedback = st.text_area(f"Feedback for {user_name}", value=auto_feedback, height=100, key=f"feedback_{user_id}")
+                grade = st.text_input(f"Grade for {user_name}", value=generate_grading_feedback(submission_text, proposed_answer)[0], key=f"grade_{user_id}")
+                feedback = st.text_area(f"Feedback for {user_name}", value=generate_grading_feedback(submission_text, proposed_answer)[1], height=100, key=f"feedback_{user_id}")
                 
                 feedback_data.append({
                     "Student Name": user_name,
@@ -119,9 +155,10 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     "Feedback": feedback,
                     "User ID": user_id
                 })
+                st.markdown('</div>', unsafe_allow_html=True)
         
         # Submit feedback to Canvas for each student when button is clicked
-        if st.button("Submit Feedback to Canvas"):
+        if st.button("Submit Feedback to Canvas", key="submit_btn"):
             for entry in feedback_data:
                 user_id = entry["User ID"]
                 grade = entry["Grade"]
