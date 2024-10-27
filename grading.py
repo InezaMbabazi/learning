@@ -65,13 +65,17 @@ def generate_grading_feedback(submission_text, proposed_answer):
         for line in lines:
             if line.lower().startswith("grade:"):
                 grade = line.split(": ")[1].strip()
-                feedback = "\n".join(lines[1:]).strip()
+                feedback = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
                 break
-    else:
-        feedback = feedback_content  # If no specific grade line is found
+    
+    # If grade is not found in the expected format, extract the first numeric value as the grade
+    if not grade:
+        import re
+        match = re.search(r'(\d+)(?: out of 100)?', feedback_content)
+        if match:
+            grade = match.group(1)
 
     return grade, feedback
-
 # Function to submit feedback to Canvas
 def submit_feedback_to_canvas(course_id, assignment_id, user_id, grade, feedback):
     headers = {
@@ -108,11 +112,12 @@ if source == "Upload from Local":
         
         # Process grading if submission is text-based
         if submission_text:
-            proposed_answer = st.text_area("Enter Proposed Answer for Evaluation:", height=100)
-            if proposed_answer:
-                grade, feedback = generate_grading_feedback(submission_text, proposed_answer)
-                st.write("**Grade:**", grade if grade else "Not Assigned")
-                st.write("**Feedback:**", feedback if feedback else "No feedback generated.")
+    proposed_answer = st.text_area("Enter Proposed Answer for Evaluation:", height=100)
+    if proposed_answer:
+        grade, feedback = generate_grading_feedback(submission_text, proposed_answer)
+        st.write("**Grade:**", grade if grade else "Not Assigned")
+        st.write("**Feedback:**", feedback if feedback else "No feedback generated.")
+
 else:
     # Download from Canvas
     course_id = 2850  # Replace with your course ID
