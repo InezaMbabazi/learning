@@ -111,14 +111,12 @@ if source == "Upload from Local":
             st.text_area("Word Document Submission", submission_text, height=200)
         
         # Process grading if submission is text-based
-        if submission_text:
+    if submission_text:
     proposed_answer = st.text_area("Enter Proposed Answer for Evaluation:", height=100)
     if proposed_answer:
         grade, feedback = generate_grading_feedback(submission_text, proposed_answer)
         st.write("**Grade:**", grade if grade else "Not Assigned")
         st.write("**Feedback:**", feedback if feedback else "No feedback generated.")
-
-else:
     # Download from Canvas
     course_id = 2850  # Replace with your course ID
     assignment_id = 45964  # Replace with your assignment ID
