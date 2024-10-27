@@ -46,7 +46,8 @@ def generate_grading_feedback(submission_text, proposed_answer):
 
     prompt = (
         f"Evaluate the student's submission and compare it with the proposed answer provided. "
-        f"Provide a grade out of 100, and give specific feedback on areas of improvement and strengths.\n\n"
+        f"Provide a grade out of 100 based on content accuracy and completeness, "
+        f"and give specific feedback on areas of improvement and strengths.\n\n"
         f"Student's Submission:\n{submission_text}\n\n"
         f"Proposed Answer:\n{proposed_answer}\n\n"
     )
@@ -58,7 +59,7 @@ def generate_grading_feedback(submission_text, proposed_answer):
     feedback_content = response['choices'][0]['message']['content'].strip()
     
     # Parse grade and feedback from response
-    grade, feedback = None, feedback_content
+    grade, feedback = None, None
     if "Grade:" in feedback_content:
         lines = feedback_content.split("\n")
         for line in lines:
@@ -66,7 +67,9 @@ def generate_grading_feedback(submission_text, proposed_answer):
                 grade = line.split(": ")[1].strip()
                 feedback = "\n".join(lines[1:]).strip()
                 break
-    
+    else:
+        feedback = feedback_content  # If no specific grade line is found
+
     return grade, feedback
 
 # Function to submit feedback to Canvas
@@ -86,8 +89,8 @@ def submit_feedback_to_canvas(course_id, assignment_id, user_id, grade, feedback
 # Streamlit UI
 st.title("Kepler College Grading System with OpenAI Integration")
 
-# Option to select Canvas or Local upload
-source = st.radio("Choose file source:", ("Canvas", "Upload from Local"))
+# Option to select Canvas or Local upload in the sidebar
+source = st.sidebar.radio("Choose file source:", ("Canvas", "Upload from Local"))
 
 if source == "Upload from Local":
     uploaded_file = st.file_uploader("Upload student submission file")
@@ -109,7 +112,7 @@ if source == "Upload from Local":
             if proposed_answer:
                 grade, feedback = generate_grading_feedback(submission_text, proposed_answer)
                 st.write("**Grade:**", grade if grade else "Not Assigned")
-                st.write("**Feedback:**", feedback)
+                st.write("**Feedback:**", feedback if feedback else "No feedback generated.")
 else:
     # Download from Canvas
     course_id = 2850  # Replace with your course ID
@@ -138,7 +141,7 @@ else:
                     
                     if submission_text:
                         grade, feedback = generate_grading_feedback(submission_text, proposed_answer)
-                        st.write(f"**{user_name}** - Grade: {grade if grade else 'Not Assigned'}, Feedback: {feedback}")
+                        st.write(f"**{user_name}** - Grade: {grade if grade else 'Not Assigned'}, Feedback: {feedback if feedback else 'No feedback generated.'}")
                         feedback_data.append((user_id, grade, feedback))
 
             # Submit all feedback to Canvas
