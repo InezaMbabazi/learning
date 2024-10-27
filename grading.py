@@ -68,15 +68,40 @@ def generate_grading_feedback(submission_text, proposed_answer):
         )
         feedback_content = response['choices'][0]['message']['content'].strip()
         
-        # Extract grade from feedback_content (assuming feedback follows "Grade: <number>/100")
         grade_line = feedback_content.split("\n")[0]
         grade = grade_line.split(": ")[1].split("/")[0] if "Grade:" in grade_line else "0"
-        feedback = "\n".join(feedback_content.split("\n")[1:])  # Separate out the feedback text
+        feedback = "\n".join(feedback_content.split("\n")[1:])
         
         return grade, feedback
     except Exception as e:
         st.error(f"Error in OpenAI API call: {e}")
         return None, None
+
+# Function to submit grades and feedback to Canvas
+def submit_feedback_to_canvas(course_id, assignment_id, user_id, grade, feedback):
+    headers = {
+        "Authorization": f"Bearer {API_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    submission_url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
+    payload = {
+        "submission": {
+            "posted_grade": grade
+        },
+        "comment": {
+            "text_comment": feedback
+        }
+    }
+    
+    try:
+        response = requests.put(submission_url, headers=headers, json=payload)
+        response.raise_for_status()
+        return True
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"HTTP error occurred while submitting feedback: {http_err}")
+    except Exception as err:
+        st.error(f"An error occurred while submitting feedback: {err}")
+    return False
 
 # Streamlit UI
 st.title("Canvas Assignment Submissions Downloader, Grader, and Preview")
@@ -94,7 +119,6 @@ if st.button("Download All Submissions", key='download_button'):
         if not os.path.exists(download_folder):
             os.makedirs(download_folder)
         
-        # Prepare data for displaying in a table
         table_data = []
 
         for submission in submissions:
@@ -110,7 +134,6 @@ if st.button("Download All Submissions", key='download_button'):
                 if download_submission_file(file_url, filename):
                     st.success(f"Downloaded {filename}")
                     
-                    # Display the content of the downloaded file
                     if filename.endswith(".txt"):
                         with open(filename, "r") as f:
                             submission_text = f.read()
@@ -118,16 +141,13 @@ if st.button("Download All Submissions", key='download_button'):
                         doc = Document(filename)
                         submission_text = "\n".join([para.text for para in doc.paragraphs])
                 
-                # Collect data for the table
-                table_data.append({"Student Name": user_name, "Submission": submission_text})
+                table_data.append({"Student Name": user_name, "Submission": submission_text, "User ID": user_id})
         
         st.success("All submissions downloaded successfully.")
         
-        # Display submissions in a table
         submissions_df = pd.DataFrame(table_data)
         st.dataframe(submissions_df)
 
-        # Save submissions to a CSV file for later comparison
         submissions_df.to_csv("submissions_data.csv", index=False)
 
 # Grading and Feedback Section
@@ -136,58 +156,41 @@ st.header("Grade and Provide Feedback on Submission")
 # Proposed answers input
 proposed_answer = st.text_area("Enter Proposed Answer:", height=100)
 
-# Check if submissions were retrieved before displaying grading options
 if 'submissions' in locals() and submissions:
     if proposed_answer:
         feedback_data = []
 
-        # Load submissions from the saved CSV file
         submissions_df = pd.read_csv("submissions_data.csv")
 
         for index, row in submissions_df.iterrows():
             submission_text = row['Submission']
             user_name = row['Student Name']
+            user_id = row['User ID']
 
-            # Automatically generate grade and feedback
             auto_grade, auto_feedback = generate_grading_feedback(submission_text, proposed_answer)
             
-            # Display submission text area with a unique key
             st.text_area(f"Submission by {user_name}", submission_text, height=200, disabled=True, key=f"submission_{index}")
-
-            # Editable fields for grade and feedback, with unique keys
             grade = st.text_input("Grade", value=auto_grade if auto_grade else "Enter grade here", key=f"grade_{index}")
             feedback = st.text_area("Feedback", value=auto_feedback if auto_feedback else "Enter feedback here", height=100, key=f"feedback_{index}")
 
-            # Append feedback data
             feedback_data.append({
                 "Student Name": user_name,
                 "Submission": submission_text,
                 "Grade": grade,
-                "Feedback": feedback
+                "Feedback": feedback,
+                "User ID": user_id
             })
 
-        # Display feedback in a table
         feedback_df = pd.DataFrame(feedback_data)
         st.dataframe(feedback_df)
 
-# Add some color for better user experience
-st.markdown(""" 
-<style>
-body {
-    background-color: #f0f4f7; /* Light background color */
-}
-h1 {
-    color: #2c3e50; /* Darker text for headings */
-}
-h2 {
-    color: #34495e; /* Darker text for subheadings */
-}
-.stButton {
-    background-color: #3498db; /* Button color */
-    color: white; /* Button text color */
-}
-.stButton:hover {
-    background-color: #2980b9; /* Button hover color */
-}
-</style>
-""", unsafe_allow_html=True)
+        if st.button("Submit Feedback to Canvas"):
+            for _, row in feedback_df.iterrows():
+                user_id = row["User ID"]
+                grade = row["Grade"]
+                feedback = row["Feedback"]
+                
+                if submit_feedback_to_canvas(course_id, assignment_id, user_id, grade, feedback):
+                    st.success(f"Feedback submitted for {row['Student Name']}")
+                else:
+                    st.error(f"Failed to submit feedback for {row['Student Name']}")
