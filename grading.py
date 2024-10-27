@@ -18,29 +18,42 @@ st.image(header_image, use_column_width=True)
 st.title("Kepler College Grading System")
 st.markdown("<h4 style='color: #4B8BBE; text-align: center;'>Automated Submission Grading</h4>", unsafe_allow_html=True)
 
-# File upload section with visible "Submission Text" styling
-st.sidebar.header("Upload Submission")
-uploaded_file = st.sidebar.file_uploader("Choose a file (txt, docx, or xlsx)", type=['txt', 'docx', 'xlsx'])
-if st.sidebar.button("Browse Files from Local"):
-    uploaded_file = st.sidebar.file_uploader("Choose a file", type=['txt', 'docx', 'xlsx'], accept_multiple_files=False)
+# Option to download file from Canvas or upload from local
+st.sidebar.header("Select Submission Source")
+download_from_canvas = st.sidebar.button("Download from Canvas")
+uploaded_file = st.sidebar.file_uploader("Or Browse from Local", type=['txt', 'docx', 'xlsx'])
+
+# Placeholder function for downloading from Canvas
+def download_file_from_canvas():
+    # Replace this with actual Canvas API download logic
+    with open("canvas_sample_submission.docx", "rb") as file:
+        return BytesIO(file.read())
+
+# Use the selected source for submission content
+file_content = None
+if download_from_canvas:
+    st.info("Downloading file from Canvas...")
+    file_content = download_file_from_canvas()
+elif uploaded_file is not None:
+    file_content = uploaded_file
 
 # Load proposed answer input area
 proposed_answer = st.text_area("Proposed Answer", height=150, help="Enter the correct answer here for comparison.")
 
-# Read the uploaded file content function
+# Read file content function
 def read_file_content(file):
-    if file.type == "text/plain":  # .txt files
-        return file.read().decode("utf-8")
-    elif file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":  # .docx files
+    if isinstance(file, BytesIO) or file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         doc = Document(file)
         return "\n".join([para.text for para in doc.paragraphs])
+    elif file.type == "text/plain":  # .txt files
+        return file.read().decode("utf-8")
     elif file.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":  # .xlsx files
         df = pd.read_excel(file)
         return df  # Return as DataFrame for column display
 
-# Display uploaded file content in Submission Text
-if uploaded_file is not None:
-    submission_content = read_file_content(uploaded_file)
+# Display file content in Submission Text
+if file_content is not None:
+    submission_content = read_file_content(file_content)
     
     if isinstance(submission_content, pd.DataFrame):  # Display DataFrame in columns for .xlsx content
         st.write("### Submission Content")
@@ -90,7 +103,7 @@ def generate_grading_feedback(submission_text, proposed_answer):
 
 # Grading and feedback section
 if st.button("Grade Submission"):
-    if uploaded_file is not None and proposed_answer:
+    if file_content is not None and proposed_answer:
         if isinstance(submission_content, pd.DataFrame):  # Convert DataFrame content to string for grading
             submission_text = submission_content.to_string(index=False)
         else:
@@ -106,7 +119,7 @@ if st.button("Grade Submission"):
                     f"padding: 10px; border-radius: 5px;'><strong>Feedback:</strong> {feedback}</div>",
                     unsafe_allow_html=True)
     else:
-        st.warning("Please upload a submission file and enter the proposed answer before grading.")
+        st.warning("Please select a submission file and enter the proposed answer before grading.")
 
 # Send feedback button to Canvas (Placeholder for Canvas integration)
 if st.button("Send Feedback to Canvas"):
