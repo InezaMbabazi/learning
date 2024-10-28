@@ -117,10 +117,6 @@ st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allo
 course_id = 2906  # Replace with your course ID
 assignment_id = 47134  # Replace with your assignment ID
 
-# Sample User ID and Submission ID
-sample_user_id = 4794
-sample_submission_id = 1990703
-
 proposed_answer = st.text_area("Proposed Answer for Evaluation:", height=100)
 
 # Initialize session state for feedback if not already done
@@ -131,8 +127,8 @@ if st.button("Download and Grade Submissions") and proposed_answer:
     submissions = get_submissions(course_id, assignment_id)
     if submissions:
         for submission in submissions:
-            user_id = submission['user_id']
-            submission_id = submission['id']
+            user_id = submission['user_id']  # Fetch user ID
+            submission_id = submission['id']  # Fetch submission ID
             user_name = submission.get('user', {}).get('name', f"User {user_id}")
             attachments = submission.get('attachments', [])
             submission_text = ""
@@ -199,11 +195,16 @@ if st.button("Download and Grade Submissions") and proposed_answer:
 # Button to submit feedback and grades
 if st.button("Submit Feedback to Canvas"):
     if not st.session_state.feedback_data:
-        st.warning("No feedback data to submit.")
+        st.warning("No feedback available to submit.")
     else:
-        submission_results = []
         for entry in st.session_state.feedback_data:
             success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"], entry["Grade"])
-            submission_results.append(message)
+            st.success(message) if success else st.error(message)
 
-        st.success("\n".join(submission_results))
+# Display the session state feedback data
+if st.session_state.feedback_data:
+    st.subheader("Feedback Data")
+    for feedback_entry in st.session_state.feedback_data:
+        st.markdown(f"**{feedback_entry['Student Name']} (User ID: {feedback_entry['User ID']})**")
+        st.markdown(f"Feedback: {feedback_entry['Feedback']}")
+        st.markdown(f"Grade: {feedback_entry['Grade']}")
