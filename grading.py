@@ -114,8 +114,9 @@ def calculate_grade(submission_text):
 st.image("header.png", use_column_width=True)
 st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allow_html=True)
 
-course_id = 2906  # Replace with your course ID
-assignment_id = 47134  # Replace with your assignment ID
+# Input fields for course ID and assignment ID
+course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
+assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
 
 proposed_answer = st.text_area("Proposed Answer for Evaluation:", height=100)
 
@@ -205,6 +206,6 @@ if st.button("Submit Feedback to Canvas"):
 if st.session_state.feedback_data:
     st.subheader("Feedback Data")
     for feedback_entry in st.session_state.feedback_data:
-        st.markdown(f"**{feedback_entry['Student Name']} (User ID: {feedback_entry['User ID']})**")
+        st.markdown(f"**{feedback_entry['Student Name']} (User ID: {feedback_entry['User ID']}, Submission ID: {feedback_entry['Submission ID']})**")
         st.markdown(f"Feedback: {feedback_entry['Feedback']}")
         st.markdown(f"Grade: {feedback_entry['Grade']}")
