@@ -156,4 +156,9 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                 submission_results.append((entry["Student Name"], success, message))
 
             # Display submission results
-           
+            for student_name, success, message in submission_results:
+                if success:
+                    st.success(f"{message} - {student_name}")
+                else:
+                    st.error(f"{message} - {student_name}")
+
