@@ -48,7 +48,6 @@ def display_excel_content(file_content):
 
 # Function to submit feedback to Canvas
 def submit_feedback(course_id, assignment_id, user_id, feedback):
-def submit_feedback(course_id, assignment_id, user_id, feedback):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
     payload = {
         "comment": {
@@ -62,6 +61,18 @@ def submit_feedback(course_id, assignment_id, user_id, feedback):
         headers=headers, 
         json=payload
     )
+
+    # Log request and response for debugging
+    print(f"Submitting feedback for user ID {user_id}...")
+    print(f"Request Payload: {payload}")
+    print(f"Response Status Code: {response.status_code}")
+    print(f"Response Body: {response.text}")
+
+    # Check for successful submission
+    if response.status_code == 200:
+        return True, f"Successfully submitted feedback for user ID {user_id}."
+    else:
+        return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
 
     # Log request and response for debugging
     print(f"Submitting feedback for user ID {user_id}...")
@@ -159,16 +170,19 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     else:
                         st.session_state.feedback_data.append(feedback_entry)
 
-        # Button to submit feedback
-        if st.button("Submit Feedback to Canvas"):
-            submission_results = []  # To store results for all submissions
-            for entry in st.session_state.feedback_data:
-                success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"])
-                submission_results.append((entry["Student Name"], success, message))
+      # Button to submit feedback
+if st.button("Submit Feedback to Canvas"):
+    if not st.session_state.feedback_data:
+        st.warning("No feedback data to submit.")
+    else:
+        submission_results = []  # To store results for all submissions
+        for entry in st.session_state.feedback_data:
+            success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"])
+            submission_results.append((entry["Student Name"], success, message))
 
-            # Display submission results
-            for student_name, success, message in submission_results:
-                if success:
-                    st.success(f"{message} - {student_name}")
-                else:
-                    st.error(f"{message} - {student_name}")
+        # Display submission results
+        for student_name, success, message in submission_results:
+            if success:
+                st.success(f"{message} - {student_name}")
+            else:
+                st.error(f"{message} - {student_name}")
