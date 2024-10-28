@@ -1,41 +1,32 @@
-import streamlit as st
 import requests
-import json
+import streamlit as st
 
-
-# Replace with your actual Canvas details
-API_TOKEN = "1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH"
+# Configuration
+API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
 BASE_URL = "https://kepler.instructure.com/api/v1"
-course_id = "2906"  # Example course ID
-assignment_id = "47134"  # Example assignment ID
-user_id = "4794"  # Example user ID
+course_id = 2906
+assignment_id = 47134
+user_id = 4794
 
-# Comment text you want to post
-feedback_text = "Great job on your assignment! Keep up the good work."
+# Headers with authorization
+headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
 
-# Setup headers with API token
-headers = {
-    "Authorization": f"Bearer {API_TOKEN}",
-    "Content-Type": "application/json"
-}
-
-# Setup the payload for the comment
+# URL construction
+url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}/comments"
 payload = {
     "comment": {
-        "text_comment": feedback_text
+        "text_comment": "Great job on the submission!"  # Replace with your comment
     }
 }
 
-# Make a POST request to submit the comment
-response = requests.post(
-    f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}/comments",
-    headers=headers,
-    data=json.dumps(payload)
-)
+# Attempt the API request
+response = requests.post(url, headers=headers, json=payload)
 
-# Check if the request was successful
-if response.status_code in [200, 201]:
-    print("Comment posted successfully.")
+# Check response
+if response.status_code == 201:
+    st.success("Comment posted successfully.")
+    st.json(response.json())  # Display the response JSON for verification
 else:
-    print(f"Failed to post comment. Status Code: {response.status_code}")
-    print("Response:", response.text)
+    st.error(f"Failed to post comment. Status Code: {response.status_code}")
+    st.write("Response:", response.text)  # Display full response for debugging
+    st.write("URL:", url)  # Display the URL used in the request
