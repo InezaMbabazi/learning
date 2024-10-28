@@ -69,9 +69,7 @@ def submit_feedback(course_id, assignment_id, user_id, feedback):
     if response.status_code in [200, 201]:  # Check for successful status codes
         return True, f"Successfully submitted feedback for user ID {user_id}."
     else:
-        print(response.text)  # For debugging
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
-
 
 # Function to generate automated feedback using OpenAI
 def generate_feedback(proposed_answer):
@@ -98,11 +96,13 @@ proposed_answer = st.text_area("Proposed Answer for Evaluation:", height=100)
 if 'feedback_data' not in st.session_state:
     st.session_state.feedback_data = []
 
+# Button to download and grade submissions
 if st.button("Download and Grade Submissions") and proposed_answer:
     submissions = get_submissions(course_id, assignment_id)
     if submissions:
         for submission in submissions:
             user_id = submission['user_id']
+            submission_id = submission['id']  # Added line to capture submission ID
             user_name = submission.get('user', {}).get('name', f"User {user_id}")
             attachments = submission.get('attachments', [])
             submission_text = ""
@@ -110,6 +110,7 @@ if st.button("Download and Grade Submissions") and proposed_answer:
             # Fetch existing feedback
             existing_feedback = submission.get('comment', {}).get('text_comment', "")
 
+            # Process attachments and display submission details
             for attachment in attachments:
                 file_content = download_submission_file(attachment['url'])
                 filename = attachment['filename']
@@ -141,7 +142,8 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     feedback_entry = {
                         "Student Name": user_name,
                         "Feedback": feedback_input,
-                        "User ID": user_id
+                        "User ID": user_id,
+                        "Submission ID": submission_id  # Include submission ID in feedback entry
                     }
                     # Update the feedback data in session state
                     for i, entry in enumerate(st.session_state.feedback_data):
@@ -151,7 +153,10 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     else:
                         st.session_state.feedback_data.append(feedback_entry)
 
-      # Button to submit feedback
+                    # Display user ID and submission ID
+                    st.markdown(f"**User ID:** {user_id}, **Submission ID:** {submission_id}")  # Displaying IDs
+
+# Button to submit feedback
 if st.button("Submit Feedback to Canvas"):
     if not st.session_state.feedback_data:
         st.warning("No feedback data to submit.")
