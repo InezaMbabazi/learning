@@ -59,12 +59,9 @@ def submit_feedback_to_canvas(course_id, assignment_id, user_id, grade, feedback
     
     # Check for successful submission
     if response.status_code == 200:
-        st.success(f"Feedback successfully submitted for user ID {user_id}.")
-        return True
+        return True, f"Feedback successfully submitted for user ID {user_id}."
     else:
-        st.error(f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code}")
-        st.error(f"Response: {response.text}")
-        return False
+        return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -131,9 +128,14 @@ if st.button("Download and Grade Submissions") and proposed_answer:
 
         # Button to submit feedback
         if st.button("Submit Feedback to Canvas"):
+            submission_results = []  # To store results for all submissions
             for entry in st.session_state.feedback_data:
-                st.write(f"Submitting feedback for {entry['Student Name']}...")
-                if submit_feedback_to_canvas(course_id, assignment_id, entry["User ID"], entry["Grade"], entry["Feedback"]):
-                    st.success(f"Feedback submitted for {entry['Student Name']}")
+                success, message = submit_feedback_to_canvas(course_id, assignment_id, entry["User ID"], entry["Grade"], entry["Feedback"])
+                submission_results.append((entry["Student Name"], success, message))
+
+            # Display submission results
+            for name, success, message in submission_results:
+                if success:
+                    st.success(message)
                 else:
-                    st.error(f"Failed to submit feedback for {entry['Student Name']}")
+                    st.error(message)
