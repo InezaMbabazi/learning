@@ -122,6 +122,10 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     st.markdown(f'<div class="submission-title">Submission by {user_name}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
+                    # Display the existing grade and feedback
+                    st.markdown(f"**Grade for {user_name}:** {existing_grade}")
+                    st.markdown(f"**Feedback for {user_name}:** {existing_feedback}")
+
                     # Generate automated feedback based on the proposed answer
                     generated_feedback = generate_feedback(proposed_answer)
 
@@ -152,8 +156,4 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                 submission_results.append((entry["Student Name"], success, message))
 
             # Display submission results
-            for name, success, message in submission_results:
-                if success:
-                    st.success(message)
-                else:
-                    st.error(message)
+           
