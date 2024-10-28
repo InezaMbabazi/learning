@@ -46,20 +46,23 @@ def display_excel_content(file_content):
     df = pd.read_excel(io.BytesIO(file_content))
     st.dataframe(df)
 
-# Function to submit feedback to Canvas
-def submit_feedback_to_canvas(course_id, assignment_id, user_id, grade, feedback):
+# Function to submit feedback and grades to Canvas
+def submit_feedback_and_grade(course_id, assignment_id, user_id, grade, feedback):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
-    payload = {"comment": {"text_comment": feedback}}
-    
-    # Only include grade if assigned
-    if grade and grade != "Not Assigned":
-        payload["submission"] = {"posted_grade": grade}
-    
+    payload = {
+        "submission": {
+            "posted_grade": grade,
+            "comment": {
+                "text_comment": feedback
+            }
+        }
+    }
+
     response = requests.put(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}", headers=headers, json=payload)
-    
+
     # Check for successful submission
     if response.status_code == 200:
-        return True, f"Feedback successfully submitted for user ID {user_id}."
+        return True, f"Successfully submitted feedback and grade for user ID {user_id}."
     else:
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
 
@@ -92,7 +95,7 @@ if st.button("Download and Grade Submissions") and proposed_answer:
             for attachment in attachments:
                 file_content = download_submission_file(attachment['url'])
                 filename = attachment['filename']
-                
+
                 if filename.endswith(".txt") and file_content:
                     submission_text = file_content.decode('utf-8')
                 elif filename.endswith(".docx") and file_content:
@@ -126,11 +129,11 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     else:
                         st.session_state.feedback_data.append(feedback_entry)
 
-        # Button to submit feedback
-        if st.button("Submit Feedback to Canvas"):
+        # Button to submit feedback and grades
+        if st.button("Submit Feedback and Grades to Canvas"):
             submission_results = []  # To store results for all submissions
             for entry in st.session_state.feedback_data:
-                success, message = submit_feedback_to_canvas(course_id, assignment_id, entry["User ID"], entry["Grade"], entry["Feedback"])
+                success, message = submit_feedback_and_grade(course_id, assignment_id, entry["User ID"], entry["Grade"], entry["Feedback"])
                 submission_results.append((entry["Student Name"], success, message))
 
             # Display submission results
