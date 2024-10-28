@@ -170,7 +170,7 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     # Input for grade
                     grade_input = st.number_input(
                         f"Grade for {user_name}", 
-                        value=auto_grade,  # Set default grade to calculated grade
+                        value=float(auto_grade),  # Ensure the default grade is a float
                         min_value=0.0, 
                         max_value=100.0, 
                         step=0.1, 
