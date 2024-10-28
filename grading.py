@@ -200,4 +200,6 @@ if st.button("Submit Feedback and Grades to Canvas"):
             success_grade, message_grade = submit_grade(course_id, assignment_id, entry["User ID"], entry["Grade"])
             submission_results.append((entry["Student Name"], success_feedback, message_feedback, success_grade, message_grade))
 
-        for student
+        for student_name, success_feedback, message_feedback, success_grade, message_grade in submission_results:
+            st.success(f"Feedback for {student_name}: {message_feedback}")
+            st.success(f"Grade for {student_name}: {message_grade}")
