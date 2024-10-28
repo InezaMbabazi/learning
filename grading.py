@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-import os
 import io
 from docx import Document
 import openai
@@ -20,7 +19,7 @@ st.markdown("""
     .header { text-align: center; color: #4B0082; font-size: 30px; font-weight: bold; }
     .content { border: 2px solid #4B0082; padding: 20px; border-radius: 10px; background-color: #F3F4F6; }
     .submission-title { font-size: 24px; color: #4B0082; }
-    .submission-text { font-size: 20px; border: 2px solid #4B0082; padding: 10px; background-color: #E6E6FA; border-radius: 10px; color: #333; font-weight: bold; }
+    .submission-text { font-size: 18px; border: 2px solid #4B0082; padding: 10px; background-color: #E6E6FA; border-radius: 10px; color: #333; font-weight: bold; }
     .feedback-title { color: #FF4500; font-weight: bold; }
     .feedback { border: 2px solid #4B0082; padding: 10px; border-radius: 10px; background-color: #E6FFE6; color: #333; }
 </style>
@@ -66,7 +65,7 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
 
 # Function to generate automated feedback based on each student's submission
-def generate_feedback(proposed_answer, submission_content, grade):
+def generate_feedback(proposed_answer, submission_content):
     prompt = f"Here is the proposed answer for evaluation:\n{proposed_answer}\n\nProvide specific feedback for the following student's answer based on the proposed answer:\n{submission_content}\nFeedback:"
     try:
         response = openai.ChatCompletion.create(
@@ -76,14 +75,6 @@ def generate_feedback(proposed_answer, submission_content, grade):
             max_tokens=150
         )
         feedback = response.choices[0].message['content'].strip()
-        
-        if grade >= 8:
-            feedback += "\nGreat job! Your understanding is excellent and shows a high level of comprehension."
-        elif grade >= 5:
-            feedback += "\nGood effort. There are some minor points to improve, but overall, it's well-done."
-        else:
-            feedback += "\nNeeds improvement. Consider revisiting some key concepts to strengthen your understanding."
-        
         return feedback
     except Exception as e:
         st.error(f"Error generating feedback: {str(e)}")
@@ -139,14 +130,16 @@ if st.button("Download and Grade Submissions"):
                     continue
 
                 if submission_text:
+                    # Display submission with alignment to the proposed answer
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="submission-text">Question:\n{submission_text}</div>', unsafe_allow_html=True)
+                    st.markdown('<hr>', unsafe_allow_html=True)
+
+                    # Generate feedback specific to the student's submission, using the proposed answer
+                    generated_feedback = generate_feedback(proposed_answer, submission_text)
 
                     # Automatically calculate grade
                     auto_grade = calculate_grade(submission_text)
-
-                    # Generate feedback specific to the student's submission, using the proposed answer and calculated grade
-                    generated_feedback = generate_feedback(proposed_answer, submission_text, auto_grade)
 
                     # Input for grade
                     grade_input = st.number_input(
