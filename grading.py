@@ -51,7 +51,7 @@ def submit_feedback(course_id, assignment_id, user_id, feedback):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
     payload = {
         "comment": {
-            "text_comment": feedback  # Ensure this matches the API requirements
+            "comment": feedback  # Ensure this matches the API requirements
         }
     }
 
