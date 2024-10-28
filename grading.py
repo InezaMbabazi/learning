@@ -13,95 +13,129 @@ BASE_URL = 'https://kepler.instructure.com/api/v1'
 # OpenAI API Key from Streamlit secrets
 openai.api_key = st.secrets.get("openai", {}).get("api_key")
 
-# Function to fetch submissions from Canvas
-def get_submissions(course_id, assignment_id):
-    url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions"
-    headers = {'Authorization': f'Bearer {API_TOKEN}'}
-    response = requests.get(url, headers=headers)
-    
-    if response.status_code == 200:
-        return response.json()
-    else:
-        st.error("Error fetching submissions: " + response.text)
-        return []
-
-# Function to download submission file
-def download_submission_file(url):
-    headers = {'Authorization': f'Bearer {API_TOKEN}'}
-    response = requests.get(url, headers=headers)
-    return response.content if response.status_code == 200 else None
-
-# Function to generate feedback using OpenAI
-def generate_feedback(proposed_answer):
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "user", "content": f"Provide feedback on this answer: {proposed_answer}"}
-        ]
-    )
-    return response['choices'][0]['message']['content'] if response['choices'] else "No feedback available."
-
-# Function to calculate grade based on submission text
-def calculate_grade(submission_text):
-    # Placeholder for a grading logic, e.g., keyword scoring, length of response, etc.
-    if len(submission_text) < 100:
-        return 5.0  # Low score for short submissions
-    elif len(submission_text) < 300:
-        return 7.5  # Medium score for moderate length submissions
-    else:
-        return 10.0  # Full score for long submissions
-
-# Function to submit feedback to Canvas
-def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
-    url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
-    headers = {'Authorization': f'Bearer {API_TOKEN}'}
-    data = {
-        'submission[comment][text_comment]': feedback,
-        'submission[grade]': grade
-    }
-    response = requests.post(url, headers=headers, data=data)
-    
-    if response.status_code == 200:
-        return True, "Feedback submitted successfully!"
-    else:
-        return False, "Error submitting feedback: " + response.text
-
-# Streamlit styling and UI
+# Streamlit styling
 st.set_page_config(page_title="Kepler College Grading System", page_icon="📚", layout="wide")
 st.markdown("""
 <style>
     .header { text-align: center; color: #4B0082; font-size: 30px; font-weight: bold; }
     .content { border: 2px solid #4B0082; padding: 20px; border-radius: 10px; background-color: #F3F4F6; }
+    .submission-title { font-size: 24px; color: #4B0082; }
+    .submission-text { font-size: 20px; border: 2px solid #4B0082; padding: 10px; background-color: #E6E6FA; border-radius: 10px; color: #333; font-weight: bold; }
+    .feedback-title { color: #FF4500; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
+
+# Function to get submissions for an assignment
+def get_submissions(course_id, assignment_id):
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    response = requests.get(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions", headers=headers)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error("Failed to retrieve submissions.")
+        return []
+
+# Function to download a submission file
+def download_submission_file(file_url):
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    response = requests.get(file_url, headers=headers)
+    return response.content if response.status_code == 200 else None
+
+# Function to display Excel content
+def display_excel_content(file_content):
+    df = pd.read_excel(io.BytesIO(file_content))
+    st.dataframe(df)
+
+# Function to submit feedback to Canvas
+def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
+    headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
+    payload = {
+        "comment": {
+            "text_comment": feedback
+        },
+        "submission": {
+            "posted_grade": grade  # Include the grade in the payload
+        }
+    }
+
+    # Construct the URL using the provided IDs
+    url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
+    
+    response = requests.put(url, headers=headers, json=payload)  # Changed to PUT for grading
+
+    print(f"Submitting feedback for user ID {user_id}...")
+    print(f"Request Payload: {payload}")
+    print(f"Response Status Code: {response.status_code}")
+    print(f"Response Body: {response.text}")
+
+    if response.status_code in [200, 201]:
+        return True, f"Successfully submitted feedback for user ID {user_id}."
+    else:
+        print(response.text)
+        return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
+
+# Function to generate automated feedback using OpenAI
+def generate_feedback(proposed_answer):
+    prompt = f"Generate feedback based on the following proposed answer:\n{proposed_answer}\nFeedback:"
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=150
+        )
+        feedback = response.choices[0].message['content'].strip()
+        return feedback
+    except Exception as e:
+        st.error(f"Error generating feedback: {str(e)}")
+        return "Error generating feedback."
+
+# Function to calculate grade automatically
+def calculate_grade(submission_text):
+    # Example grading logic based on the length and keyword presence
+    keywords = ["important", "necessary", "critical"]  # Define keywords
+    base_grade = 5  # Starting point for grade out of 10
+    
+    # Length criteria
+    if len(submission_text) > 500:  # Arbitrary length threshold
+        base_grade += 2
+    elif len(submission_text) < 200:
+        base_grade -= 1
+
+    # Keyword presence
+    for keyword in keywords:
+        if keyword in submission_text.lower():
+            base_grade += 1
+
+    # Ensure grade is within the range of 0 to 10
+    return min(max(base_grade, 0), 10)
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allow_html=True)
 
 # Input fields for course ID and assignment ID
-st.sidebar.header("Configuration")
-course_id = st.sidebar.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
-assignment_id = st.sidebar.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
+course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
+assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
 
-# Proposed answer input
 proposed_answer = st.text_area("Proposed Answer for Evaluation:", height=100)
 
 # Initialize session state for feedback if not already done
 if 'feedback_data' not in st.session_state:
     st.session_state.feedback_data = []
 
-# Button to fetch submissions and provide feedback
-if st.button("Download and Grade Submissions"):
-    with st.spinner("Fetching submissions..."):
-        submissions = get_submissions(course_id, assignment_id)
+if st.button("Download and Grade Submissions") and proposed_answer:
+    submissions = get_submissions(course_id, assignment_id)
     if submissions:
         for submission in submissions:
-            user_id = submission['user_id']
-            submission_id = submission['id']
+            user_id = submission['user_id']  # Fetch user ID
+            submission_id = submission['id']  # Fetch submission ID
             user_name = submission.get('user', {}).get('name', f"User {user_id}")
             attachments = submission.get('attachments', [])
             submission_text = ""
+
+            # Fetch existing feedback
+            existing_feedback = submission.get('comment', {}).get('text_comment', "")
 
             for attachment in attachments:
                 file_content = download_submission_file(attachment['url'])
@@ -112,46 +146,66 @@ if st.button("Download and Grade Submissions"):
                 elif filename.endswith(".docx") and file_content:
                     doc = Document(io.BytesIO(file_content))
                     submission_text = "\n".join([para.text for para in doc.paragraphs])
-                
+                elif filename.endswith(".xlsx") and file_content:
+                    st.markdown(f'<div class="submission-title">Excel Submission from {user_name}</div>', unsafe_allow_html=True)
+                    display_excel_content(file_content)
+                    continue
+
                 if submission_text:
-                    st.markdown(f"**Submission by {user_name} (User ID: {user_id}, Submission ID: {submission_id})**")
-                    st.text(submission_text)
+                    st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id}, Submission ID: {submission_id})</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    # Automatically generate feedback and grade
-                    feedback = generate_feedback(submission_text)
-                    grade = calculate_grade(submission_text)
+                    # Display the existing feedback
+                    st.markdown(f"**Feedback for {user_name}:** {existing_feedback}")
 
-                    # Display generated feedback and grade
-                    st.markdown(f"**Generated Feedback:** {feedback}")
-                    st.markdown(f"**Generated Grade:** {grade:.1f}")
+                    # Generate automated feedback based on the proposed answer
+                    generated_feedback = generate_feedback(proposed_answer)
 
-                    # Save feedback data
+                    # Automatically calculate grade
+                    auto_grade = calculate_grade(submission_text)
+
+                    # Input for grade (scale out of 10)
+                    grade_input = st.number_input(
+                        f"Grade for {user_name} (0-10)", 
+                        value=float(auto_grade),  # Ensure the default grade is a float
+                        min_value=0.0, 
+                        max_value=10.0, 
+                        step=0.1, 
+                        key=f"grade_{user_id}"
+                    )
+
+                    # Create unique keys for each user
+                    feedback_input = st.text_area(f"Feedback for {user_name}", value=generated_feedback, height=100, key=f"feedback_{user_id}")
+
+                    # Update session state to maintain user feedback
                     feedback_entry = {
                         "Student Name": user_name,
-                        "Feedback": feedback,
+                        "Feedback": feedback_input,
                         "User ID": user_id,
                         "Submission ID": submission_id,
-                        "Grade": grade
+                        "Grade": grade_input  # Store the grade in the feedback entry
                     }
-                    st.session_state.feedback_data.append(feedback_entry)
+                    # Update the feedback data in session state
+                    for i, entry in enumerate(st.session_state.feedback_data):
+                        if entry["User ID"] == user_id:
+                            st.session_state.feedback_data[i] = feedback_entry
+                            break
+                    else:
+                        st.session_state.feedback_data.append(feedback_entry)
 
-# Submit feedback and grades
+# Button to submit feedback and grades
 if st.button("Submit Feedback to Canvas"):
     if not st.session_state.feedback_data:
         st.warning("No feedback available to submit.")
     else:
-        with st.spinner("Submitting feedback..."):
-            for entry in st.session_state.feedback_data:
-                success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"], entry["Grade"])
-                if success:
-                    st.success(message)
-                else:
-                    st.error(message)
+        for entry in st.session_state.feedback_data:
+            success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"], entry["Grade"])
+            st.success(message) if success else st.error(message)
 
-# Display feedback data
+# Display the session state feedback data
 if st.session_state.feedback_data:
     st.subheader("Feedback Data")
     for feedback_entry in st.session_state.feedback_data:
         st.markdown(f"**{feedback_entry['Student Name']} (User ID: {feedback_entry['User ID']}, Submission ID: {feedback_entry['Submission ID']})**")
         st.markdown(f"Feedback: {feedback_entry['Feedback']}")
-        st.markdown(f"Grade: {feedback_entry['Grade']:.1f}")
+        st.markdown(f"Grade: {feedback_entry['Grade']}")
