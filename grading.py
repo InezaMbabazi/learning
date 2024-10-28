@@ -195,4 +195,14 @@ if st.button("Submit Feedback to Canvas"):
             submission_results.append(message)
 
         # Display submission results
-        st.success("Feedback submitted for the
+        st.success("Feedback submitted for the following users:")
+        for result in submission_results:
+            st.write(result)
+
+# Reset the feedback data after submission
+if st.button("Reset Feedback Data"):
+    st.session_state.feedback_data.clear()
+    st.success("Feedback data reset.")
+
+# Footer
+st.markdown('<div class="footer">© 2024 Kepler College | All Rights Reserved</div>', unsafe_allow_html=True)
