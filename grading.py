@@ -55,20 +55,19 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
             "text_comment": feedback
         },
         "submission": {
-            "posted_grade": grade
+            "posted_grade": grade  # Include the grade in the payload
         }
     }
     url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
-    
     response = requests.put(url, headers=headers, json=payload)
     if response.status_code in [200, 201]:
         return True, f"Successfully submitted feedback for user ID {user_id}."
     else:
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
 
-# Function to generate structured feedback
-def generate_feedback(proposed_answer):
-    prompt = f"Generate feedback based on the following proposed answer:\n{proposed_answer}\nFeedback:"
+# Function to generate automated feedback based on each student's submission
+def generate_feedback(submission_content):
+    prompt = f"Generate specific feedback for the following student's answer:\n{submission_content}\nFeedback:"
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
@@ -76,7 +75,8 @@ def generate_feedback(proposed_answer):
             temperature=0.7,
             max_tokens=150
         )
-        return response.choices[0].message['content'].strip()
+        feedback = response.choices[0].message['content'].strip()
+        return feedback
     except Exception as e:
         st.error(f"Error generating feedback: {str(e)}")
         return "Error generating feedback."
@@ -98,22 +98,18 @@ def calculate_grade(submission_text):
 st.image("header.png", use_column_width=True)
 st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allow_html=True)
 
-# Input fields for course ID and assignment ID
 course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
 assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
 
-proposed_answer = st.text_area("Proposed Answer for Evaluation:", height=100)
-
-# Initialize session state for feedback if not already done
+# Initialize session state for feedback
 if 'feedback_data' not in st.session_state:
     st.session_state.feedback_data = []
 
-if st.button("Download and Grade Submissions") and proposed_answer:
+if st.button("Download and Grade Submissions"):
     submissions = get_submissions(course_id, assignment_id)
     if submissions:
         for submission in submissions:
             user_id = submission['user_id']
-            submission_id = submission['id']
             user_name = submission.get('user', {}).get('name', f"User {user_id}")
             attachments = submission.get('attachments', [])
             submission_text = ""
@@ -121,7 +117,6 @@ if st.button("Download and Grade Submissions") and proposed_answer:
             for attachment in attachments:
                 file_content = download_submission_file(attachment['url'])
                 filename = attachment['filename']
-
                 if filename.endswith(".txt") and file_content:
                     submission_text = file_content.decode('utf-8')
                 elif filename.endswith(".docx") and file_content:
@@ -133,12 +128,16 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     continue
 
                 if submission_text:
-                    st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id}, Submission ID: {submission_id})</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    generated_feedback = generate_feedback(proposed_answer)
+                    # Generate feedback specific to the student's submission
+                    generated_feedback = generate_feedback(submission_text)
+
+                    # Automatically calculate grade
                     auto_grade = calculate_grade(submission_text)
 
+                    # Input for grade
                     grade_input = st.number_input(
                         f"Grade for {user_name} (0-10)", 
                         value=float(auto_grade), 
@@ -148,32 +147,26 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                         key=f"grade_{user_id}"
                     )
 
+                    # Input for feedback
                     feedback_input = st.text_area(f"Feedback for {user_name}", value=generated_feedback, height=100, key=f"feedback_{user_id}")
 
+                    # Update session state
                     feedback_entry = {
                         "Student Name": user_name,
                         "Feedback": feedback_input,
                         "User ID": user_id,
-                        "Submission ID": submission_id,
                         "Grade": grade_input
                     }
-                    for i, entry in enumerate(st.session_state.feedback_data):
-                        if entry["User ID"] == user_id:
-                            st.session_state.feedback_data[i] = feedback_entry
-                            break
-                    else:
-                        st.session_state.feedback_data.append(feedback_entry)
+                    st.session_state.feedback_data.append(feedback_entry)
 
+# Button to submit feedback to Canvas
 if st.button("Submit Feedback to Canvas"):
     if not st.session_state.feedback_data:
         st.warning("No feedback available to submit.")
     else:
         for entry in st.session_state.feedback_data:
             success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"], entry["Grade"])
-            if isinstance(message, str):
-                if success:
-                    st.success(message)
-                else:
-                    st.error(message)
+            if success:
+                st.success(message)
             else:
-                st.error("Received an unexpected message format. Please check your submit_feedback function.")
+                st.error(message)
