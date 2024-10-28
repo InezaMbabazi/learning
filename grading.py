@@ -55,43 +55,24 @@ def submit_feedback(course_id, assignment_id, user_id, feedback):
         }
     }
 
-    # Using POST method to submit feedback as a new comment
     response = requests.post(
         f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}/comments", 
         headers=headers, 
         json=payload
     )
 
-    # Log request and response for debugging
     print(f"Submitting feedback for user ID {user_id}...")
     print(f"Request Payload: {payload}")
     print(f"Response Status Code: {response.status_code}")
     print(f"Response Body: {response.text}")
 
     # Check for successful submission
-    if response.status_code == 200:
-        return True, f"Successfully submitted feedback for user ID {user_id}."
-    else:
-        return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
-
-    # Log request and response for debugging
-    print(f"Submitting feedback for user ID {user_id}...")
-    print(f"Request Payload: {payload}")
-    print(f"Response Status Code: {response.status_code}")
-    print(f"Response Body: {response.text}")
-
-    # Check for successful submission
-    if response.status_code == 200:
-        return True, f"Successfully submitted feedback for user ID {user_id}."
-    else:
-        return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
-
-    # Check for successful submission
-    if response.status_code == 200:
+    if response.status_code in [200, 201]:  # Updated to check for 201 as well
         return True, f"Successfully submitted feedback for user ID {user_id}."
     else:
         print(response.text)  # For debugging
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
+
 # Function to generate automated feedback using OpenAI
 def generate_feedback(proposed_answer):
     prompt = f"Generate feedback based on the following proposed answer:\n{proposed_answer}\nFeedback:"
