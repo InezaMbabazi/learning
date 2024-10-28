@@ -66,6 +66,18 @@ def submit_feedback_and_grade(course_id, assignment_id, user_id, grade, feedback
     else:
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
 
+# Function to generate automated feedback using OpenAI
+def generate_feedback(proposed_answer):
+    prompt = f"Generate feedback based on the following proposed answer:\n{proposed_answer}\nFeedback:"
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_tokens=150
+    )
+    feedback = response.choices[0].message['content'].strip()
+    return feedback
+
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allow_html=True)
@@ -110,9 +122,12 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     st.markdown(f'<div class="submission-title">Submission by {user_name}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
+                    # Generate automated feedback based on the proposed answer
+                    generated_feedback = generate_feedback(proposed_answer)
+
                     # Create unique keys for each user
                     grade_input = st.text_input(f"Grade for {user_name}", value=existing_grade, key=f"grade_{user_id}")
-                    feedback_input = st.text_area(f"Feedback for {user_name}", value=existing_feedback, height=100, key=f"feedback_{user_id}")
+                    feedback_input = st.text_area(f"Feedback for {user_name}", value=generated_feedback, height=100, key=f"feedback_{user_id}")
 
                     # Update session state to maintain user feedback
                     feedback_entry = {
