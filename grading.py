@@ -89,7 +89,7 @@ if st.button("Download and Grade Submissions") and proposed_answer:
             submission_text = ""
 
             # Fetch existing grade and feedback
-            existing_grade = submission.get('posted_grade')
+            existing_grade = submission.get('posted_grade', "Not Assigned")
             existing_feedback = submission.get('comment', {}).get('text_comment', "")
 
             for attachment in attachments:
@@ -110,18 +110,26 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     st.markdown(f'<div class="submission-title">Submission by {user_name}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    # Store feedback and grade in session state
-                    grade_input = st.text_input(f"Grade for {user_name}", value=str(existing_grade or "Not Assigned"), key=f"grade_{user_id}")
+                    # Create unique keys for each user
+                    grade_input = st.text_input(f"Grade for {user_name}", value=existing_grade, key=f"grade_{user_id}")
                     feedback_input = st.text_area(f"Feedback for {user_name}", value=existing_feedback, height=100, key=f"feedback_{user_id}")
 
-                    # Append to session state
-                    st.session_state.feedback_data.append({
+                    # Update session state to maintain user feedback
+                    feedback_entry = {
                         "Student Name": user_name,
                         "Grade": grade_input,
                         "Feedback": feedback_input,
                         "User ID": user_id
-                    })
+                    }
+                    # Update the feedback data in session state
+                    for i, entry in enumerate(st.session_state.feedback_data):
+                        if entry["User ID"] == user_id:
+                            st.session_state.feedback_data[i] = feedback_entry
+                            break
+                    else:
+                        st.session_state.feedback_data.append(feedback_entry)
 
+        # Button to submit feedback
         if st.button("Submit Feedback to Canvas"):
             for entry in st.session_state.feedback_data:
                 st.write(f"Submitting feedback for {entry['Student Name']}...")
