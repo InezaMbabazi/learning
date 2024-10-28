@@ -195,10 +195,12 @@ if st.button("Submit Feedback to Canvas"):
     else:
         for entry in st.session_state.feedback_data:
             success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"], entry["Grade"])
-            st.success(message) if success else st.error(message)
+            
+            # Debugging: print the message type and content
+            print(f"Success: {success}, Message: {message}, Message Type: {type(message)}")
 
-# Display the session state feedback data if available
-if st.session_state.feedback_data:
-    st.markdown('<div class="feedback-title">Feedback Summary</div>', unsafe_allow_html=True)
-    for entry in st.session_state.feedback_data:
-        st.markdown(f'<div class="feedback">Student Name: {entry["Student Name"]}<br>Feedback: {entry["Feedback"]}<br>Grade: {entry["Grade"]}</div>', unsafe_allow_html=True)
+            # Ensure that message is a string before passing to st.success or st.error
+            if isinstance(message, str):
+                st.success(message) if success else st.error(message)
+            else:
+                st.error("Unexpected message format received.")
