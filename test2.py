@@ -2,7 +2,7 @@ import requests
 import streamlit as st
 
 # Canvas API key - Insert here temporarily
-API_TOKEN = "1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH"
+API_TOKEN = "YOUR_API_KEY_HERE"
 BASE_URL = "https://kepler.instructure.com/api/v1"
 course_id = 2906
 assignment_id = 47134
