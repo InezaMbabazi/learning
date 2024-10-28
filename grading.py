@@ -78,7 +78,7 @@ def calculate_grade(submission_text):
     for keyword in keywords:
         if keyword in submission_text.lower():
             base_grade += 1
-    return min(max(base_grade, 0), 10)
+    return min(max(float(base_grade), 0.0), 10.0)  # Ensure grade is a float for consistency
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -132,14 +132,9 @@ if st.button("Download and Grade Submissions"):
                     st.write(auto_grade)
 
                     # Input for final adjustments to grade and feedback
-final_grade = st.number_input(
-    f"Adjust grade for {user_name} (0-10):", 
-    value=float(auto_grade),  # Convert auto_grade to float explicitly
-    min_value=0.0,            # Ensure min_value is float
-    max_value=10.0,           # Ensure max_value is float
-    step=0.1, 
-    key=f"grade_{user_id}"
-)
+                    final_grade = st.number_input(f"Adjust grade for {user_name} (0-10):", value=float(auto_grade), min_value=0.0, max_value=10.0, step=0.1, key=f"grade_{user_id}")
+                    final_feedback = st.text_area(f"Adjust feedback for {user_name}:", value=generated_feedback, key=f"feedback_{user_id}")
+
                     # Button to submit feedback to Canvas
                     if st.button(f"Submit Feedback for {user_name}", key=f"submit_{user_id}"):
                         success, message = submit_feedback(course_id, assignment_id, user_id, final_feedback, final_grade)
