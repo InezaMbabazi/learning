@@ -129,8 +129,8 @@ st.image("header.png", use_column_width=True)  # Display header image
 st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allow_html=True)
 
 # Set Course and Assignment IDs
-course_id = 2850  # Replace with your course ID
-assignment_id = 45964  # Replace with your assignment ID
+course_id = 2906  # Replace with your course ID
+assignment_id = 47134  # Replace with your assignment ID
 
 # Proposed Answer Input
 proposed_answer = st.text_area("Proposed Answer for Evaluation:", height=100)
