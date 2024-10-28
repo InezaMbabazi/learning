@@ -90,6 +90,26 @@ def generate_feedback(proposed_answer):
         st.error(f"Error generating feedback: {str(e)}")
         return "Error generating feedback."
 
+# Function to calculate grade automatically
+def calculate_grade(submission_text):
+    # Example grading logic based on the length and keyword presence
+    keywords = ["important", "necessary", "critical"]  # Define keywords
+    base_grade = 50  # Starting point for grade
+    
+    # Length criteria
+    if len(submission_text) > 500:  # Arbitrary length threshold
+        base_grade += 20
+    elif len(submission_text) < 200:
+        base_grade -= 10
+
+    # Keyword presence
+    for keyword in keywords:
+        if keyword in submission_text.lower():
+            base_grade += 10
+
+    # Ensure grade is within the range of 0 to 100
+    return min(max(base_grade, 0), 100)
+
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allow_html=True)
@@ -144,10 +164,13 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     # Generate automated feedback based on the proposed answer
                     generated_feedback = generate_feedback(proposed_answer)
 
+                    # Automatically calculate grade
+                    auto_grade = calculate_grade(submission_text)
+
                     # Input for grade
                     grade_input = st.number_input(
                         f"Grade for {user_name}", 
-                        value=0.0,  # Changed to a float
+                        value=auto_grade,  # Set default grade to calculated grade
                         min_value=0.0, 
                         max_value=100.0, 
                         step=0.1, 
@@ -180,11 +203,7 @@ if st.button("Submit Feedback to Canvas"):
     else:
         submission_results = []
         for entry in st.session_state.feedback_data:
-            success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"], entry["Grade"])  # Include grade
-            submission_results.append((entry["Student Name"], success, message))
+            success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"], entry["Grade"])
+            submission_results.append(message)
 
-        for student_name, success, message in submission_results:
-            if success:
-                st.success(f"{message} - {student_name}")
-            else:
-                st.error(f"{message} - {student_name}")
+        st.success("\n".join(submission_results))
