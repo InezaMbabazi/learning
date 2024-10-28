@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import requests
 import os
 import io
@@ -116,6 +116,10 @@ if st.button("Download and Grade Submissions") and proposed_answer:
             attachments = submission.get('attachments', [])
             submission_text = ""
 
+            # Fetch existing grade and feedback
+            existing_grade = submission.get('posted_grade')
+            existing_feedback = submission.get('comment', {}).get('text_comment', "")
+
             for attachment in attachments:
                 file_content = download_submission_file(attachment['url'])
                 filename = attachment['filename']
@@ -134,9 +138,9 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     st.markdown(f'<div class="submission-title">Submission by {user_name}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    grade, feedback = generate_grading_feedback(submission_text, proposed_answer)
-                    grade_input = st.text_input(f"Grade for {user_name}", value=str(grade or "Not Assigned"), key=f"grade_{user_id}")
-                    feedback_input = st.text_area(f"Feedback for {user_name}", value=feedback, height=100, key=f"feedback_{user_id}")
+                    # Display existing grade and feedback for editing
+                    grade_input = st.text_input(f"Grade for {user_name}", value=str(existing_grade or "Not Assigned"), key=f"grade_{user_id}")
+                    feedback_input = st.text_area(f"Feedback for {user_name}", value=existing_feedback, height=100, key=f"feedback_{user_id}")
 
                     feedback_data.append({
                         "Student Name": user_name,
@@ -147,7 +151,6 @@ if st.button("Download and Grade Submissions") and proposed_answer:
 
         if st.button("Submit Feedback to Canvas"):
             for entry in feedback_data:
-                # Submit feedback for each student
                 if submit_feedback_to_canvas(course_id, assignment_id, entry["User ID"], entry["Grade"], entry["Feedback"]):
                     st.success(f"Feedback submitted for {entry['Student Name']}")
                 else:
