@@ -1,4 +1,4 @@
-import streamlit as st 
+import streamlit as st
 import requests
 import os
 import io
@@ -45,37 +45,6 @@ def download_submission_file(file_url):
 def display_excel_content(file_content):
     df = pd.read_excel(io.BytesIO(file_content))
     st.dataframe(df)
-
-# Function to generate grading and feedback using OpenAI
-def generate_grading_feedback(submission_text, proposed_answer):
-    if openai.api_key is None:
-        st.error("OpenAI API key is missing.")
-        return None, None
-
-    prompt = (
-        f"Evaluate the following student's submission against the proposed answer. "
-        f"Provide feedback and a grade between 0 and 100.\n\n"
-        f"Submission: {submission_text}\n"
-        f"Proposed Answer: {proposed_answer}\n\n"
-    )
-    
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    feedback_content = response['choices'][0]['message']['content'].strip()
-    
-    grade = None
-    feedback = feedback_content
-    if "Grade:" in feedback_content:
-        try:
-            grade_line = feedback_content.splitlines()[0]
-            grade = int(grade_line.split(": ")[1])
-            feedback = "\n".join(feedback_content.splitlines()[1:]).strip()
-        except (IndexError, ValueError):
-            grade = "Not Assigned"
-    
-    return grade, feedback
 
 # Function to submit feedback to Canvas
 def submit_feedback_to_canvas(course_id, assignment_id, user_id, grade, feedback):
@@ -151,6 +120,7 @@ if st.button("Download and Grade Submissions") and proposed_answer:
 
         if st.button("Submit Feedback to Canvas"):
             for entry in feedback_data:
+                st.write(f"Submitting feedback for {entry['Student Name']}...")
                 if submit_feedback_to_canvas(course_id, assignment_id, entry["User ID"], entry["Grade"], entry["Feedback"]):
                     st.success(f"Feedback submitted for {entry['Student Name']}")
                 else:
