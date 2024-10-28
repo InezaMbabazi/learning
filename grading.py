@@ -74,11 +74,14 @@ course_id = 2906  # Replace with your course ID
 assignment_id = 47134  # Replace with your assignment ID
 
 proposed_answer = st.text_area("Proposed Answer for Evaluation:", height=100)
+
+# Initialize session state for feedback and grades if not already done
+if 'feedback_data' not in st.session_state:
+    st.session_state.feedback_data = []
+
 if st.button("Download and Grade Submissions") and proposed_answer:
     submissions = get_submissions(course_id, assignment_id)
     if submissions:
-        feedback_data = []
-
         for submission in submissions:
             user_id = submission['user_id']
             user_name = submission.get('user', {}).get('name', f"User {user_id}")
@@ -107,11 +110,12 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     st.markdown(f'<div class="submission-title">Submission by {user_name}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    # Display existing grade and feedback for editing
+                    # Store feedback and grade in session state
                     grade_input = st.text_input(f"Grade for {user_name}", value=str(existing_grade or "Not Assigned"), key=f"grade_{user_id}")
                     feedback_input = st.text_area(f"Feedback for {user_name}", value=existing_feedback, height=100, key=f"feedback_{user_id}")
 
-                    feedback_data.append({
+                    # Append to session state
+                    st.session_state.feedback_data.append({
                         "Student Name": user_name,
                         "Grade": grade_input,
                         "Feedback": feedback_input,
@@ -119,7 +123,7 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     })
 
         if st.button("Submit Feedback to Canvas"):
-            for entry in feedback_data:
+            for entry in st.session_state.feedback_data:
                 st.write(f"Submitting feedback for {entry['Student Name']}...")
                 if submit_feedback_to_canvas(course_id, assignment_id, entry["User ID"], entry["Grade"], entry["Feedback"]):
                     st.success(f"Feedback submitted for {entry['Student Name']}")
