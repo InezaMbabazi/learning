@@ -94,21 +94,21 @@ def generate_feedback(proposed_answer):
 def calculate_grade(submission_text):
     # Example grading logic based on the length and keyword presence
     keywords = ["important", "necessary", "critical"]  # Define keywords
-    base_grade = 50  # Starting point for grade
+    base_grade = 5  # Starting point for grade out of 10
     
     # Length criteria
     if len(submission_text) > 500:  # Arbitrary length threshold
-        base_grade += 20
+        base_grade += 2
     elif len(submission_text) < 200:
-        base_grade -= 10
+        base_grade -= 1
 
     # Keyword presence
     for keyword in keywords:
         if keyword in submission_text.lower():
-            base_grade += 10
+            base_grade += 1
 
-    # Ensure grade is within the range of 0 to 100
-    return min(max(base_grade, 0), 100)
+    # Ensure grade is within the range of 0 to 10
+    return min(max(base_grade, 0), 10)
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -167,12 +167,12 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     # Automatically calculate grade
                     auto_grade = calculate_grade(submission_text)
 
-                    # Input for grade
+                    # Input for grade (scale out of 10)
                     grade_input = st.number_input(
-                        f"Grade for {user_name}", 
+                        f"Grade for {user_name} (0-10)", 
                         value=float(auto_grade),  # Ensure the default grade is a float
                         min_value=0.0, 
-                        max_value=100.0, 
+                        max_value=10.0, 
                         step=0.1, 
                         key=f"grade_{user_id}"
                     )
