@@ -39,12 +39,17 @@ def generate_feedback(proposed_answer):
             {"role": "user", "content": f"Provide feedback on this answer: {proposed_answer}"}
         ]
     )
-    return response['choices'][0]['message']['content'] if response['choices'] else ""
+    return response['choices'][0]['message']['content'] if response['choices'] else "No feedback available."
 
-# Function to calculate grade
+# Function to calculate grade based on submission text
 def calculate_grade(submission_text):
-    # Placeholder for actual grading logic
-    return 7.5  # Example grade
+    # Placeholder for a grading logic, e.g., keyword scoring, length of response, etc.
+    if len(submission_text) < 100:
+        return 5.0  # Low score for short submissions
+    elif len(submission_text) < 300:
+        return 7.5  # Medium score for moderate length submissions
+    else:
+        return 10.0  # Full score for long submissions
 
 # Function to submit feedback to Canvas
 def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
@@ -87,7 +92,7 @@ if 'feedback_data' not in st.session_state:
     st.session_state.feedback_data = []
 
 # Button to fetch submissions and provide feedback
-if st.button("Download and Grade Submissions") and proposed_answer:
+if st.button("Download and Grade Submissions"):
     with st.spinner("Fetching submissions..."):
         submissions = get_submissions(course_id, assignment_id)
     if submissions:
@@ -112,17 +117,21 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     st.markdown(f"**Submission by {user_name} (User ID: {user_id}, Submission ID: {submission_id})**")
                     st.text(submission_text)
 
-                    # Display feedback and grading inputs
-                    feedback_input = st.text_area(f"Feedback for {user_name}", height=100)
-                    grade_input = st.number_input(f"Grade for {user_name}", min_value=0.0, max_value=10.0, step=0.1, format="%.1f")
+                    # Automatically generate feedback and grade
+                    feedback = generate_feedback(submission_text)
+                    grade = calculate_grade(submission_text)
+
+                    # Display generated feedback and grade
+                    st.markdown(f"**Generated Feedback:** {feedback}")
+                    st.markdown(f"**Generated Grade:** {grade:.1f}")
 
                     # Save feedback data
                     feedback_entry = {
                         "Student Name": user_name,
-                        "Feedback": feedback_input,
+                        "Feedback": feedback,
                         "User ID": user_id,
                         "Submission ID": submission_id,
-                        "Grade": grade_input
+                        "Grade": grade
                     }
                     st.session_state.feedback_data.append(feedback_entry)
 
@@ -145,4 +154,4 @@ if st.session_state.feedback_data:
     for feedback_entry in st.session_state.feedback_data:
         st.markdown(f"**{feedback_entry['Student Name']} (User ID: {feedback_entry['User ID']}, Submission ID: {feedback_entry['Submission ID']})**")
         st.markdown(f"Feedback: {feedback_entry['Feedback']}")
-        st.markdown(f"Grade: {feedback_entry['Grade']}")
+        st.markdown(f"Grade: {feedback_entry['Grade']:.1f}")
