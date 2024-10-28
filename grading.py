@@ -1,4 +1,4 @@
-import streamlit as st 
+import streamlit as st
 import requests
 import os
 import io
@@ -147,6 +147,7 @@ if st.button("Download and Grade Submissions") and proposed_answer:
 
         if st.button("Submit Feedback to Canvas"):
             for entry in feedback_data:
+                # Submit feedback for each student
                 if submit_feedback_to_canvas(course_id, assignment_id, entry["User ID"], entry["Grade"], entry["Feedback"]):
                     st.success(f"Feedback submitted for {entry['Student Name']}")
                 else:
