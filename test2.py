@@ -1,5 +1,7 @@
+import streamlit as st
 import requests
 import json
+
 
 # Replace with your actual Canvas details
 API_TOKEN = "1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH"
