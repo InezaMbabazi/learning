@@ -48,6 +48,7 @@ def display_excel_content(file_content):
 
 # Function to submit feedback to Canvas
 def submit_feedback(course_id, assignment_id, user_id, feedback):
+def submit_feedback(course_id, assignment_id, user_id, feedback):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
     payload = {
         "comment": {
@@ -61,6 +62,18 @@ def submit_feedback(course_id, assignment_id, user_id, feedback):
         headers=headers, 
         json=payload
     )
+
+    # Log request and response for debugging
+    print(f"Submitting feedback for user ID {user_id}...")
+    print(f"Request Payload: {payload}")
+    print(f"Response Status Code: {response.status_code}")
+    print(f"Response Body: {response.text}")
+
+    # Check for successful submission
+    if response.status_code == 200:
+        return True, f"Successfully submitted feedback for user ID {user_id}."
+    else:
+        return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
 
     # Check for successful submission
     if response.status_code == 200:
