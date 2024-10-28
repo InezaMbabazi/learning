@@ -195,12 +195,15 @@ if st.button("Submit Feedback to Canvas"):
     else:
         for entry in st.session_state.feedback_data:
             success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"], entry["Grade"])
-            
-            # Debugging: print the message type and content
-            print(f"Success: {success}, Message: {message}, Message Type: {type(message)}")
 
-            # Ensure that message is a string before passing to st.success or st.error
+            # Debugging: print the success status and message
+            print(f"Success: {success}, Message: {message}")
+
+            # Check if message is a string
             if isinstance(message, str):
-                st.success(message) if success else st.error(message)
+                if success:
+                    st.success(message)
+                else:
+                    st.error(message)
             else:
-                st.error("Unexpected message format received.")
+                st.error("Received an unexpected message format. Please check your submit_feedback function.")
