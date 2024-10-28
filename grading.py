@@ -46,12 +46,11 @@ def display_excel_content(file_content):
     df = pd.read_excel(io.BytesIO(file_content))
     st.dataframe(df)
 
-# Function to submit feedback and grades to Canvas
-def submit_feedback_and_grade(course_id, assignment_id, user_id, grade, feedback):
+# Function to submit feedback to Canvas
+def submit_feedback(course_id, assignment_id, user_id, feedback):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
     payload = {
         "submission": {
-            "posted_grade": grade,
             "comment": {
                 "text_comment": feedback
             }
@@ -62,7 +61,7 @@ def submit_feedback_and_grade(course_id, assignment_id, user_id, grade, feedback
 
     # Check for successful submission
     if response.status_code == 200:
-        return True, f"Successfully submitted feedback and grade for user ID {user_id}."
+        return True, f"Successfully submitted feedback for user ID {user_id}."
     else:
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
 
@@ -87,7 +86,7 @@ assignment_id = 47134  # Replace with your assignment ID
 
 proposed_answer = st.text_area("Proposed Answer for Evaluation:", height=100)
 
-# Initialize session state for feedback and grades if not already done
+# Initialize session state for feedback if not already done
 if 'feedback_data' not in st.session_state:
     st.session_state.feedback_data = []
 
@@ -100,8 +99,7 @@ if st.button("Download and Grade Submissions") and proposed_answer:
             attachments = submission.get('attachments', [])
             submission_text = ""
 
-            # Fetch existing grade and feedback
-            existing_grade = submission.get('posted_grade', "Not Assigned")
+            # Fetch existing feedback
             existing_feedback = submission.get('comment', {}).get('text_comment', "")
 
             for attachment in attachments:
@@ -122,21 +120,18 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     st.markdown(f'<div class="submission-title">Submission by {user_name}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    # Display the existing grade and feedback
-                    st.markdown(f"**Grade for {user_name}:** {existing_grade}")
+                    # Display the existing feedback
                     st.markdown(f"**Feedback for {user_name}:** {existing_feedback}")
 
                     # Generate automated feedback based on the proposed answer
                     generated_feedback = generate_feedback(proposed_answer)
 
                     # Create unique keys for each user
-                    grade_input = st.text_input(f"Grade for {user_name}", value=existing_grade, key=f"grade_{user_id}")
                     feedback_input = st.text_area(f"Feedback for {user_name}", value=generated_feedback, height=100, key=f"feedback_{user_id}")
 
                     # Update session state to maintain user feedback
                     feedback_entry = {
                         "Student Name": user_name,
-                        "Grade": grade_input,
                         "Feedback": feedback_input,
                         "User ID": user_id
                     }
@@ -148,11 +143,11 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     else:
                         st.session_state.feedback_data.append(feedback_entry)
 
-        # Button to submit feedback and grades
-        if st.button("Submit Feedback and Grades to Canvas"):
+        # Button to submit feedback
+        if st.button("Submit Feedback to Canvas"):
             submission_results = []  # To store results for all submissions
             for entry in st.session_state.feedback_data:
-                success, message = submit_feedback_and_grade(course_id, assignment_id, entry["User ID"], entry["Grade"], entry["Feedback"])
+                success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"])
                 submission_results.append((entry["Student Name"], success, message))
 
             # Display submission results
