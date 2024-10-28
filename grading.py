@@ -50,15 +50,13 @@ def display_excel_content(file_content):
 def submit_feedback(course_id, assignment_id, user_id, feedback):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
     payload = {
-        "submission": {
-            "comment": {
-                "text_comment": feedback  # Ensure correct key for Canvas API
-            }
+        "comment": {
+            "text_comment": feedback  # Ensure correct key for Canvas API
         }
     }
 
-    # Using PUT method to submit feedback
-    response = requests.put(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}", headers=headers, json=payload)
+    # Using PUT method to submit feedback to the specific comment section
+    response = requests.put(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}/comments", headers=headers, json=payload)
 
     # Check for successful submission
     if response.status_code == 200:
@@ -157,4 +155,3 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     st.success(f"{message} - {student_name}")
                 else:
                     st.error(f"{message} - {student_name}")
-
