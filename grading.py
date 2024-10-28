@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 import os
@@ -56,27 +55,18 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
             "text_comment": feedback
         },
         "submission": {
-            "posted_grade": grade  # Include the grade in the payload
+            "posted_grade": grade
         }
     }
-
-    # Construct the URL using the provided IDs
     url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
     
-    response = requests.put(url, headers=headers, json=payload)  # Changed to PUT for grading
-
-    print(f"Submitting feedback for user ID {user_id}...")
-    print(f"Request Payload: {payload}")
-    print(f"Response Status Code: {response.status_code}")
-    print(f"Response Body: {response.text}")
-
+    response = requests.put(url, headers=headers, json=payload)
     if response.status_code in [200, 201]:
         return True, f"Successfully submitted feedback for user ID {user_id}."
     else:
-        print(response.text)
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
 
-# Function to generate automated feedback using OpenAI
+# Function to generate structured feedback
 def generate_feedback(proposed_answer):
     prompt = f"Generate feedback based on the following proposed answer:\n{proposed_answer}\nFeedback:"
     try:
@@ -86,30 +76,22 @@ def generate_feedback(proposed_answer):
             temperature=0.7,
             max_tokens=150
         )
-        feedback = response.choices[0].message['content'].strip()
-        return feedback
+        return response.choices[0].message['content'].strip()
     except Exception as e:
         st.error(f"Error generating feedback: {str(e)}")
         return "Error generating feedback."
 
 # Function to calculate grade automatically
 def calculate_grade(submission_text):
-    # Example grading logic based on the length and keyword presence
-    keywords = ["important", "necessary", "critical"]  # Define keywords
-    base_grade = 5  # Starting point for grade out of 10
-    
-    # Length criteria
-    if len(submission_text) > 500:  # Arbitrary length threshold
+    keywords = ["important", "necessary", "critical"]
+    base_grade = 5
+    if len(submission_text) > 500:
         base_grade += 2
     elif len(submission_text) < 200:
         base_grade -= 1
-
-    # Keyword presence
     for keyword in keywords:
         if keyword in submission_text.lower():
             base_grade += 1
-
-    # Ensure grade is within the range of 0 to 10
     return min(max(base_grade, 0), 10)
 
 # Streamlit UI
@@ -130,8 +112,8 @@ if st.button("Download and Grade Submissions") and proposed_answer:
     submissions = get_submissions(course_id, assignment_id)
     if submissions:
         for submission in submissions:
-            user_id = submission['user_id']  # Fetch user ID
-            submission_id = submission['id']  # Fetch submission ID
+            user_id = submission['user_id']
+            submission_id = submission['id']
             user_name = submission.get('user', {}).get('name', f"User {user_id}")
             attachments = submission.get('attachments', [])
             submission_text = ""
@@ -154,34 +136,27 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id}, Submission ID: {submission_id})</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    # Generate automated feedback based on the proposed answer
                     generated_feedback = generate_feedback(proposed_answer)
-
-                    # Automatically calculate grade
                     auto_grade = calculate_grade(submission_text)
 
-                    # Input for grade (scale out of 10)
                     grade_input = st.number_input(
                         f"Grade for {user_name} (0-10)", 
-                        value=float(auto_grade),  # Ensure the default grade is a float
+                        value=float(auto_grade), 
                         min_value=0.0, 
                         max_value=10.0, 
                         step=0.1, 
                         key=f"grade_{user_id}"
                     )
 
-                    # Create unique keys for each user
                     feedback_input = st.text_area(f"Feedback for {user_name}", value=generated_feedback, height=100, key=f"feedback_{user_id}")
 
-                    # Update session state to maintain user feedback
                     feedback_entry = {
                         "Student Name": user_name,
                         "Feedback": feedback_input,
                         "User ID": user_id,
                         "Submission ID": submission_id,
-                        "Grade": grade_input  # Store the grade in the feedback entry
+                        "Grade": grade_input
                     }
-                    # Update the feedback data in session state
                     for i, entry in enumerate(st.session_state.feedback_data):
                         if entry["User ID"] == user_id:
                             st.session_state.feedback_data[i] = feedback_entry
@@ -189,18 +164,12 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     else:
                         st.session_state.feedback_data.append(feedback_entry)
 
-# Button to submit feedback and grades
 if st.button("Submit Feedback to Canvas"):
     if not st.session_state.feedback_data:
         st.warning("No feedback available to submit.")
     else:
         for entry in st.session_state.feedback_data:
             success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"], entry["Grade"])
-
-            # Debugging: print the success status and message
-            print(f"Success: {success}, Message: {message}")
-
-            # Check if message is a string
             if isinstance(message, str):
                 if success:
                     st.success(message)
