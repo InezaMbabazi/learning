@@ -51,7 +51,7 @@ def submit_feedback(course_id, assignment_id, user_id, feedback):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
     payload = {
         "comment": {
-            "text_comment": feedback  # Ensure this matches the API requirements
+            "text_comment": feedback
         }
     }
 
@@ -65,24 +65,27 @@ def submit_feedback(course_id, assignment_id, user_id, feedback):
     print(f"Response Status Code: {response.status_code}")
     print(f"Response Body: {response.text}")
 
-    # Check for successful submission
-    if response.status_code in [200, 201]:  # Check for successful status codes
+    if response.status_code in [200, 201]:
         return True, f"Successfully submitted feedback for user ID {user_id}."
     else:
-        print(response.text)  # For debugging
+        print(response.text)
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
 
 # Function to generate automated feedback using OpenAI
 def generate_feedback(proposed_answer):
     prompt = f"Generate feedback based on the following proposed answer:\n{proposed_answer}\nFeedback:"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_tokens=150
-    )
-    feedback = response.choices[0].message['content'].strip()
-    return feedback
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=150
+        )
+        feedback = response.choices[0].message['content'].strip()
+        return feedback
+    except Exception as e:
+        st.error(f"Error generating feedback: {str(e)}")
+        return "Error generating feedback."
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -90,6 +93,10 @@ st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allo
 
 course_id = 2906  # Replace with your course ID
 assignment_id = 47134  # Replace with your assignment ID
+
+# Sample User ID and Submission ID
+sample_user_id = 4794
+sample_submission_id = 1990703
 
 proposed_answer = st.text_area("Proposed Answer for Evaluation:", height=100)
 
@@ -102,7 +109,7 @@ if st.button("Download and Grade Submissions") and proposed_answer:
     if submissions:
         for submission in submissions:
             user_id = submission['user_id']
-            submission_id = submission['id']  # Get the submission ID
+            submission_id = submission['id']
             user_name = submission.get('user', {}).get('name', f"User {user_id}")
             attachments = submission.get('attachments', [])
             submission_text = ""
@@ -142,7 +149,7 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                         "Student Name": user_name,
                         "Feedback": feedback_input,
                         "User ID": user_id,
-                        "Submission ID": submission_id  # Store submission ID in feedback entry
+                        "Submission ID": submission_id
                     }
                     # Update the feedback data in session state
                     for i, entry in enumerate(st.session_state.feedback_data):
@@ -157,12 +164,11 @@ if st.button("Submit Feedback to Canvas"):
     if not st.session_state.feedback_data:
         st.warning("No feedback data to submit.")
     else:
-        submission_results = []  # To store results for all submissions
+        submission_results = []
         for entry in st.session_state.feedback_data:
             success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"])
             submission_results.append((entry["Student Name"], success, message))
 
-        # Display submission results
         for student_name, success, message in submission_results:
             if success:
                 st.success(f"{message} - {student_name}")
