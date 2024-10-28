@@ -22,6 +22,7 @@ st.markdown("""
     .submission-title { font-size: 24px; color: #4B0082; }
     .submission-text { font-size: 20px; border: 2px solid #4B0082; padding: 10px; background-color: #E6E6FA; border-radius: 10px; color: #333; font-weight: bold; }
     .feedback-title { color: #FF4500; font-weight: bold; }
+    .feedback { border: 2px solid #4B0082; padding: 10px; border-radius: 10px; background-color: #E6FFE6; color: #333; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -134,9 +135,6 @@ if st.button("Download and Grade Submissions") and proposed_answer:
             attachments = submission.get('attachments', [])
             submission_text = ""
 
-            # Fetch existing feedback
-            existing_feedback = submission.get('comment', {}).get('text_comment', "")
-
             for attachment in attachments:
                 file_content = download_submission_file(attachment['url'])
                 filename = attachment['filename']
@@ -154,9 +152,6 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                 if submission_text:
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id}, Submission ID: {submission_id})</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
-
-                    # Display the existing feedback
-                    st.markdown(f"**Feedback for {user_name}:** {existing_feedback}")
 
                     # Generate automated feedback based on the proposed answer
                     generated_feedback = generate_feedback(proposed_answer)
@@ -202,10 +197,8 @@ if st.button("Submit Feedback to Canvas"):
             success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"], entry["Grade"])
             st.success(message) if success else st.error(message)
 
-# Display the session state feedback data
+# Display the session state feedback data if available
 if st.session_state.feedback_data:
-    st.subheader("Feedback Data")
-    for feedback_entry in st.session_state.feedback_data:
-        st.markdown(f"**{feedback_entry['Student Name']} (User ID: {feedback_entry['User ID']}, Submission ID: {feedback_entry['Submission ID']})**")
-        st.markdown(f"Feedback: {feedback_entry['Feedback']}")
-        st.markdown(f"Grade: {feedback_entry['Grade']}")
+    st.markdown('<div class="feedback-title">Feedback Summary</div>', unsafe_allow_html=True)
+    for entry in st.session_state.feedback_data:
+        st.markdown(f'<div class="feedback">Student Name: {entry["Student Name"]}<br>Feedback: {entry["Feedback"]}<br>Grade: {entry["Grade"]}</div>', unsafe_allow_html=True)
