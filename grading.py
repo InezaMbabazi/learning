@@ -51,19 +51,23 @@ def submit_feedback(course_id, assignment_id, user_id, feedback):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
     payload = {
         "comment": {
-            "text_comment": feedback  # Ensure correct key for Canvas API
+            "text_comment": feedback  # Ensure this matches the API requirements
         }
     }
 
-    # Using PUT method to submit feedback to the specific comment section
-    response = requests.put(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}/comments", headers=headers, json=payload)
+    # Using POST method to submit feedback as a new comment
+    response = requests.post(
+        f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}/comments", 
+        headers=headers, 
+        json=payload
+    )
 
     # Check for successful submission
     if response.status_code == 200:
         return True, f"Successfully submitted feedback for user ID {user_id}."
     else:
+        print(response.text)  # For debugging
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
-
 # Function to generate automated feedback using OpenAI
 def generate_feedback(proposed_answer):
     prompt = f"Generate feedback based on the following proposed answer:\n{proposed_answer}\nFeedback:"
