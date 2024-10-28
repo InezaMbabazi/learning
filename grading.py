@@ -19,9 +19,8 @@ st.markdown("""
     .header { text-align: center; color: #4B0082; font-size: 30px; font-weight: bold; }
     .content { border: 2px solid #4B0082; padding: 20px; border-radius: 10px; background-color: #F3F4F6; }
     .submission-title { font-size: 24px; color: #4B0082; }
-    .submission-text { font-size: 18px; border: 2px solid #4B0082; padding: 10px; background-color: #E6E6FA; border-radius: 10px; color: #333; font-weight: bold; }
-    .feedback-title { color: #FF4500; font-weight: bold; }
-    .feedback { border: 2px solid #4B0082; padding: 10px; border-radius: 10px; background-color: #E6FFE6; color: #333; }
+    .submission-text, .proposed-answer, .feedback-section { font-size: 18px; padding: 10px; background-color: #E6E6FA; border-radius: 10px; color: #333; font-weight: bold; }
+    .feedback-title, .grade-title { color: #FF4500; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -29,11 +28,7 @@ st.markdown("""
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     response = requests.get(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions", headers=headers)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        st.error("Failed to retrieve submissions.")
-        return []
+    return response.json() if response.status_code == 200 else []
 
 # Function to download a submission file
 def download_submission_file(file_url):
@@ -50,23 +45,16 @@ def display_excel_content(file_content):
 def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
     payload = {
-        "comment": {
-            "text_comment": feedback
-        },
-        "submission": {
-            "posted_grade": grade  # Include the grade in the payload
-        }
+        "comment": {"text_comment": feedback},
+        "submission": {"posted_grade": grade}
     }
     url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
     response = requests.put(url, headers=headers, json=payload)
-    if response.status_code in [200, 201]:
-        return True, f"Successfully submitted feedback for user ID {user_id}."
-    else:
-        return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
+    return (response.status_code in [200, 201], f"Feedback for user ID {user_id} submitted.")
 
 # Function to generate automated feedback based on each student's submission
 def generate_feedback(proposed_answer, submission_content):
-    prompt = f"Here is the proposed answer for evaluation:\n{proposed_answer}\n\nProvide specific feedback for the following student's answer based on the proposed answer:\n{submission_content}\nFeedback:"
+    prompt = f"Here is the proposed answer:\n{proposed_answer}\n\nEvaluate this student's answer:\n{submission_content}\nFeedback:"
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
@@ -74,8 +62,7 @@ def generate_feedback(proposed_answer, submission_content):
             temperature=0.7,
             max_tokens=150
         )
-        feedback = response.choices[0].message['content'].strip()
-        return feedback
+        return response.choices[0].message['content'].strip()
     except Exception as e:
         st.error(f"Error generating feedback: {str(e)}")
         return "Error generating feedback."
@@ -103,10 +90,6 @@ assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, val
 # Proposed answer input
 proposed_answer = st.text_area("Enter the proposed answer for evaluation:", "")
 
-# Initialize session state for feedback
-if 'feedback_data' not in st.session_state:
-    st.session_state.feedback_data = []
-
 if st.button("Download and Grade Submissions"):
     submissions = get_submissions(course_id, assignment_id)
     if submissions:
@@ -132,45 +115,30 @@ if st.button("Download and Grade Submissions"):
                 if submission_text:
                     # Display submission with alignment to the proposed answer
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="submission-text">Question:\n{submission_text}</div>', unsafe_allow_html=True)
-                    st.markdown('<hr>', unsafe_allow_html=True)
+                    st.markdown('<div class="submission-text">Submission:</div>', unsafe_allow_html=True)
+                    st.write(submission_text)
+                    
+                    st.markdown('<div class="proposed-answer">Proposed Answer:</div>', unsafe_allow_html=True)
+                    st.write(proposed_answer)
 
-                    # Generate feedback specific to the student's submission, using the proposed answer
+                    # Generate feedback and calculate grade
                     generated_feedback = generate_feedback(proposed_answer, submission_text)
-
-                    # Automatically calculate grade
                     auto_grade = calculate_grade(submission_text)
 
-                    # Input for grade
-                    grade_input = st.number_input(
-                        f"Grade for {user_name} (0-10)", 
-                        value=float(auto_grade), 
-                        min_value=0.0, 
-                        max_value=10.0, 
-                        step=0.1, 
-                        key=f"grade_{user_id}"
-                    )
+                    st.markdown('<div class="feedback-title">Generated Feedback:</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="feedback-section">{generated_feedback}</div>', unsafe_allow_html=True)
 
-                    # Input for feedback
-                    feedback_input = st.text_area(f"Feedback for {user_name}", value=generated_feedback, height=100, key=f"feedback_{user_id}")
+                    st.markdown('<div class="grade-title">Calculated Grade:</div>', unsafe_allow_html=True)
+                    st.write(auto_grade)
 
-                    # Update session state
-                    feedback_entry = {
-                        "Student Name": user_name,
-                        "Feedback": feedback_input,
-                        "User ID": user_id,
-                        "Grade": grade_input
-                    }
-                    st.session_state.feedback_data.append(feedback_entry)
+                    # Input for final adjustments to grade and feedback
+                    final_grade = st.number_input(f"Adjust grade for {user_name} (0-10):", value=auto_grade, min_value=0.0, max_value=10.0, step=0.1, key=f"grade_{user_id}")
+                    final_feedback = st.text_area(f"Adjust feedback for {user_name}:", value=generated_feedback, key=f"feedback_{user_id}")
 
-# Button to submit feedback to Canvas
-if st.button("Submit Feedback to Canvas"):
-    if not st.session_state.feedback_data:
-        st.warning("No feedback available to submit.")
-    else:
-        for entry in st.session_state.feedback_data:
-            success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"], entry["Grade"])
-            if success:
-                st.success(message)
-            else:
-                st.error(message)
+                    # Button to submit feedback to Canvas
+                    if st.button(f"Submit Feedback for {user_name}", key=f"submit_{user_id}"):
+                        success, message = submit_feedback(course_id, assignment_id, user_id, final_feedback, final_grade)
+                        if success:
+                            st.success(message)
+                        else:
+                            st.error(message)
