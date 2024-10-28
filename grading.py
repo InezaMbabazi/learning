@@ -66,8 +66,8 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
 
 # Function to generate automated feedback based on each student's submission
-def generate_feedback(submission_content):
-    prompt = f"Generate specific feedback for the following student's answer:\n{submission_content}\nFeedback:"
+def generate_feedback(proposed_answer, submission_content):
+    prompt = f"Here is the proposed answer for evaluation:\n{proposed_answer}\n\nProvide specific feedback for the following student's answer based on the proposed answer:\n{submission_content}\nFeedback:"
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
@@ -101,6 +101,9 @@ st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allo
 course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
 assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
 
+# Proposed answer input
+proposed_answer = st.text_area("Enter the proposed answer for evaluation:", "")
+
 # Initialize session state for feedback
 if 'feedback_data' not in st.session_state:
     st.session_state.feedback_data = []
@@ -131,8 +134,8 @@ if st.button("Download and Grade Submissions"):
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    # Generate feedback specific to the student's submission
-                    generated_feedback = generate_feedback(submission_text)
+                    # Generate feedback specific to the student's submission, using the proposed answer
+                    generated_feedback = generate_feedback(proposed_answer, submission_text)
 
                     # Automatically calculate grade
                     auto_grade = calculate_grade(submission_text)
