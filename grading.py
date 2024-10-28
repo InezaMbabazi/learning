@@ -11,7 +11,7 @@ API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9C
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key from Streamlit secrets
-openai.api_key = st.secrets.get("openai", {}).get("api_key")
+openai.api_key = st.secrets["openai"]["api_key"]
 
 # Streamlit styling
 st.set_page_config(page_title="Kepler College Grading System", page_icon="📚", layout="wide")
