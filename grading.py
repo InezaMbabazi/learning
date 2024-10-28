@@ -51,15 +51,14 @@ def submit_feedback(course_id, assignment_id, user_id, feedback):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
     payload = {
         "comment": {
-            "comment": feedback  # Ensure this matches the API requirements
+            "text_comment": feedback  # Ensure this matches the API requirements
         }
     }
 
-    response = requests.post(
-        f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}/comments", 
-        headers=headers, 
-        json=payload
-    )
+    # Construct the URL using the provided IDs
+    url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}/comments"
+    
+    response = requests.post(url, headers=headers, json=payload)
 
     print(f"Submitting feedback for user ID {user_id}...")
     print(f"Request Payload: {payload}")
@@ -67,11 +66,12 @@ def submit_feedback(course_id, assignment_id, user_id, feedback):
     print(f"Response Body: {response.text}")
 
     # Check for successful submission
-    if response.status_code in [200, 201]:  # Updated to check for 201 as well
+    if response.status_code in [200, 201]:  # Check for successful status codes
         return True, f"Successfully submitted feedback for user ID {user_id}."
     else:
         print(response.text)  # For debugging
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
+
 
 # Function to generate automated feedback using OpenAI
 def generate_feedback(proposed_answer):
