@@ -1,4 +1,4 @@
-import streamlit as st 
+import streamlit as st
 import requests
 import os
 import io
@@ -7,7 +7,7 @@ import openai
 import pandas as pd
 
 # Canvas API token and base URL
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
+API_TOKEN = 'Y1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key from Streamlit secrets
@@ -80,22 +80,9 @@ def generate_grading_feedback(submission_text, proposed_answer):
 # Function to submit feedback to Canvas
 def submit_feedback_to_canvas(course_id, assignment_id, user_id, grade, feedback):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
-    payload = {"comment": {"text_comment": feedback}}
-    
-    # Only include grade if assigned
-    if grade and grade != "Not Assigned":
-        payload["submission"] = {"posted_grade": grade}
-    
+    payload = {"submission": {"posted_grade": grade}, "comment": {"text_comment": feedback}}
     response = requests.put(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}", headers=headers, json=payload)
-    
-    # Check for successful submission
-    if response.status_code == 200:
-        st.success(f"Feedback successfully submitted for user ID {user_id}.")
-        return True
-    else:
-        st.error(f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code}")
-        st.error(f"Response: {response.text}")
-        return False
+    return response.status_code == 200
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -104,11 +91,14 @@ st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allo
 course_id = 2906  # Replace with your course ID
 assignment_id = 47134  # Replace with your assignment ID
 
+# Proposed answer input
 proposed_answer = st.text_area("Proposed Answer for Evaluation:", height=100)
+
+# Fetch and display submissions
 if st.button("Download and Grade Submissions") and proposed_answer:
     submissions = get_submissions(course_id, assignment_id)
     if submissions:
-        feedback_data = []
+        st.session_state.feedback_data = []  # Initialize feedback data in session state
 
         for submission in submissions:
             user_id = submission['user_id']
@@ -138,16 +128,17 @@ if st.button("Download and Grade Submissions") and proposed_answer:
                     grade_input = st.text_input(f"Grade for {user_name}", value=str(grade or "Not Assigned"), key=f"grade_{user_id}")
                     feedback_input = st.text_area(f"Feedback for {user_name}", value=feedback, height=100, key=f"feedback_{user_id}")
 
-                    feedback_data.append({
+                    st.session_state.feedback_data.append({
                         "Student Name": user_name,
                         "Grade": grade_input,
                         "Feedback": feedback_input,
                         "User ID": user_id
                     })
 
-        if st.button("Submit Feedback to Canvas"):
-            for entry in feedback_data:
-                if submit_feedback_to_canvas(course_id, assignment_id, entry["User ID"], entry["Grade"], entry["Feedback"]):
-                    st.success(f"Feedback submitted for {entry['Student Name']}")
-                else:
-                    st.error(f"Failed to submit feedback for {entry['Student Name']}")
+# Submit feedback button
+if st.button("Submit Feedback to Canvas"):
+    for entry in st.session_state.feedback_data:
+        if submit_feedback_to_canvas(course_id, assignment_id, entry["User ID"], entry["Grade"], entry["Feedback"]):
+            st.success(f"Feedback submitted for {entry['Student Name']}")
+        else:
+            st.error(f"Failed to submit feedback for {entry['Student Name']}")
