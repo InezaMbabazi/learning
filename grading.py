@@ -73,15 +73,15 @@ def get_grading(student_submission, proposed_answer, content_type):
     if content_type == "Math (LaTeX)":
         grading_prompt += f"**Proposed Answer (LaTeX)**: {proposed_answer}\n\n"
         grading_prompt += f"**Student Submission (LaTeX)**: {student_submission}\n\n"
-        grading_prompt += "Provide feedback on correctness, grade out of 10, and suggest improvements regarding how closely it aligns with the proposed answer."
+        grading_prompt += "Provide constructive feedback without mentioning any grade."
     elif content_type == "Programming (Code)":
         grading_prompt += f"**Proposed Code**: {proposed_answer}\n\n"
         grading_prompt += f"**Student Code Submission**: {student_submission}\n\n"
-        grading_prompt += "Check logic, efficiency, correctness, and grade out of 10, focusing on how well the submission follows the proposed code."
+        grading_prompt += "Check for logic, efficiency, and correctness. Provide feedback without mentioning any grade."
     else:
         grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
         grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-        grading_prompt += "Provide detailed feedback and suggest improvements while clearly referencing the proposed answer, without mentioning any grade."
+        grading_prompt += "Provide helpful feedback without mentioning any grade."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -93,31 +93,27 @@ def get_grading(student_submission, proposed_answer, content_type):
 
 # Function to calculate grade automatically
 def calculate_grade(submission_text, proposed_answer):
-    # Base grading logic
     if proposed_answer.lower() not in submission_text.lower():
         return 0  # Assign a grade of 0 if the submission does not align with the proposed answer
 
     base_grade = 5
     keywords = ["important", "necessary", "critical"]
 
-    # Increase or decrease base grade based on submission length
     if len(submission_text) > 500:
         base_grade += 2
     elif len(submission_text) < 200:
         base_grade -= 1
 
-    # Check for relevant keywords
     for keyword in keywords:
         if keyword in submission_text.lower():
             base_grade += 1
 
-    # Adjust based on relevance to proposed answer
     if proposed_answer.lower() in submission_text.lower():
-        base_grade += 2  # Award points for relevance
+        base_grade += 2
     else:
-        base_grade -= 2  # Deduct points for lack of relevance
+        base_grade -= 2
 
-    return min(max(base_grade, 0), 10)  # Ensure the grade is between 0 and 10
+    return min(max(base_grade, 0), 10)
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -126,10 +122,8 @@ st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allo
 course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
 assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
 
-# Proposed answer input
 proposed_answer = st.text_area("Enter the proposed answer for evaluation:", "")
 
-# Initialize session state for feedback
 if 'feedback_data' not in st.session_state:
     st.session_state.feedback_data = []
 
@@ -165,10 +159,13 @@ if st.button("Download and Grade Submissions"):
                     # Calculate grade based on submission and proposed answer
                     calculated_grade = calculate_grade(submission_text, proposed_answer)
 
+                    # Allow editing of feedback before submission
+                    edited_feedback = st.text_area(f"Edit Feedback for {user_name} (User ID: {user_id}):", value=f"Dear {user_name},\n\n{feedback}")
+
                     # Update session state
                     feedback_entry = {
                         "Student Name": user_name,
-                        "Feedback": feedback,
+                        "Feedback": edited_feedback,
                         "User ID": user_id,
                         "Grade": calculated_grade
                     }
