@@ -71,7 +71,7 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
 def get_grading(student_submission, proposed_answer, content_type):
     grading_prompt = (
         f"Evaluate the student's submission in relation to the proposed answer. If there is little alignment, focus on what an ideal response should include based on the proposed answer. "
-        f"Provide specific guidance for improvement.\n\n"
+        f"Give a grade out of 10 and offer specific guidance for improvement.\n\n"
     )
 
     if content_type == "Math (LaTeX)":
@@ -94,36 +94,14 @@ def get_grading(student_submission, proposed_answer, content_type):
             "Provide feedback by outlining the key points and structure expected in an ideal answer. If there’s a lack of alignment, focus on what the response should include to be complete and accurate."
         )
 
-    # Request feedback and a grade in a single prompt
-    grading_instruction = (
-        "Based on the evaluation, please provide feedback and assign a grade out of 10 for the student's submission."
-    )
-    
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        messages=[
-            {"role": "user", "content": grading_prompt},
-            {"role": "user", "content": grading_instruction}
-        ]
+        messages=[{"role": "user", "content": grading_prompt}]
     )
     
-    # The feedback and grade will be in the same response
     feedback = response['choices'][0]['message']['content']
+    return feedback
 
-    # Initialize grade as None
-    grade = None
-    # Attempt to extract the grade from the feedback
-    if "Grade:" in feedback:
-        try:
-            # Extract the part after "Grade:"
-            grade_line = feedback.split("Grade:")[-1].strip()
-            # Attempt to convert the first part to float
-            grade = float(grade_line.split()[0])  # Get the first word after "Grade:"
-        except (ValueError, IndexError):
-            # Handle potential errors in conversion or indexing
-            grade = None  # Ensure grade remains None if extraction fails
-    
-    return feedback, grade
 
 # Example usage:
 feedback_text, extracted_grade = get_grading(student_submission, proposed_answer, content_type)
