@@ -145,13 +145,6 @@ if st.button("Download and Grade Submissions"):
                             "Grade": calculated_grade
                         }
 
-                    # Editable feedback
-                    st.session_state.feedback_data[feedback_key]["Feedback"] = st.text_area(
-                        f"Edit Feedback for {user_name} (User ID: {user_id}):",
-                        value=st.session_state.feedback_data[feedback_key]["Feedback"],
-                        key=feedback_key
-                    )
-
 # Submit feedback
 if st.button("Submit Feedback to Canvas"):
     if not st.session_state.feedback_data:
@@ -159,8 +152,7 @@ if st.button("Submit Feedback to Canvas"):
     else:
         for key, entry in st.session_state.feedback_data.items():
             # Retrieve the edited feedback from the session state
-            edited_feedback = entry["Feedback"]
-            success = submit_feedback(course_id, assignment_id, entry['User ID'], edited_feedback, entry['Grade'])
+            success = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
             if success:
                 st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
             else:
@@ -169,14 +161,13 @@ if st.button("Submit Feedback to Canvas"):
 # Display previous feedback
 st.subheader("Previous Feedback:")
 if 'feedback_data' in st.session_state and st.session_state.feedback_data:
-    for feedback in st.session_state.feedback_data.values():
+    for key, feedback in st.session_state.feedback_data.items():
         st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
         st.write(f"Grade for User: {feedback['Grade']}")
-        st.write("Editable Feedback:")
         editable_feedback = st.text_area(
             f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})",
             value=feedback['Feedback'],
-            key=f"editable_{feedback['User ID']}_{assignment_id}"
+            key=f"editable_feedback_{feedback['User ID']}_{assignment_id}"
         )
         # Update the session state with the edited feedback
         feedback['Feedback'] = editable_feedback
