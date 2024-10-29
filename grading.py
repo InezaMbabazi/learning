@@ -8,13 +8,12 @@ import pandas as pd
 from textblob import TextBlob  # Import TextBlob for sentiment analysis
 
 # Canvas API token and base URL
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
+API_TOKEN = 'YOUR_API_TOKEN'
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
-# OpenAI API Key from Streamlit secrets
+# OpenAI API Key
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Streamlit styling
 st.set_page_config(page_title="Kepler College Grading System", page_icon="📚", layout="wide")
 st.markdown("""
 <style>
@@ -27,7 +26,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Function to get submissions for an assignment
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     response = requests.get(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions", headers=headers)
@@ -37,18 +35,15 @@ def get_submissions(course_id, assignment_id):
         st.error("Failed to retrieve submissions.")
         return []
 
-# Function to download a submission file
 def download_submission_file(file_url):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     response = requests.get(file_url, headers=headers)
     return response.content if response.status_code == 200 else None
 
-# Function to display Excel content
 def display_excel_content(file_content):
     df = pd.read_excel(io.BytesIO(file_content))
     st.dataframe(df)
 
-# Function to submit feedback to Canvas
 def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
     payload = {
@@ -61,41 +56,24 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     }
     url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
     response = requests.put(url, headers=headers, json=payload)
-    if response.status_code in [200, 201]:
-        return True, f"Successfully submitted feedback for user ID {user_id}."
-    else:
-        return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
+    return response.status_code in [200, 201]
 
-# Function to get grading from OpenAI based on student submissions and proposed answers
-def get_grading(student_submission, proposed_answer, content_type):
+def get_grading(student_submission, proposed_answer):
     grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
-    
-    if content_type == "Math (LaTeX)":
-        grading_prompt += f"**Proposed Answer (LaTeX)**: {proposed_answer}\n\n"
-        grading_prompt += f"**Student Submission (LaTeX)**: {student_submission}\n\n"
-        grading_prompt += "Provide constructive feedback without mentioning any grade."
-    elif content_type == "Programming (Code)":
-        grading_prompt += f"**Proposed Code**: {proposed_answer}\n\n"
-        grading_prompt += f"**Student Code Submission**: {student_submission}\n\n"
-        grading_prompt += "Check for logic, efficiency, and correctness. Provide feedback without mentioning any grade."
-    else:
-        grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
-        grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-        grading_prompt += "Provide helpful feedback without mentioning any grade."
+    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
+    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
+    grading_prompt += "Provide constructive feedback without mentioning any grade."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": grading_prompt}]
     )
-    
     feedback = response['choices'][0]['message']['content']
     return feedback
 
-# Function to calculate grade automatically
 def calculate_grade(submission_text, proposed_answer):
     if proposed_answer.lower() not in submission_text.lower():
-        return 0  # Assign a grade of 0 if the submission does not align with the proposed answer
-
+        return 0
     base_grade = 5
     keywords = ["important", "necessary", "critical"]
 
@@ -125,7 +103,7 @@ assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, val
 proposed_answer = st.text_area("Enter the proposed answer for evaluation:", "")
 
 if 'feedback_data' not in st.session_state:
-    st.session_state.feedback_data = []
+    st.session_state.feedback_data = {}
 
 if st.button("Download and Grade Submissions"):
     submissions = get_submissions(course_id, assignment_id)
@@ -153,36 +131,45 @@ if st.button("Download and Grade Submissions"):
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    # Generate feedback specific to the student's submission, using the proposed answer
-                    feedback = get_grading(submission_text, proposed_answer, "Text")
-
-                    # Calculate grade based on submission and proposed answer
+                    feedback = get_grading(submission_text, proposed_answer)
                     calculated_grade = calculate_grade(submission_text, proposed_answer)
 
-                    # Allow editing of feedback before submission
-                    edited_feedback = st.text_area(f"Edit Feedback for {user_name} (User ID: {user_id}):", value=f"Dear {user_name},\n\n{feedback}")
+                    feedback_message = f"Dear {user_name},\n\n{feedback}"
+                    feedback_key = f"{user_id}_{assignment_id}"
 
-                    # Update session state
-                    feedback_entry = {
-                        "Student Name": user_name,
-                        "Feedback": edited_feedback,
-                        "User ID": user_id,
-                        "Grade": calculated_grade
-                    }
-                    st.session_state.feedback_data.append(feedback_entry)
+                    if feedback_key not in st.session_state.feedback_data:
+                        st.session_state.feedback_data[feedback_key] = {
+                            "Student Name": user_name,
+                            "User ID": user_id,
+                            "Feedback": feedback_message,
+                            "Grade": calculated_grade
+                        }
 
-# Button to submit feedback to Canvas
+                    # Editable feedback
+                    edited_feedback = st.text_area(
+                        f"Edit Feedback for {user_name} (User ID: {user_id}):",
+                        value=st.session_state.feedback_data[feedback_key]["Feedback"],
+                        key=feedback_key
+                    )
+
+                    st.session_state.feedback_data[feedback_key]["Feedback"] = edited_feedback
+                    st.session_state.feedback_data[feedback_key]["Grade"] = calculated_grade
+
+# Submit feedback
 if st.button("Submit Feedback to Canvas"):
     if not st.session_state.feedback_data:
         st.warning("No feedback available to submit.")
     else:
-        for entry in st.session_state.feedback_data:
-            success, message = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
-            st.success(message if success else f"Error: {message}")
+        for key, entry in st.session_state.feedback_data.items():
+            success = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
+            if success:
+                st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
+            else:
+                st.error(f"Failed to submit feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
 
 # Display previous feedback
 st.subheader("Previous Feedback:")
-for feedback in st.session_state.feedback_data:
+for feedback in st.session_state.feedback_data.values():
     st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
     st.write(f"Feedback: {feedback['Feedback']}")
     st.write(f"Grade for User: {feedback['Grade']}")
