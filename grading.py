@@ -5,7 +5,7 @@ import io
 from docx import Document
 import openai
 import pandas as pd
-from textblob import TextBlob
+from textblob import TextBlob  # Import TextBlob for sentiment analysis
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
@@ -146,15 +146,11 @@ if st.button("Download and Grade Submissions"):
                         }
 
                     # Editable feedback
-                    edited_feedback = st.text_area(
+                    st.session_state.feedback_data[feedback_key]["Feedback"] = st.text_area(
                         f"Edit Feedback for {user_name} (User ID: {user_id}):",
                         value=st.session_state.feedback_data[feedback_key]["Feedback"],
                         key=feedback_key
                     )
-
-                    # Update feedback in session state
-                    st.session_state.feedback_data[feedback_key]["Feedback"] = edited_feedback
-                    st.session_state.feedback_data[feedback_key]["Grade"] = calculated_grade
 
 # Submit feedback
 if st.button("Submit Feedback to Canvas"):
@@ -162,7 +158,9 @@ if st.button("Submit Feedback to Canvas"):
         st.warning("No feedback available to submit.")
     else:
         for key, entry in st.session_state.feedback_data.items():
-            success = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
+            # Retrieve the edited feedback from the session state
+            edited_feedback = entry["Feedback"]
+            success = submit_feedback(course_id, assignment_id, entry['User ID'], edited_feedback, entry['Grade'])
             if success:
                 st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
             else:
@@ -173,8 +171,15 @@ st.subheader("Previous Feedback:")
 if 'feedback_data' in st.session_state and st.session_state.feedback_data:
     for feedback in st.session_state.feedback_data.values():
         st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
-        st.write(f"Feedback: {feedback['Feedback']}")
         st.write(f"Grade for User: {feedback['Grade']}")
+        st.write("Editable Feedback:")
+        editable_feedback = st.text_area(
+            f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})",
+            value=feedback['Feedback'],
+            key=f"editable_{feedback['User ID']}_{assignment_id}"
+        )
+        # Update the session state with the edited feedback
+        feedback['Feedback'] = editable_feedback
         st.markdown("---")
 else:
     st.write("No previous feedback available.")
