@@ -8,7 +8,7 @@ import pandas as pd
 from textblob import TextBlob  # Import TextBlob for sentiment analysis
 
 # Canvas API token and base URL
-API_TOKEN = 'YOUR_API_TOKEN'
+API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key
