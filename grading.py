@@ -55,7 +55,7 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
             "text_comment": feedback
         },
         "submission": {
-            "posted_grade": grade  # Include the grade in the payload
+            "posted_grade": grade
         }
     }
     url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
@@ -67,27 +67,19 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
 
 # Function to get grading from OpenAI based on student submissions and proposed answers
 def get_grading(student_submission, proposed_answer, content_type):
-    grading_prompt = (
-        "Please evaluate the student's submission in comparison to the provided answer.\n"
-        "Consider the correctness, relevance, completeness, and suggest specific improvements.\n\n"
-        f"**Proposed Answer**: {proposed_answer}\n\n"
-        f"**Student Submission**: {student_submission}\n\n"
-    )
+    grading_prompt = f"Evaluate the student's submission based on the proposed answer:\n\n"
     if content_type == "Math (LaTeX)":
-        grading_prompt += (
-            "This is a LaTeX-based mathematical answer. Evaluate accuracy in mathematical logic, symbols, "
-            "and steps in comparison to the proposed solution. Provide a grade out of 10 and specific feedback."
-        )
+        grading_prompt += f"**Proposed Answer (LaTeX)**: {proposed_answer}\n\n"
+        grading_prompt += f"**Student Submission (LaTeX)**: {student_submission}\n\n"
+        grading_prompt += "Provide feedback on correctness, grade out of 10, and suggest improvements."
     elif content_type == "Programming (Code)":
-        grading_prompt += (
-            "This is a code-based response. Check for logic, efficiency, syntax, and correctness compared to "
-            "the proposed solution. Provide a grade out of 10 and feedback on improvements."
-        )
+        grading_prompt += f"**Proposed Code**: {proposed_answer}\n\n"
+        grading_prompt += f"**Student Code Submission**: {student_submission}\n\n"
+        grading_prompt += "Check logic, efficiency, correctness, and grade out of 10."
     else:
-        grading_prompt += (
-            "Evaluate the student's answer based on its accuracy, completeness, and relevance compared to the proposed answer. "
-            "Provide a grade out of 10 and detailed feedback on improvements."
-        )
+        grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
+        grading_prompt += f"**Student Submission**: {student_submission}\n\n"
+        grading_prompt += "Provide detailed feedback and grade out of 10. Suggest improvements."
     
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -97,6 +89,19 @@ def get_grading(student_submission, proposed_answer, content_type):
     feedback = response['choices'][0]['message']['content']
     return feedback
 
+# Function to calculate grade automatically
+def calculate_grade(submission_text):
+    keywords = ["important", "necessary", "critical"]
+    base_grade = 5
+    if len(submission_text) > 500:
+        base_grade += 2
+    elif len(submission_text) < 200:
+        base_grade -= 1
+    for keyword in keywords:
+        if keyword in submission_text.lower():
+            base_grade += 1
+    return min(max(base_grade, 0), 10)
+
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allow_html=True)
@@ -104,9 +109,8 @@ st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allo
 course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
 assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
 
-# Proposed answer and content type input
+# Proposed answer input
 proposed_answer = st.text_area("Enter the proposed answer for evaluation:", "")
-content_type = st.selectbox("Select the content type for grading:", ["General", "Math (LaTeX)", "Programming (Code)"])
 
 # Initialize session state for feedback
 if 'feedback_data' not in st.session_state:
@@ -138,23 +142,28 @@ if st.button("Download and Grade Submissions"):
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    # Generate grading and feedback based on the content type
-                    feedback_and_grade = get_grading(submission_text, proposed_answer, content_type)
-                    
-                    # Display feedback and grade
-                    st.markdown(f'<div class="feedback-title">Feedback:</div><div class="feedback">{feedback_and_grade}</div>', unsafe_allow_html=True)
+                    # Generate feedback specific to the student's submission, using the proposed answer
+                    feedback_and_grade = get_grading(submission_text, proposed_answer, "Text")
 
-                    # Input for grade
+                    # Attempt to extract a grade from the feedback; set to 0 if extraction fails
+                    try:
+                        # Convert the last word to float if it's a grade
+                        extracted_grade = float(feedback_and_grade.split()[-1])
+                    except ValueError:
+                        # Default to 0 if the last word isn't a valid grade
+                        extracted_grade = 0.0
+
+                    # Input for grade with the extracted grade or 0.0 as the default
                     grade_input = st.number_input(
                         f"Grade for {user_name} (0-10)", 
-                        value=float(feedback_and_grade.split()[-1]), 
+                        value=extracted_grade, 
                         min_value=0.0, 
                         max_value=10.0, 
                         step=0.1, 
                         key=f"grade_{user_id}"
                     )
 
-                    # Input for feedback
+                    # Input for feedback with the full feedback_and_grade text as default
                     feedback_input = st.text_area(f"Feedback for {user_name}", value=feedback_and_grade, height=100, key=f"feedback_{user_id}")
 
                     # Update session state
