@@ -15,34 +15,6 @@ openai.api_key = st.secrets["openai"]["api_key"]
 
 st.set_page_config(page_title="Kepler College Grading System", page_icon="📚", layout="wide")
 
-# Custom CSS for styling
-st.markdown(
-    """
-    <style>
-    .main {
-        background-color: #f7f9fc;
-        color: #333;
-    }
-    h1 {
-        color: #2a9d8f;
-        text-align: center;
-    }
-    .stButton>button {
-        background-color: #e76f51;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        padding: 10px 20px;
-        cursor: pointer;
-    }
-    .stButton>button:hover {
-        background-color: #2a9d8f;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     response = requests.get(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions", headers=headers)
@@ -88,12 +60,10 @@ def calculate_grade(submission_text, proposed_answer):
 # Streamlit UI
 st.markdown('<h1>Kepler College Grading System</h1>', unsafe_allow_html=True)
 
-col1, col2 = st.columns([2, 1])
-with col1:
-    course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
-    assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
-with col2:
-    proposed_answer = st.text_area("Enter the proposed answer for evaluation:", "", height=200)
+course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
+assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
+
+proposed_answer = st.text_area("Enter the proposed answer for evaluation:", "")
 
 if 'feedback_data' not in st.session_state:
     st.session_state.feedback_data = {}
