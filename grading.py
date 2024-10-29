@@ -164,17 +164,22 @@ if 'feedback_data' in st.session_state and st.session_state.feedback_data:
     for key, feedback in st.session_state.feedback_data.items():
         st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
         
-      # Editable grade input with type conversion
-editable_grade = st.number_input(
-    f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
-    value=float(feedback['Grade']) if isinstance(feedback['Grade'], (int, float)) else 0.0,  # Ensure it's a float
-    min_value=0.0,
-    max_value=10.0,
-    step=0.1,
-    key=f"editable_grade_{feedback['User ID']}_{assignment_id}"
-)
-
-    
+        # Editable feedback text area
+        editable_feedback = st.text_area(
+            f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})",
+            value=feedback['Feedback'],
+            key=f"editable_feedback_{feedback['User ID']}_{assignment_id}"
+        )
+        
+        # Editable grade input with type conversion
+        editable_grade = st.number_input(
+            f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
+            value=float(feedback['Grade']) if isinstance(feedback['Grade'], (int, float)) else 0.0,  # Ensure it's a float
+            min_value=0.0,
+            max_value=10.0,
+            step=0.1,
+            key=f"editable_grade_{feedback['User ID']}_{assignment_id}"
+        )
         
         # Update the session state with the edited feedback and grade
         feedback['Feedback'] = editable_feedback
