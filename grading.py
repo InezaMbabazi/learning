@@ -67,6 +67,7 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
 
 # Function to get grading from OpenAI based on student submissions and proposed answers
 
+# Function to get grading from OpenAI based on student submissions and proposed answers
 def get_grading(student_submission, proposed_answer, content_type):
     grading_prompt = (
         f"Evaluate the student's submission in relation to the proposed answer. If there is little alignment, focus on what an ideal response should include based on the proposed answer. "
@@ -109,14 +110,30 @@ def get_grading(student_submission, proposed_answer, content_type):
     # The feedback and grade will be in the same response
     feedback = response['choices'][0]['message']['content']
 
-    # Attempt to extract the grade from the feedback
-    # Assuming the grade is at the end of the feedback, e.g., "Grade: 8/10"
+    # Initialize grade as None
     grade = None
+    # Attempt to extract the grade from the feedback
     if "Grade:" in feedback:
-        grade_line = feedback.split("Grade:")[-1].strip()
-        grade = grade_line.split()[0]  # Get the first word after "Grade:"
+        try:
+            # Extract the part after "Grade:"
+            grade_line = feedback.split("Grade:")[-1].strip()
+            # Attempt to convert the first part to float
+            grade = float(grade_line.split()[0])  # Get the first word after "Grade:"
+        except (ValueError, IndexError):
+            # Handle potential errors in conversion or indexing
+            grade = None  # Ensure grade remains None if extraction fails
     
     return feedback, grade
+
+# Example usage:
+feedback_text, extracted_grade = get_grading(student_submission, proposed_answer, content_type)
+
+# Now, ensure you handle extracted_grade safely
+if extracted_grade is not None:
+    print(f"Grade: {extracted_grade}")
+else:
+    print("Grade could not be extracted.")
+
 # Function to calculate grade automatically
 def calculate_grade(submission_text):
     keywords = ["important", "necessary", "critical"]
