@@ -89,18 +89,26 @@ def get_grading(student_submission, proposed_answer, content_type):
     feedback = response['choices'][0]['message']['content']
     return feedback
 
-# Function to calculate grade automatically
-def calculate_grade(submission_text):
-    keywords = ["important", "necessary", "critical"]
-    base_grade = 5
-    if len(submission_text) > 500:
-        base_grade += 2
-    elif len(submission_text) < 200:
-        base_grade -= 1
-    for keyword in keywords:
-        if keyword in submission_text.lower():
-            base_grade += 1
-    return min(max(base_grade, 0), 10)
+# Function to calculate grade based on feedback content
+def calculate_grade(feedback):
+    # Initialize grade to 0
+    grade = 0
+    # Define grading keywords
+    keywords_positive = ["excellent", "good", "well done", "strong", "impressive"]
+    keywords_negative = ["poor", "needs improvement", "weak", "inadequate", "lacks"]
+
+    # Check for positive feedback keywords
+    for keyword in keywords_positive:
+        if keyword in feedback.lower():
+            grade += 2  # Increase grade for positive feedback
+
+    # Check for negative feedback keywords
+    for keyword in keywords_negative:
+        if keyword in feedback.lower():
+            grade -= 1  # Decrease grade for negative feedback
+
+    # Ensure grade is within 0 to 10
+    return min(max(grade, 0), 10)
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -145,8 +153,8 @@ if st.button("Download and Grade Submissions"):
                     # Generate feedback specific to the student's submission, using the proposed answer
                     feedback = get_grading(submission_text, proposed_answer, "Text")
 
-                    # Calculate grade from the submission text
-                    calculated_grade = calculate_grade(submission_text)
+                    # Calculate grade based on feedback content
+                    calculated_grade = calculate_grade(feedback)
 
                     # Input for feedback with the full feedback text
                     feedback_input = st.text_area(f"Feedback for {user_name}", value=feedback, height=100, key=f"feedback_{user_id}")
@@ -174,6 +182,3 @@ if st.session_state.feedback_data:
     st.markdown("<h2>Feedback Summary</h2>", unsafe_allow_html=True)
     for entry in st.session_state.feedback_data:
         st.markdown(f'<div class="feedback"><strong>{entry["Student Name"]}</strong> (User ID: {entry["User ID"]})<br>Feedback: {entry["Feedback"]}<br><strong>Grade for User:</strong> {entry["Grade"]}</div>', unsafe_allow_html=True)
-
-# Footer
-st.markdown('<footer style="text-align: center;">&copy; 2024 Kepler College. All rights reserved.</footer>', unsafe_allow_html=True)
