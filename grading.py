@@ -65,34 +65,37 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     else:
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
 
-# Function to generate automated feedback based on each student's submission
-def generate_feedback(proposed_answer, submission_content):
-    prompt = f"Here is the proposed answer for evaluation:\n{proposed_answer}\n\nProvide specific feedback for the following student's answer based on the proposed answer:\n{submission_content}\nFeedback:"
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=150
+# Function to get grading from OpenAI based on student submissions and proposed answers
+def get_grading(student_submission, proposed_answer, content_type):
+    grading_prompt = (
+        "Please evaluate the student's submission in comparison to the provided answer.\n"
+        "Consider the correctness, relevance, completeness, and suggest specific improvements.\n\n"
+        f"**Proposed Answer**: {proposed_answer}\n\n"
+        f"**Student Submission**: {student_submission}\n\n"
+    )
+    if content_type == "Math (LaTeX)":
+        grading_prompt += (
+            "This is a LaTeX-based mathematical answer. Evaluate accuracy in mathematical logic, symbols, "
+            "and steps in comparison to the proposed solution. Provide a grade out of 10 and specific feedback."
         )
-        feedback = response.choices[0].message['content'].strip()
-        return feedback
-    except Exception as e:
-        st.error(f"Error generating feedback: {str(e)}")
-        return "Error generating feedback."
-
-# Function to calculate grade automatically
-def calculate_grade(submission_text):
-    keywords = ["important", "necessary", "critical"]
-    base_grade = 5
-    if len(submission_text) > 500:
-        base_grade += 2
-    elif len(submission_text) < 200:
-        base_grade -= 1
-    for keyword in keywords:
-        if keyword in submission_text.lower():
-            base_grade += 1
-    return min(max(base_grade, 0), 10)
+    elif content_type == "Programming (Code)":
+        grading_prompt += (
+            "This is a code-based response. Check for logic, efficiency, syntax, and correctness compared to "
+            "the proposed solution. Provide a grade out of 10 and feedback on improvements."
+        )
+    else:
+        grading_prompt += (
+            "Evaluate the student's answer based on its accuracy, completeness, and relevance compared to the proposed answer. "
+            "Provide a grade out of 10 and detailed feedback on improvements."
+        )
+    
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": grading_prompt}]
+    )
+    
+    feedback = response['choices'][0]['message']['content']
+    return feedback
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -101,8 +104,9 @@ st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allo
 course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
 assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
 
-# Proposed answer input
+# Proposed answer and content type input
 proposed_answer = st.text_area("Enter the proposed answer for evaluation:", "")
+content_type = st.selectbox("Select the content type for grading:", ["General", "Math (LaTeX)", "Programming (Code)"])
 
 # Initialize session state for feedback
 if 'feedback_data' not in st.session_state:
@@ -134,16 +138,16 @@ if st.button("Download and Grade Submissions"):
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    # Generate feedback specific to the student's submission, using the proposed answer
-                    generated_feedback = generate_feedback(proposed_answer, submission_text)
-
-                    # Automatically calculate grade
-                    auto_grade = calculate_grade(submission_text)
+                    # Generate grading and feedback based on the content type
+                    feedback_and_grade = get_grading(submission_text, proposed_answer, content_type)
+                    
+                    # Display feedback and grade
+                    st.markdown(f'<div class="feedback-title">Feedback:</div><div class="feedback">{feedback_and_grade}</div>', unsafe_allow_html=True)
 
                     # Input for grade
                     grade_input = st.number_input(
                         f"Grade for {user_name} (0-10)", 
-                        value=float(auto_grade), 
+                        value=float(feedback_and_grade.split()[-1]), 
                         min_value=0.0, 
                         max_value=10.0, 
                         step=0.1, 
@@ -151,7 +155,7 @@ if st.button("Download and Grade Submissions"):
                     )
 
                     # Input for feedback
-                    feedback_input = st.text_area(f"Feedback for {user_name}", value=generated_feedback, height=100, key=f"feedback_{user_id}")
+                    feedback_input = st.text_area(f"Feedback for {user_name}", value=feedback_and_grade, height=100, key=f"feedback_{user_id}")
 
                     # Update session state
                     feedback_entry = {
