@@ -5,7 +5,7 @@ import io
 from docx import Document
 import openai
 import pandas as pd
-from textblob import TextBlob  # Import TextBlob for sentiment analysis
+from textblob import TextBlob
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
@@ -152,6 +152,7 @@ if st.button("Download and Grade Submissions"):
                         key=feedback_key
                     )
 
+                    # Update feedback in session state
                     st.session_state.feedback_data[feedback_key]["Feedback"] = edited_feedback
                     st.session_state.feedback_data[feedback_key]["Grade"] = calculated_grade
 
@@ -177,23 +178,3 @@ if 'feedback_data' in st.session_state and st.session_state.feedback_data:
         st.markdown("---")
 else:
     st.write("No previous feedback available.")
-
-# Feedback editing section
-st.subheader("Edit Feedback")
-
-# Show editable feedback
-if 'editable_feedback' not in st.session_state:
-    st.session_state.editable_feedback = ''
-
-editable_feedback = st.text_area(
-    "Edit Feedback for User", 
-    st.session_state.editable_feedback, 
-    height=200, 
-    key="feedback_edit_area"
-)
-
-# Save edited feedback
-if st.button("Save Feedback"):
-    st.session_state.feedback_data['current_feedback'] = editable_feedback  # Update the feedback data
-    st.write("Feedback has been updated.")
-
