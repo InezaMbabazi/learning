@@ -45,6 +45,9 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# Display Header Image
+st.image('header.png', use_column_width=True)  # Make sure the path is correct
+
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     response = requests.get(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions", headers=headers)
