@@ -186,4 +186,7 @@ if st.button("Submit Feedback to Canvas"):
 # Display previous feedback
 st.subheader("Previous Feedback:")
 for feedback in st.session_state.feedback_data:
-    st.write(f"Student: {feedback
+    st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
+    st.write(f"Grade: {feedback['Grade']}")
+    st.write(f"Feedback: {feedback['Feedback']}")
+    st.markdown("---")
