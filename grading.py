@@ -93,8 +93,10 @@ def get_grading(student_submission, proposed_answer, content_type):
             "Provide feedback by outlining the key points and structure expected in an ideal answer. If there’s a lack of alignment, focus on what the response should include to be complete and accurate."
         )
 
-    # Request a grade as a separate output
-    grading_instruction = "Based on the evaluation, please assign a grade out of 10 for the student's submission."
+    # Request feedback and a grade in a single prompt
+    grading_instruction = (
+        "Based on the evaluation, please provide feedback and assign a grade out of 10 for the student's submission."
+    )
     
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -104,11 +106,15 @@ def get_grading(student_submission, proposed_answer, content_type):
         ]
     )
     
+    # The feedback and grade will be in the same response
     feedback = response['choices'][0]['message']['content']
-    
-    # Assume the grade is in the format "Grade: x/10"
-    grade_line = response['choices'][1]['message']['content']
-    grade = grade_line.split(":")[-1].strip() if ":" in grade_line else "Not Graded"
+
+    # Attempt to extract the grade from the feedback
+    # Assuming the grade is at the end of the feedback, e.g., "Grade: 8/10"
+    grade = None
+    if "Grade:" in feedback:
+        grade_line = feedback.split("Grade:")[-1].strip()
+        grade = grade_line.split()[0]  # Get the first word after "Grade:"
     
     return feedback, grade
 # Function to calculate grade automatically
