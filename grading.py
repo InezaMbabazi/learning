@@ -5,6 +5,7 @@ import io
 from docx import Document
 import openai
 import pandas as pd
+from textblob import TextBlob  # Library for sentiment analysis
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
@@ -89,26 +90,21 @@ def get_grading(student_submission, proposed_answer, content_type):
     feedback = response['choices'][0]['message']['content']
     return feedback
 
-# Function to calculate grade based on feedback content
+# Function to calculate grade based on feedback sentiment
 def calculate_grade(feedback):
-    # Initialize grade to 0
-    grade = 0
-    # Define grading keywords
-    keywords_positive = ["excellent", "good", "well done", "strong", "impressive"]
-    keywords_negative = ["poor", "needs improvement", "weak", "inadequate", "lacks"]
+    # Perform sentiment analysis
+    sentiment = TextBlob(feedback).sentiment
+    score = sentiment.polarity  # Score ranges from -1 (very negative) to 1 (very positive)
 
-    # Check for positive feedback keywords
-    for keyword in keywords_positive:
-        if keyword in feedback.lower():
-            grade += 2  # Increase grade for positive feedback
-
-    # Check for negative feedback keywords
-    for keyword in keywords_negative:
-        if keyword in feedback.lower():
-            grade -= 1  # Decrease grade for negative feedback
-
-    # Ensure grade is within 0 to 10
-    return min(max(grade, 0), 10)
+    # Scale score to a grade from 0 to 10
+    if score < 0:
+        grade = 0
+    elif score > 0.8:
+        grade = 10
+    else:
+        grade = int((score + 1) * 5)  # Scale between 0 and 10
+    
+    return grade
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
