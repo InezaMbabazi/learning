@@ -177,3 +177,23 @@ if 'feedback_data' in st.session_state and st.session_state.feedback_data:
         st.markdown("---")
 else:
     st.write("No previous feedback available.")
+
+# Feedback editing section
+st.subheader("Edit Feedback")
+
+# Show editable feedback
+if 'editable_feedback' not in st.session_state:
+    st.session_state.editable_feedback = ''
+
+editable_feedback = st.text_area(
+    "Edit Feedback for User", 
+    st.session_state.editable_feedback, 
+    height=200, 
+    key="feedback_edit_area"
+)
+
+# Save edited feedback
+if st.button("Save Feedback"):
+    st.session_state.feedback_data['current_feedback'] = editable_feedback  # Update the feedback data
+    st.write("Feedback has been updated.")
+
