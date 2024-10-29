@@ -71,15 +71,15 @@ def get_grading(student_submission, proposed_answer, content_type):
     if content_type == "Math (LaTeX)":
         grading_prompt += f"**Proposed Answer (LaTeX)**: {proposed_answer}\n\n"
         grading_prompt += f"**Student Submission (LaTeX)**: {student_submission}\n\n"
-        grading_prompt += "Provide feedback on correctness, grade out of 10, and suggest improvements regarding how closely it aligns with the proposed answer."
+        grading_prompt += "Provide detailed feedback and suggestions for improvement."
     elif content_type == "Programming (Code)":
         grading_prompt += f"**Proposed Code**: {proposed_answer}\n\n"
         grading_prompt += f"**Student Code Submission**: {student_submission}\n\n"
-        grading_prompt += "Check logic, efficiency, correctness, and grade out of 10, focusing on how well the submission follows the proposed code."
+        grading_prompt += "Check logic, efficiency, correctness, and provide feedback and suggestions for improvement."
     else:
         grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
         grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-        grading_prompt += "Provide detailed feedback, grade out of 10, and suggest improvements while clearly referencing the proposed answer."
+        grading_prompt += "Provide detailed feedback and suggestions for improvement."
     
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -143,35 +143,20 @@ if st.button("Download and Grade Submissions"):
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
                     # Generate feedback specific to the student's submission, using the proposed answer
-                    feedback_and_grade = get_grading(submission_text, proposed_answer, "Text")
+                    feedback = get_grading(submission_text, proposed_answer, "Text")
 
-                    # Attempt to extract a grade from the feedback; set to 0 if extraction fails
-                    try:
-                        # Convert the last word to float if it's a grade
-                        extracted_grade = float(feedback_and_grade.split()[-1])
-                    except ValueError:
-                        # Default to 0 if the last word isn't a valid grade
-                        extracted_grade = 0.0
+                    # Calculate grade from the submission text
+                    calculated_grade = calculate_grade(submission_text)
 
-                    # Input for grade with the extracted grade or 0.0 as the default
-                    grade_input = st.number_input(
-                        f"Grade for {user_name} (0-10)", 
-                        value=extracted_grade, 
-                        min_value=0.0, 
-                        max_value=10.0, 
-                        step=0.1, 
-                        key=f"grade_{user_id}"
-                    )
-
-                    # Input for feedback with the full feedback_and_grade text as default
-                    feedback_input = st.text_area(f"Feedback for {user_name}", value=feedback_and_grade, height=100, key=f"feedback_{user_id}")
+                    # Input for feedback with the full feedback text
+                    feedback_input = st.text_area(f"Feedback for {user_name}", value=feedback, height=100, key=f"feedback_{user_id}")
 
                     # Update session state
                     feedback_entry = {
                         "Student Name": user_name,
                         "Feedback": feedback_input,
                         "User ID": user_id,
-                        "Grade": grade_input
+                        "Grade": calculated_grade  # Store the calculated grade
                     }
                     st.session_state.feedback_data.append(feedback_entry)
 
@@ -188,7 +173,7 @@ if st.button("Submit Feedback to Canvas"):
 if st.session_state.feedback_data:
     st.markdown("<h2>Feedback Summary</h2>", unsafe_allow_html=True)
     for entry in st.session_state.feedback_data:
-        st.markdown(f'<div class="feedback"><strong>{entry["Student Name"]}</strong> (User ID: {entry["User ID"]})<br>Feedback: {entry["Feedback"]}<br><strong>Grade:</strong> {entry["Grade"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="feedback"><strong>{entry["Student Name"]}</strong> (User ID: {entry["User ID"]})<br>Feedback: {entry["Feedback"]}<br><strong>Grade for User:</strong> {entry["Grade"]}</div>', unsafe_allow_html=True)
 
 # Footer
 st.markdown('<footer style="text-align: center;">&copy; 2024 Kepler College. All rights reserved.</footer>', unsafe_allow_html=True)
