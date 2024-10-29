@@ -67,7 +67,7 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
 
 # Function to get grading from OpenAI based on student submissions and proposed answers
 
-# Function to get grading from OpenAI based on student submissions and proposed answers
+
 def get_grading(student_submission, proposed_answer, content_type):
     grading_prompt = (
         f"Evaluate the student's submission in relation to the proposed answer. If there is little alignment, focus on what an ideal response should include based on the proposed answer. "
