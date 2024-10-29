@@ -5,7 +5,7 @@ import io
 from docx import Document
 import openai
 import pandas as pd
-from textblob import TextBlob  # Library for sentiment analysis
+from textblob import TextBlob  # Import TextBlob for sentiment analysis
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your Canvas API token
@@ -22,6 +22,7 @@ st.markdown("""
     .content { border: 2px solid #4B0082; padding: 20px; border-radius: 10px; background-color: #F3F4F6; }
     .submission-title { font-size: 24px; color: #4B0082; }
     .submission-text { font-size: 20px; border: 2px solid #4B0082; padding: 10px; background-color: #E6E6FA; border-radius: 10px; color: #333; font-weight: bold; }
+    .feedback-title { color: #FF4500; font-weight: bold; }
     .feedback { border: 2px solid #4B0082; padding: 10px; border-radius: 10px; background-color: #E6FFE6; color: #333; }
 </style>
 """, unsafe_allow_html=True)
@@ -72,15 +73,15 @@ def get_grading(student_submission, proposed_answer, content_type):
     if content_type == "Math (LaTeX)":
         grading_prompt += f"**Proposed Answer (LaTeX)**: {proposed_answer}\n\n"
         grading_prompt += f"**Student Submission (LaTeX)**: {student_submission}\n\n"
-        grading_prompt += "Provide detailed feedback and suggestions for improvement."
+        grading_prompt += "Provide feedback on correctness, grade out of 10, and suggest improvements regarding how closely it aligns with the proposed answer."
     elif content_type == "Programming (Code)":
         grading_prompt += f"**Proposed Code**: {proposed_answer}\n\n"
         grading_prompt += f"**Student Code Submission**: {student_submission}\n\n"
-        grading_prompt += "Check logic, efficiency, correctness, and provide feedback and suggestions for improvement."
+        grading_prompt += "Check logic, efficiency, correctness, and grade out of 10, focusing on how well the submission follows the proposed code."
     else:
         grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
         grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-        grading_prompt += "Provide detailed feedback and suggestions for improvement."
+        grading_prompt += "Provide detailed feedback, grade out of 10, and suggest improvements while clearly referencing the proposed answer."
     
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -90,21 +91,30 @@ def get_grading(student_submission, proposed_answer, content_type):
     feedback = response['choices'][0]['message']['content']
     return feedback
 
-# Function to calculate grade based on feedback sentiment
-def calculate_grade(feedback):
-    # Perform sentiment analysis
-    sentiment = TextBlob(feedback).sentiment
-    score = sentiment.polarity  # Score ranges from -1 (very negative) to 1 (very positive)
+# Function to calculate grade automatically
+def calculate_grade(submission_text, proposed_answer):
+    # Base grading logic based on length and content relevance
+    base_grade = 5
+    keywords = ["important", "necessary", "critical"]
 
-    # Scale score to a grade from 0 to 10
-    if score < 0:
-        grade = 0
-    elif score > 0.8:
-        grade = 10
+    # Increase or decrease base grade based on submission length
+    if len(submission_text) > 500:
+        base_grade += 2
+    elif len(submission_text) < 200:
+        base_grade -= 1
+
+    # Check for relevant keywords
+    for keyword in keywords:
+        if keyword in submission_text.lower():
+            base_grade += 1
+
+    # Adjust based on relevance to proposed answer
+    if proposed_answer.lower() in submission_text.lower():
+        base_grade += 2  # Award points for relevance
     else:
-        grade = int((score + 1) * 5)  # Scale between 0 and 10
-    
-    return grade
+        base_grade -= 2  # Deduct points for lack of relevance
+
+    return min(max(base_grade, 0), 10)  # Ensure the grade is between 0 and 10
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -149,18 +159,15 @@ if st.button("Download and Grade Submissions"):
                     # Generate feedback specific to the student's submission, using the proposed answer
                     feedback = get_grading(submission_text, proposed_answer, "Text")
 
-                    # Calculate grade based on feedback content
-                    calculated_grade = calculate_grade(feedback)
-
-                    # Input for feedback with the full feedback text
-                    feedback_input = st.text_area(f"Feedback for {user_name}", value=feedback, height=100, key=f"feedback_{user_id}")
+                    # Calculate grade based on submission and proposed answer
+                    calculated_grade = calculate_grade(submission_text, proposed_answer)
 
                     # Update session state
                     feedback_entry = {
                         "Student Name": user_name,
-                        "Feedback": feedback_input,
+                        "Feedback": feedback,
                         "User ID": user_id,
-                        "Grade": calculated_grade  # Store the calculated grade
+                        "Grade": calculated_grade
                     }
                     st.session_state.feedback_data.append(feedback_entry)
 
@@ -173,8 +180,7 @@ if st.button("Submit Feedback to Canvas"):
             success, message = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
             st.success(message if success else f"Error: {message}")
 
-# Display all feedbacks given with user's name and their obtained grade
-if st.session_state.feedback_data:
-    st.markdown("<h2>Feedback Summary</h2>", unsafe_allow_html=True)
-    for entry in st.session_state.feedback_data:
-        st.markdown(f'<div class="feedback"><strong>{entry["Student Name"]}</strong> (User ID: {entry["User ID"]})<br>Feedback: {entry["Feedback"]}<br><strong>Grade for User:</strong> {entry["Grade"]}</div>', unsafe_allow_html=True)
+# Display previous feedback
+st.subheader("Previous Feedback:")
+for feedback in st.session_state.feedback_data:
+    st.write(f"Student: {feedback['Student Name']}, Grade: {feedback['Grade']}, Feedback: {feedback['Feedback']}")
