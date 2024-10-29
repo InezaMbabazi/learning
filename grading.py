@@ -68,33 +68,30 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
 # Function to get grading from OpenAI based on student submissions and proposed answers
 def get_grading(student_submission, proposed_answer, content_type):
     grading_prompt = (
-        f"Compare the student's submission with the provided answer below. Assess the accuracy, depth, and completeness, "
-        f"identifying any key differences. Give a grade out of 10 and offer feedback highlighting both strengths and "
-        f"areas for improvement:\n\n"
+        f"Evaluate the student's submission in relation to the proposed answer. If there is little alignment, focus on what an ideal response should include based on the proposed answer. "
+        f"Give a grade out of 10 and offer specific guidance for improvement.\n\n"
     )
 
     if content_type == "Math (LaTeX)":
         grading_prompt += (
             f"**Proposed Answer (LaTeX)**: {proposed_answer}\n\n"
             f"**Student Submission (LaTeX)**: {student_submission}\n\n"
-            "Please ensure that your feedback includes specific reference to steps or elements in the answer that were correctly "
-            "or incorrectly addressed, such as calculations or formulas."
+            "Please provide feedback based primarily on the correctness of the proposed answer’s steps, calculations, and format. "
+            "If the submission lacks alignment, explain what a correct solution should include without focusing on the errors in the student's work."
         )
     elif content_type == "Programming (Code)":
         grading_prompt += (
             f"**Proposed Code**: {proposed_answer}\n\n"
             f"**Student Code Submission**: {student_submission}\n\n"
-            "Evaluate the correctness, logic, and efficiency of the code. Provide a grade out of 10. Highlight which sections or lines "
-            "align well with the proposed solution and where there are discrepancies in logic or structure."
+            "Evaluate the proposed code’s logic, structure, and efficiency as an ideal solution. If the student's code does not align, explain the optimal approach found in the proposed code."
         )
     else:
         grading_prompt += (
             f"**Proposed Answer**: {proposed_answer}\n\n"
             f"**Student Submission**: {student_submission}\n\n"
-            "Provide specific feedback on how well the student addressed the main points in the answer. Indicate areas that were "
-            "accurately covered or omitted, and suggest ways to improve clarity or detail where needed."
+            "Provide feedback by outlining the key points and structure expected in an ideal answer. If there’s a lack of alignment, focus on what the response should include to be complete and accurate."
         )
-    
+
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": grading_prompt}]
