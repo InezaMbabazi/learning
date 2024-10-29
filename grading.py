@@ -67,9 +67,10 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
 
 # Function to get grading from OpenAI based on student submissions and proposed answers
 def get_grading(student_submission, proposed_answer, content_type):
+def get_grading(student_submission, proposed_answer, content_type):
     grading_prompt = (
         f"Evaluate the student's submission in relation to the proposed answer. If there is little alignment, focus on what an ideal response should include based on the proposed answer. "
-        f"Give a grade out of 10 and offer specific guidance for improvement.\n\n"
+        f"Provide specific guidance for improvement.\n\n"
     )
 
     if content_type == "Math (LaTeX)":
@@ -92,13 +93,24 @@ def get_grading(student_submission, proposed_answer, content_type):
             "Provide feedback by outlining the key points and structure expected in an ideal answer. If there’s a lack of alignment, focus on what the response should include to be complete and accurate."
         )
 
+    # Request a grade as a separate output
+    grading_instruction = "Based on the evaluation, please assign a grade out of 10 for the student's submission."
+    
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": grading_prompt}]
+        messages=[
+            {"role": "user", "content": grading_prompt},
+            {"role": "user", "content": grading_instruction}
+        ]
     )
     
     feedback = response['choices'][0]['message']['content']
-    return feedback
+    
+    # Assume the grade is in the format "Grade: x/10"
+    grade_line = response['choices'][1]['message']['content']
+    grade = grade_line.split(":")[-1].strip() if ":" in grade_line else "Not Graded"
+    
+    return feedback, grade
 # Function to calculate grade automatically
 def calculate_grade(submission_text):
     keywords = ["important", "necessary", "critical"]
