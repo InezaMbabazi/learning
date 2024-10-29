@@ -174,16 +174,7 @@ editable_grade = st.number_input(
     key=f"editable_grade_{feedback['User ID']}_{assignment_id}"
 )
 
-        
-        # Editable grade input
-        editable_grade = st.number_input(
-            f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
-            value=feedback['Grade'],
-            min_value=0,
-            max_value=10,
-            step=0.1,
-            key=f"editable_grade_{feedback['User ID']}_{assignment_id}"
-        )
+    
         
         # Update the session state with the edited feedback and grade
         feedback['Feedback'] = editable_feedback
