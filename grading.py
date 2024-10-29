@@ -81,8 +81,8 @@ def get_grading(student_submission, proposed_answer, content_type):
     else:
         grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
         grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-        grading_prompt += "Provide detailed feedback, grade out of 10, and suggest improvements while clearly referencing the proposed answer."
-    
+        grading_prompt += "Provide detailed feedback and suggest improvements while clearly referencing the proposed answer, without mentioning any grade."
+
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": grading_prompt}]
@@ -187,6 +187,6 @@ if st.button("Submit Feedback to Canvas"):
 st.subheader("Previous Feedback:")
 for feedback in st.session_state.feedback_data:
     st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
-    st.write(f"Grade: {feedback['Grade']}")
     st.write(f"Feedback: {feedback['Feedback']}")
+    st.write(f"Grade for User: {feedback['Grade']}")
     st.markdown("---")
