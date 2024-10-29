@@ -67,19 +67,33 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
 
 # Function to get grading from OpenAI based on student submissions and proposed answers
 def get_grading(student_submission, proposed_answer, content_type):
-    grading_prompt = f"Evaluate the student's submission based on the proposed answer:\n\n"
+    grading_prompt = (
+        f"Compare the student's submission with the provided answer below. Assess the accuracy, depth, and completeness, "
+        f"identifying any key differences. Give a grade out of 10 and offer feedback highlighting both strengths and "
+        f"areas for improvement:\n\n"
+    )
+
     if content_type == "Math (LaTeX)":
-        grading_prompt += f"**Proposed Answer (LaTeX)**: {proposed_answer}\n\n"
-        grading_prompt += f"**Student Submission (LaTeX)**: {student_submission}\n\n"
-        grading_prompt += "Provide feedback on correctness, grade out of 10, and suggest improvements."
+        grading_prompt += (
+            f"**Proposed Answer (LaTeX)**: {proposed_answer}\n\n"
+            f"**Student Submission (LaTeX)**: {student_submission}\n\n"
+            "Please ensure that your feedback includes specific reference to steps or elements in the answer that were correctly "
+            "or incorrectly addressed, such as calculations or formulas."
+        )
     elif content_type == "Programming (Code)":
-        grading_prompt += f"**Proposed Code**: {proposed_answer}\n\n"
-        grading_prompt += f"**Student Code Submission**: {student_submission}\n\n"
-        grading_prompt += "Check logic, efficiency, correctness, and grade out of 10."
+        grading_prompt += (
+            f"**Proposed Code**: {proposed_answer}\n\n"
+            f"**Student Code Submission**: {student_submission}\n\n"
+            "Evaluate the correctness, logic, and efficiency of the code. Provide a grade out of 10. Highlight which sections or lines "
+            "align well with the proposed solution and where there are discrepancies in logic or structure."
+        )
     else:
-        grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
-        grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-        grading_prompt += "Provide detailed feedback and grade out of 10. Suggest improvements."
+        grading_prompt += (
+            f"**Proposed Answer**: {proposed_answer}\n\n"
+            f"**Student Submission**: {student_submission}\n\n"
+            "Provide specific feedback on how well the student addressed the main points in the answer. Indicate areas that were "
+            "accurately covered or omitted, and suggest ways to improve clarity or detail where needed."
+        )
     
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -88,7 +102,6 @@ def get_grading(student_submission, proposed_answer, content_type):
     
     feedback = response['choices'][0]['message']['content']
     return feedback
-
 # Function to calculate grade automatically
 def calculate_grade(submission_text):
     keywords = ["important", "necessary", "critical"]
