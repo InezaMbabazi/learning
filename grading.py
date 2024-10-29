@@ -151,7 +151,7 @@ if st.button("Submit Feedback to Canvas"):
         st.warning("No feedback available to submit.")
     else:
         for key, entry in st.session_state.feedback_data.items():
-            # Retrieve the edited feedback from the session state
+            # Retrieve the edited feedback and grade from the session state
             success = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
             if success:
                 st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
@@ -163,14 +163,28 @@ st.subheader("Previous Feedback:")
 if 'feedback_data' in st.session_state and st.session_state.feedback_data:
     for key, feedback in st.session_state.feedback_data.items():
         st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
-        st.write(f"Grade for User: {feedback['Grade']}")
+        
+        # Editable feedback text area
         editable_feedback = st.text_area(
             f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})",
             value=feedback['Feedback'],
             key=f"editable_feedback_{feedback['User ID']}_{assignment_id}"
         )
-        # Update the session state with the edited feedback
+        
+        # Editable grade input
+        editable_grade = st.number_input(
+            f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
+            value=feedback['Grade'],
+            min_value=0,
+            max_value=10,
+            step=0.1,
+            key=f"editable_grade_{feedback['User ID']}_{assignment_id}"
+        )
+        
+        # Update the session state with the edited feedback and grade
         feedback['Feedback'] = editable_feedback
+        feedback['Grade'] = editable_grade
+        
         st.markdown("---")
 else:
     st.write("No previous feedback available.")
