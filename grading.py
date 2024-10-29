@@ -164,7 +164,7 @@ if st.button("Download and Grade Submissions"):
                     )
 
                     # Input for feedback with the full feedback_and_grade text as default
-                    feedback_input = st.text_area(f"Feedback", value=feedback_and_grade, height=100, key=f"feedback_{user_id}")
+                    feedback_input = st.text_area(f"Feedback for {user_name}", value=feedback_and_grade, height=100, key=f"feedback_{user_id}")
 
                     # Update session state
                     feedback_entry = {
@@ -184,10 +184,11 @@ if st.button("Submit Feedback to Canvas"):
             success, message = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
             st.success(message if success else f"Error: {message}")
 
-# Display all feedbacks given without a separate section
+# Display all feedbacks given with user's name and their obtained grade
 if st.session_state.feedback_data:
+    st.markdown("<h2>Feedback Summary</h2>", unsafe_allow_html=True)
     for entry in st.session_state.feedback_data:
-        st.markdown(f'<div class="feedback">{entry["Feedback"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="feedback"><strong>{entry["Student Name"]}</strong> (User ID: {entry["User ID"]})<br>Feedback: {entry["Feedback"]}<br><strong>Grade:</strong> {entry["Grade"]}</div>', unsafe_allow_html=True)
 
 # Footer
 st.markdown('<footer style="text-align: center;">&copy; 2024 Kepler College. All rights reserved.</footer>', unsafe_allow_html=True)
