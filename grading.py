@@ -66,34 +66,22 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
         return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
 
 # Function to get grading from OpenAI based on student submissions and proposed answers
-
-
 def get_grading(student_submission, proposed_answer, content_type):
-    grading_prompt = (
-        f"Evaluate the student's submission in relation to the proposed answer. If there is little alignment, focus on what an ideal response should include based on the proposed answer. "
-        f"Give a grade out of 10 and offer specific guidance for improvement.\n\n"
-    )
-
+    grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
+    
     if content_type == "Math (LaTeX)":
-        grading_prompt += (
-            f"**Proposed Answer (LaTeX)**: {proposed_answer}\n\n"
-            f"**Student Submission (LaTeX)**: {student_submission}\n\n"
-            "Please provide feedback based primarily on the correctness of the proposed answer’s steps, calculations, and format. "
-            "If the submission lacks alignment, explain what a correct solution should include without focusing on the errors in the student's work."
-        )
+        grading_prompt += f"**Proposed Answer (LaTeX)**: {proposed_answer}\n\n"
+        grading_prompt += f"**Student Submission (LaTeX)**: {student_submission}\n\n"
+        grading_prompt += "Provide feedback on correctness, grade out of 10, and suggest improvements regarding how closely it aligns with the proposed answer."
     elif content_type == "Programming (Code)":
-        grading_prompt += (
-            f"**Proposed Code**: {proposed_answer}\n\n"
-            f"**Student Code Submission**: {student_submission}\n\n"
-            "Evaluate the proposed code’s logic, structure, and efficiency as an ideal solution. If the student's code does not align, explain the optimal approach found in the proposed code."
-        )
+        grading_prompt += f"**Proposed Code**: {proposed_answer}\n\n"
+        grading_prompt += f"**Student Code Submission**: {student_submission}\n\n"
+        grading_prompt += "Check logic, efficiency, correctness, and grade out of 10, focusing on how well the submission follows the proposed code."
     else:
-        grading_prompt += (
-            f"**Proposed Answer**: {proposed_answer}\n\n"
-            f"**Student Submission**: {student_submission}\n\n"
-            "Provide feedback by outlining the key points and structure expected in an ideal answer. If there’s a lack of alignment, focus on what the response should include to be complete and accurate."
-        )
-
+        grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
+        grading_prompt += f"**Student Submission**: {student_submission}\n\n"
+        grading_prompt += "Provide detailed feedback, grade out of 10, and suggest improvements while clearly referencing the proposed answer."
+    
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": grading_prompt}]
@@ -101,16 +89,6 @@ def get_grading(student_submission, proposed_answer, content_type):
     
     feedback = response['choices'][0]['message']['content']
     return feedback
-
-
-# Example usage:
-feedback_text, extracted_grade = get_grading(student_submission, proposed_answer, content_type)
-
-# Now, ensure you handle extracted_grade safely
-if extracted_grade is not None:
-    print(f"Grade: {extracted_grade}")
-else:
-    print("Grade could not be extracted.")
 
 # Function to calculate grade automatically
 def calculate_grade(submission_text):
@@ -204,8 +182,10 @@ if st.button("Submit Feedback to Canvas"):
         st.warning("No feedback available to submit.")
     else:
         for entry in st.session_state.feedback_data:
-            success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"], entry["Grade"])
-            if success:
-                st.success(message)
-            else:
-                st.error(message)
+            success, message = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
+            st.success(message if success else f"Error: {message}")
+
+# Display previous feedback
+st.subheader("Previous Feedback:")
+for feedback in st.session_state.feedback_data:
+    st.write(f"Student: {feedback['Student Name']}, Grade: {feedback['Grade']}, Feedback: {feedback['Feedback']}")
