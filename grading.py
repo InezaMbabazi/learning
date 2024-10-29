@@ -15,6 +15,36 @@ openai.api_key = st.secrets["openai"]["api_key"]
 
 st.set_page_config(page_title="Kepler College Grading System", page_icon="📚", layout="wide")
 
+# Custom CSS to enhance the interface
+st.markdown(
+    """
+    <style>
+        body {
+            background-color: #f0f4f8;
+            color: #333;
+        }
+        h1 {
+            color: #4a4e69;
+        }
+        .btn {
+            background-color: #6c63ff;
+            color: white;
+        }
+        .btn:hover {
+            background-color: #5a54d6;
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     response = requests.get(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions", headers=headers)
@@ -60,15 +90,20 @@ def calculate_grade(submission_text, proposed_answer):
 # Streamlit UI
 st.markdown('<h1>Kepler College Grading System</h1>', unsafe_allow_html=True)
 
-course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
-assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
+with st.container():
+    col1, col2 = st.columns(2)
 
-proposed_answer = st.text_area("Enter the proposed answer for evaluation:", "")
+    with col1:
+        course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
+        assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
+
+    with col2:
+        proposed_answer = st.text_area("Enter the proposed answer for evaluation:", "")
 
 if 'feedback_data' not in st.session_state:
     st.session_state.feedback_data = {}
 
-if st.button("Download and Grade Submissions"):
+if st.button("Download and Grade Submissions", key="download"):
     submissions = get_submissions(course_id, assignment_id)
     if submissions:
         for submission in submissions:
@@ -96,7 +131,7 @@ if st.button("Download and Grade Submissions"):
                     }
 
 # Submit feedback
-if st.button("Submit Feedback to Canvas"):
+if st.button("Submit Feedback to Canvas", key="submit"):
     for key, entry in st.session_state.feedback_data.items():
         success = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
         if success:
@@ -107,17 +142,15 @@ if st.button("Submit Feedback to Canvas"):
 # Display previous feedback with editable text areas
 st.subheader("Previous Feedback:")
 for key, feedback in st.session_state.feedback_data.items():
-    st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
-    
-    # Editable text area for feedback
-    feedback['Feedback'] = st.text_area(
-        f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})",
-        value=feedback['Feedback'],
-        key=f"{key}_feedback"
-    )
-    feedback['Grade'] = st.number_input(
-        f"Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
-        min_value=0, max_value=10, value=feedback['Grade'],
-        key=f"{key}_grade"
-    )
-    st.markdown("---")
+    with st.expander(f"Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})"):
+        feedback['Feedback'] = st.text_area(
+            f"Edit Feedback:",
+            value=feedback['Feedback'],
+            key=f"{key}_feedback"
+        )
+        feedback['Grade'] = st.number_input(
+            f"Grade:",
+            min_value=0, max_value=10, value=feedback['Grade'],
+            key=f"{key}_grade"
+        )
+        st.markdown("---")
