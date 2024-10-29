@@ -93,7 +93,10 @@ def get_grading(student_submission, proposed_answer, content_type):
 
 # Function to calculate grade automatically
 def calculate_grade(submission_text, proposed_answer):
-    # Base grading logic based on length and content relevance
+    # Base grading logic
+    if proposed_answer.lower() not in submission_text.lower():
+        return 0  # Assign a grade of 0 if the submission does not align with the proposed answer
+
     base_grade = 5
     keywords = ["important", "necessary", "critical"]
 
@@ -183,4 +186,4 @@ if st.button("Submit Feedback to Canvas"):
 # Display previous feedback
 st.subheader("Previous Feedback:")
 for feedback in st.session_state.feedback_data:
-    st.write(f"Student: {feedback['Student Name']}, Grade: {feedback['Grade']}, Feedback: {feedback['Feedback']}")
+    st.write(f"Student: {feedback
