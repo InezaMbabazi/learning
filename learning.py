@@ -1,139 +1,175 @@
 import streamlit as st
+import requests
+import os
+import io
+from docx import Document
 import openai
-import PyPDF2
+import pandas as pd
 
-# Initialize OpenAI API with the secret key
+# Canvas API token and base URL
+API_TOKEN = 'YOUR_CANVAS_API_TOKEN'  # Replace with your Canvas API token
+BASE_URL = 'https://kepler.instructure.com/api/v1'
+
+# OpenAI API Key from Streamlit secrets
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Function to generate questions based on lesson content
-def generate_questions_from_content(lesson_content):
-    prompt = f"Generate 3 questions based on the following lesson content:\n{lesson_content}\n\nMake sure the questions test the student's understanding."
-    
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    
-    generated_questions = response['choices'][0]['message']['content'].strip().split("\n")
-    return generated_questions
+# Streamlit styling
+st.set_page_config(page_title="Kepler College Grading System", page_icon="📚", layout="wide")
+st.markdown("""
+<style>
+    .header { text-align: center; color: #4B0082; font-size: 30px; font-weight: bold; }
+    .content { border: 2px solid #4B0082; padding: 20px; border-radius: 10px; background-color: #F3F4F6; }
+    .submission-title { font-size: 24px; color: #4B0082; }
+    .submission-text { font-size: 20px; border: 2px solid #4B0082; padding: 10px; background-color: #E6E6FA; border-radius: 10px; color: #333; font-weight: bold; }
+    .feedback-title { color: #FF4500; font-weight: bold; }
+    .feedback { border: 2px solid #4B0082; padding: 10px; border-radius: 10px; background-color: #E6FFE6; color: #333; }
+</style>
+""", unsafe_allow_html=True)
 
-# Function to load PDF content
-def load_pdf_content(file):
-    reader = PyPDF2.PdfReader(file)
-    content = ''
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            content += text + "\n"
-    return content.strip()
+# Function to get submissions for an assignment
+def get_submissions(course_id, assignment_id):
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    response = requests.get(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions", headers=headers)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error("Failed to retrieve submissions.")
+        return []
 
-# Function to grade student answers and provide feedback using OpenAI
-def get_grading(student_answers, generated_questions, lesson_content):
-    feedback = []
-    
-    for i, (question, answer) in enumerate(zip(generated_questions, student_answers)):
-        prompt = f"Question: {question}\nStudent's Answer: {answer}\nLesson Content: {lesson_content}\nProvide feedback on the student's answer."
-        
+# Function to download a submission file
+def download_submission_file(file_url):
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    response = requests.get(file_url, headers=headers)
+    return response.content if response.status_code == 200 else None
+
+# Function to display Excel content
+def display_excel_content(file_content):
+    df = pd.read_excel(io.BytesIO(file_content))
+    st.dataframe(df)
+
+# Function to submit feedback to Canvas
+def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
+    headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
+    payload = {
+        "comment": {
+            "text_comment": feedback
+        },
+        "submission": {
+            "posted_grade": grade  # Include the grade in the payload
+        }
+    }
+    url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
+    response = requests.put(url, headers=headers, json=payload)
+    if response.status_code in [200, 201]:
+        return True, f"Successfully submitted feedback for user ID {user_id}."
+    else:
+        return False, f"Failed to submit feedback for user ID {user_id}. Status code: {response.status_code} Response: {response.text}"
+
+# Function to generate automated feedback based on each student's submission
+def generate_feedback(proposed_answer, submission_content):
+    prompt = f"Here is the proposed answer for evaluation:\n{proposed_answer}\n\nProvide specific feedback for the following student's answer based on the proposed answer:\n{submission_content}\nFeedback:"
+    try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=150
         )
-        
-        feedback_message = response['choices'][0]['message']['content'].strip()
-        feedback.append(f"Question {i + 1} Feedback: {feedback_message}")
-    
-    return "\n".join(feedback)
+        feedback = response.choices[0].message['content'].strip()
+        return feedback
+    except Exception as e:
+        st.error(f"Error generating feedback: {str(e)}")
+        return "Error generating feedback."
 
-# Function to handle chatbot interaction with lesson context
-def chat_with_bot(user_input, lesson_content):
-    prompt = f"You are an AI assistant. The user is asking questions about the following lesson content:\n{lesson_content}\nUser: {user_input}\nAI:"
-    
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    
-    return response['choices'][0]['message']['content'].strip()
+# Function to calculate grade automatically
+def calculate_grade(submission_text):
+    keywords = ["important", "necessary", "critical"]
+    base_grade = 5.0  # Ensure this is a float
+    if len(submission_text) > 500:
+        base_grade += 2.0
+    elif len(submission_text) < 200:
+        base_grade -= 1.0
+    for keyword in keywords:
+        if keyword in submission_text.lower():
+            base_grade += 1.0
+    return min(max(base_grade, 0.0), 10.0)
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
-st.title("Kepler College AI-Powered Lesson Assistant")
+st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allow_html=True)
 
-st.markdown("""
-    <div style="background-color: #f0f0f5; padding: 20px; border-radius: 10px;">
-        <h3 style="color: #2E86C1;">Welcome to Kepler College's AI-Powered Lesson Assistant</h3>
-        <p>Upload your lesson content in <strong>PDF format</strong>, or type the lesson content manually.</p>
-    </div>
-    """, unsafe_allow_html=True)
+course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
+assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
 
-# Option 1: Upload PDF file
-st.subheader("Option 1: Upload PDF File")
-uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
+# Proposed answer input
+proposed_answer = st.text_area("Enter the proposed answer for evaluation:", "")
 
-# Option 2: Manual text input
-st.subheader("Option 2: Paste Specific Lesson Content Here")
-manual_content = st.text_area("Paste lesson content here:", height=150)
+# Initialize session state for feedback
+if 'feedback_data' not in st.session_state:
+    st.session_state.feedback_data = []
 
-# Session state to track if questions have been generated
-if 'generated_questions' not in st.session_state:
-    st.session_state.generated_questions = []
+if st.button("Download and Grade Submissions"):
+    submissions = get_submissions(course_id, assignment_id)
+    if submissions:
+        for submission in submissions:
+            user_id = submission['user_id']
+            user_name = submission.get('user', {}).get('name', f"User {user_id}")
+            attachments = submission.get('attachments', [])
+            submission_text = ""
 
-# Load content from PDF or manual input
-lesson_content = None
-if uploaded_file is not None:
-    lesson_content = load_pdf_content(uploaded_file)
-    st.subheader("PDF Content")
-    
-    # Display PDF content in an editable text area
-    st.text_area("PDF Content", value=lesson_content, height=300, disabled=False)  # Set disabled to False for editing
+            for attachment in attachments:
+                file_content = download_submission_file(attachment['url'])
+                filename = attachment['filename']
+                if filename.endswith(".txt") and file_content:
+                    submission_text = file_content.decode('utf-8')
+                elif filename.endswith(".docx") and file_content:
+                    doc = Document(io.BytesIO(file_content))
+                    submission_text = "\n".join([para.text for para in doc.paragraphs])
+                elif filename.endswith(".xlsx") and file_content:
+                    st.markdown(f'<div class="submission-title">Excel Submission from {user_name}</div>', unsafe_allow_html=True)
+                    display_excel_content(file_content)
+                    continue
 
-elif manual_content:
-    lesson_content = manual_content
+                if submission_text:
+                    st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-# Generate questions if content is available
-if lesson_content:
-    if st.button("Generate Questions"):
-        st.session_state.generated_questions = generate_questions_from_content(lesson_content)
-    
-    if st.session_state.generated_questions:
-        st.subheader("Test Questions")
+                    # Generate feedback specific to the student's submission, using the proposed answer
+                    generated_feedback = generate_feedback(proposed_answer, submission_text)
 
-        # Student answers section
-        student_answers = []
-        feedbacks = []
-        with st.form(key='question_form'):
-            for i, question in enumerate(st.session_state.generated_questions):
-                # Create a color block for each question
-                question_color = f"#{i * 30 % 255:02x}{(255 - i * 30 % 255):02x}c0"
-                st.markdown(f'<div style="background-color: {question_color}; padding: 10px; border-radius: 5px; margin-bottom: 10px;">', unsafe_allow_html=True)
-                st.write(f"**Question {i + 1}:** {question}")
-                answer = st.text_input(f"Your answer to question {i + 1}", key=f"answer_{i}")
-                student_answers.append(answer)
-                st.markdown('</div>', unsafe_allow_html=True)  # End color block
-            
-            # Submit button for form
-            submit = st.form_submit_button("Submit Answers")
-            
-            if submit and all(student_answers):
-                # Provide feedback using OpenAI
-                feedback = get_grading(student_answers, st.session_state.generated_questions, lesson_content)
-                feedbacks = feedback.split("\n")
-                
-                st.subheader("Feedback on Your Answers:")
-                
-                for feedback in feedbacks:
-                    st.markdown(f'<div style="background-color: #e0f7fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;">{feedback}</div>', unsafe_allow_html=True)
-            elif submit:
-                st.warning("Please answer all questions before submitting.")
+                    # Automatically calculate grade
+                    auto_grade = float(calculate_grade(submission_text))  # Explicitly set as float
 
-# Chatbot interaction section
-st.subheader("Chat with the AI Assistant")
-user_input = st.text_input("Ask a question about the lesson content:")
-if st.button("Send"):
-    if user_input and lesson_content:
-        response = chat_with_bot(user_input, lesson_content)
-        st.markdown(f"<div style='background-color: #e0f7fa; padding: 10px; border-radius: 5px;'>{response}</div>", unsafe_allow_html=True)
-    elif not user_input:
-        st.warning("Please enter a question before sending.")
-else:
-    st.write("Please upload a PDF file or enter the lesson content manually.")
+                    # Input for grade
+                    grade_input = st.number_input(
+                        f"Grade for {user_name} (0-10)", 
+                        value=auto_grade, 
+                        min_value=0.0, 
+                        max_value=10.0, 
+                        step=0.1, 
+                        key=f"grade_{user_id}"
+                    )
+
+                    # Input for feedback
+                    feedback_input = st.text_area(f"Feedback for {user_name}", value=generated_feedback, height=100, key=f"feedback_{user_id}")
+
+                    # Update session state
+                    feedback_entry = {
+                        "Student Name": user_name,
+                        "Feedback": feedback_input,
+                        "User ID": user_id,
+                        "Grade": grade_input
+                    }
+                    st.session_state.feedback_data.append(feedback_entry)
+
+# Button to submit feedback to Canvas
+if st.button("Submit Feedback to Canvas"):
+    if not st.session_state.feedback_data:
+        st.warning("No feedback available to submit.")
+    else:
+        for entry in st.session_state.feedback_data:
+            success, message = submit_feedback(course_id, assignment_id, entry["User ID"], entry["Feedback"], entry["Grade"])
+            if success:
+                st.success(message)
+            else:
+                st.error(message)
