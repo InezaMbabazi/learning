@@ -21,7 +21,6 @@ st.markdown("""
     .content { border: 2px solid #4B0082; padding: 20px; border-radius: 10px; background-color: #F3F4F6; }
     .submission-title { font-size: 24px; color: #4B0082; }
     .submission-text { font-size: 20px; border: 2px solid #4B0082; padding: 10px; background-color: #E6E6FA; border-radius: 10px; color: #333; font-weight: bold; }
-    .feedback-title { color: #FF4500; font-weight: bold; }
     .feedback { border: 2px solid #4B0082; padding: 10px; border-radius: 10px; background-color: #E6FFE6; color: #333; }
 </style>
 """, unsafe_allow_html=True)
@@ -165,7 +164,7 @@ if st.button("Download and Grade Submissions"):
                     )
 
                     # Input for feedback with the full feedback_and_grade text as default
-                    feedback_input = st.text_area(f"Feedback for {user_name}", value=feedback_and_grade, height=100, key=f"feedback_{user_id}")
+                    feedback_input = st.text_area(f"Feedback", value=feedback_and_grade, height=100, key=f"feedback_{user_id}")
 
                     # Update session state
                     feedback_entry = {
@@ -188,7 +187,6 @@ if st.button("Submit Feedback to Canvas"):
 # Display all feedbacks given without a separate section
 if st.session_state.feedback_data:
     for entry in st.session_state.feedback_data:
-        st.markdown(f'<div class="feedback-title">Feedback for {entry["Student Name"]} (User ID: {entry["User ID"]})</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="feedback">{entry["Feedback"]}</div>', unsafe_allow_html=True)
 
 # Footer
