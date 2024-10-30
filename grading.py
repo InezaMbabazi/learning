@@ -72,13 +72,12 @@ def get_grading(student_submission, proposed_answer):
     return feedback
 
 def calculate_grade(submission_text, proposed_answer):
-    base_grade = 0  # Start with a base grade of 0
-    
+    base_grade = 5  # Start with a base grade
+
     # Check for overall relevance to proposed answer
     if proposed_answer.lower() in submission_text.lower():
-        # If there's correlation, start with a base grade
-        base_grade = 5  
-
+        base_grade += 1
+        
         # Check for conceptual alignment with critical and ethical thinking
         if "critical thinking" in submission_text.lower() and "ethical thinking" in submission_text.lower():
             base_grade += 2
@@ -101,39 +100,8 @@ def calculate_grade(submission_text, proposed_answer):
         # Ensure the grade is within 0-10 range
         return min(max(base_grade, 0), 10)
     else:
-        # If there's no correlation, return a grade of zero
+        # Assign low marks (0) if no correlation
         return 0
-
-# In the grading loop, update the feedback message based on the correlation check
-if submission_text:
-    st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
-
-    feedback = get_grading(submission_text, proposed_answer)
-    calculated_grade = calculate_grade(submission_text, proposed_answer)
-
-    # Update feedback based on grade
-    if calculated_grade == 0:
-        feedback_message = f"Dear {user_name},\n\nYour submission does not correlate with the proposed answer. Please revise your work accordingly.\n\n{feedback}"
-    else:
-        feedback_message = f"Dear {user_name},\n\nYour submission shows promise, but here are a few things you need to work on:\n\n{feedback}\n\nPlease revise accordingly."
-    
-    feedback_key = f"{user_id}_{assignment_id}"
-
-    # Store feedback and grade in session state
-    st.session_state.feedback_data[feedback_key] = {
-        "Student Name": user_name,
-        "User ID": user_id,
-        "Feedback": feedback_message,
-        "Grade": calculated_grade
-    }
-
-    # Display feedback and grade directly under the submission
-    st.markdown(f'<div class="feedback-title">Feedback:</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="feedback">{feedback_message}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="feedback-title">Grade:</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="feedback">{calculated_grade}</div>', unsafe_allow_html=True)
-
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -177,8 +145,11 @@ if st.button("Download and Grade Submissions"):
                     calculated_grade = calculate_grade(submission_text, proposed_answer)
 
                     # Update feedback to address the student directly
-                    feedback_message = f"Dear {user_name},\n\nYour submission shows promise, but here are a few things you need to work on:\n\n{feedback}\n\nPlease revise accordingly."
-                    
+                    if calculated_grade == 0:
+                        feedback_message = f"Dear {user_name},\n\nYour submission lacks relevance to the proposed answer. Please ensure that you address the key points in your response.\n\n{feedback}\n\nPlease revise accordingly."
+                    else:
+                        feedback_message = f"Dear {user_name},\n\nYour submission shows promise, but here are a few things you need to work on:\n\n{feedback}\n\nPlease revise accordingly."
+
                     feedback_key = f"{user_id}_{assignment_id}"
 
                     # Store feedback and grade in session state
@@ -207,31 +178,4 @@ if st.button("Submit Feedback to Canvas"):
                 st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
             else:
                 st.error(f"Failed to submit feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
-
-# Display previous feedback
-st.subheader("Previous Feedback:")
-if 'feedback_data' in st.session_state and st.session_state.feedback_data:
-    for key, feedback in st.session_state.feedback_data.items():
-        st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
-        
-        # Editable feedback text area
-        editable_feedback = st.text_area(
-            f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})", 
-            value=feedback['Feedback'], 
-            key=f"edit_feedback_{feedback['User ID']}"
-        )
-        
-        editable_grade = st.number_input(
-            f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})", 
-            value=feedback['Grade'], 
-            min_value=0, 
-            max_value=10, 
-            key=f"edit_grade_{feedback['User ID']}"
-        )
-
-        # Update session state with edited feedback and grade
-        st.session_state.feedback_data[key]['Feedback'] = editable_feedback
-        st.session_state.feedback_data[key]['Grade'] = editable_grade
-else:
-    st.write("No previous feedback available.")
 
