@@ -70,20 +70,15 @@ def get_grading(student_submission, proposed_answer):
     )
     feedback = response['choices'][0]['message']['content']
 
-    # Determine if there's a correlation
+    # Determine if there's a correlation based on the feedback
     if "no correlation" in feedback.lower():
         grade = 0
-    else:
-        grade = 1
-
-    # Feedback adjustment
-    if grade == 0:
         feedback = f"Your submission shows no correlation with the proposed answer related to '{proposed_answer}'. Please revise your submission to address the key points outlined in the proposed answer."
     else:
+        grade = 1
         feedback = f"Your submission demonstrates some correlation with the proposed answer. However, it would benefit from further elaboration on the key concepts related to '{proposed_answer}'."
 
     return feedback, grade
-
 
     # Extract the grade from the feedback
     # Here we assume that the model returns something like "Grade: 8/10"
