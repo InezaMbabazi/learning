@@ -102,7 +102,6 @@ def calculate_grade(submission_text, proposed_answer):
     # Ensure the grade is within 0-10 range
     return min(max(base_grade, 0), 10)
 
-
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allow_html=True)
@@ -144,7 +143,9 @@ if st.button("Download and Grade Submissions"):
                     feedback = get_grading(submission_text, proposed_answer)
                     calculated_grade = calculate_grade(submission_text, proposed_answer)
 
-                    feedback_message = f"Dear {user_name},\n\n{feedback}"
+                    # Update feedback to address the student directly
+                    feedback_message = f"Dear {user_name},\n\nYour submission shows promise, but here are a few things you need to work on:\n\n{feedback}\n\nPlease revise accordingly."
+                    
                     feedback_key = f"{user_id}_{assignment_id}"
 
                     if feedback_key not in st.session_state.feedback_data:
@@ -188,13 +189,14 @@ if 'feedback_data' in st.session_state and st.session_state.feedback_data:
             min_value=0.0,
             max_value=10.0,
             step=0.1,
+            format="%.1f",
             key=f"editable_grade_{feedback['User ID']}_{assignment_id}"
         )
-        
-        # Update the session state with the edited feedback and grade
-        feedback['Feedback'] = editable_feedback
-        feedback['Grade'] = editable_grade
-        
-        st.markdown("---")
+
+        if st.button(f"Update Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})"):
+            # Update the session state with edited feedback and grade
+            st.session_state.feedback_data[key]['Feedback'] = editable_feedback
+            st.session_state.feedback_data[key]['Grade'] = editable_grade
+            st.success(f"Updated feedback for {feedback['Student Name']} (User ID: {feedback['User ID']}).")
 else:
-    st.write("No previous feedback available.")
+    st.info("No feedback has been generated yet.")
