@@ -72,27 +72,36 @@ def get_grading(student_submission, proposed_answer):
     return feedback
 
 def calculate_grade(submission_text, proposed_answer):
-    # Assign a base grade for having matching keywords and relevant content
-    grade = 5  
-    # Add points for length, comprehensiveness, and clarity
-    if len(submission_text) > 500:
-        grade += 2
-    elif len(submission_text) < 200:
-        grade -= 1
+    base_grade = 5  # Start with a base grade
     
-    # Evaluate based on keywords and relevance to proposed answer
-    keywords = ["important", "necessary", "critical"]
-    for keyword in keywords:
-        if keyword in submission_text.lower():
-            grade += 0.5
+    # Check for conceptual alignment with critical and ethical thinking
+    if "critical thinking" in submission_text.lower() and "ethical thinking" in submission_text.lower():
+        base_grade += 2
+    
+    # Check for real-life examples
+    if "example" in submission_text.lower() or any(keyword in submission_text.lower() for keyword in ["class", "workplace", "alcoholism"]):
+        base_grade += 1
 
+    # Check for structured, step-by-step explanation
+    steps = ["observe", "wonder", "gather", "analyze", "synthesize", "reflect", "decide"]
+    if all(step in submission_text.lower() for step in steps):
+        base_grade += 1
+
+    # Adjust for length to discourage overly brief responses
+    if len(submission_text) < 100:
+        base_grade -= 2
+    elif len(submission_text) > 500:
+        base_grade += 1  # Reward for depth if length exceeds 500
+
+    # Check overall relevance to proposed answer
     if proposed_answer.lower() in submission_text.lower():
-        grade += 2
+        base_grade += 1
     else:
-        grade -= 2
+        base_grade -= 1
 
-    # Keep the grade within bounds
-    return min(max(grade, 0), 10)
+    # Ensure the grade is within 0-10 range
+    return min(max(base_grade, 0), 10)
+
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
