@@ -58,20 +58,23 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     response = requests.put(url, headers=headers, json=payload)
     return response.status_code in [200, 201]
 
-def get_grading(submission_text, proposed_answer):
-    grading_prompt = f"Evaluate the submission and provide constructive feedback.\n\n"
-    grading_prompt += f"**Submission**: {submission_text}\n\n"
-    grading_prompt += "Provide feedback in a direct manner, addressing the user as 'you' and specifying what should be improved."
+def get_grading_feedback(submission_text, proposed_answer, grade):
+    if grade == 0:
+        return "Your answer does not align with the expected response. Please review the materials and aim to address the key points accurately in future submissions."
+
+    feedback_prompt = f"Evaluate the submission and provide constructive feedback.\n\n"
+    feedback_prompt += f"**Submission**: {submission_text}\n\n"
+    feedback_prompt += "Provide feedback addressing the user as 'you' and specifying what should be improved based on a grade of {grade}."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": grading_prompt}]
+        messages=[{"role": "user", "content": feedback_prompt}]
     )
     feedback = response['choices'][0]['message']['content']
     return feedback
 
 def calculate_grade(submission_text, proposed_answer):
-    # Set the grade to 0 if not aligned with the proposed answer
+    # If not aligned with proposed answer, set grade to 0
     if proposed_answer.lower() not in submission_text.lower():
         return 0
 
@@ -137,12 +140,8 @@ if st.button("Download and Grade Submissions"):
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    feedback = get_grading(submission_text, proposed_answer)
-
-                    # Address the user directly in the feedback
-                    feedback_message = f"You need to work on the following:\n\n{feedback}"
-                    
                     calculated_grade = calculate_grade(submission_text, proposed_answer)
+                    feedback = get_grading_feedback(submission_text, proposed_answer, calculated_grade)
 
                     feedback_key = f"{user_id}_{assignment_id}"
 
@@ -150,7 +149,7 @@ if st.button("Download and Grade Submissions"):
                         st.session_state.feedback_data[feedback_key] = {
                             "Name": user_name,
                             "User ID": user_id,
-                            "Feedback": feedback_message,
+                            "Feedback": feedback,
                             "Grade": calculated_grade
                         }
 
