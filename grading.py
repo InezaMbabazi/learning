@@ -59,12 +59,13 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     return response.status_code in [200, 201]
 
 def get_grading_feedback(submission_text, proposed_answer, grade):
+    # Direct feedback based on grading and alignment with the proposed answer
     if grade == 0:
-        return "Your answer does not align with the expected response. Please review the materials and aim to address the key points accurately in future submissions."
+        return "Your submission does not meet the expected response criteria. Please review the course materials and ensure alignment with key points in future responses."
 
-    feedback_prompt = f"Evaluate the submission and provide constructive feedback.\n\n"
+    feedback_prompt = f"Evaluate the submission, giving direct feedback based on a grade of {grade}.\n\n"
     feedback_prompt += f"**Submission**: {submission_text}\n\n"
-    feedback_prompt += "Provide feedback addressing the user as 'you' and specifying what should be improved based on a grade of {grade}."
+    feedback_prompt += "Provide concise, student-centered feedback, outlining specific areas for improvement."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -74,7 +75,7 @@ def get_grading_feedback(submission_text, proposed_answer, grade):
     return feedback
 
 def calculate_grade(submission_text, proposed_answer):
-    # If not aligned with proposed answer, set grade to 0
+    # Assign grade 0 if the answer does not align with the proposed answer
     if proposed_answer.lower() not in submission_text.lower():
         return 0
 
@@ -188,11 +189,10 @@ if 'feedback_data' in st.session_state and st.session_state.feedback_data:
             key=f"editable_grade_{feedback['User ID']}_{assignment_id}"
         )
 
-        # Update feedback data in session state
-        if st.button(f"Update Feedback and Grade for {feedback['Name']}"):
-            st.session_state.feedback_data[key]['Feedback'] = editable_feedback
-            st.session_state.feedback_data[key]['Grade'] = editable_grade
-            st.success(f"Updated feedback and grade for {feedback['Name']}.")
+        # Update feedback in session state
+        st.session_state.feedback_data[key]['Feedback'] = editable_feedback
+        st.session_state.feedback_data[key]['Grade'] = editable_grade
+        st.success(f"Updated feedback and grade for {feedback['Name']}.")
 
 # Clear session state button
 if st.button("Clear All Feedback Data"):
