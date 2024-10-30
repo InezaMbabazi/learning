@@ -58,16 +58,32 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     return response.status_code in [200, 201]
 
 def get_grading(student_submission, proposed_answer):
+    # Prepare the grading prompt to evaluate alignment
     grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
     grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
     grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide constructive feedback, including a grade from 0 to 10."
+    grading_prompt += "Provide feedback that emphasizes alignment with the proposed answer and specify if the submission correlates (1) or does not correlate (0) with the proposed answer."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": grading_prompt}]
     )
     feedback = response['choices'][0]['message']['content']
+
+    # Determine if there's a correlation
+    if "no correlation" in feedback.lower():
+        grade = 0
+    else:
+        grade = 1
+
+    # Feedback adjustment
+    if grade == 0:
+        feedback = f"Your submission shows no correlation with the proposed answer related to '{proposed_answer}'. Please revise your submission to address the key points outlined in the proposed answer."
+    else:
+        feedback = f"Your submission demonstrates some correlation with the proposed answer. However, it would benefit from further elaboration on the key concepts related to '{proposed_answer}'."
+
+    return feedback, grade
+
 
     # Extract the grade from the feedback
     # Here we assume that the model returns something like "Grade: 8/10"
