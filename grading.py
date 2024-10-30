@@ -73,35 +73,34 @@ def get_grading(student_submission, proposed_answer):
 
 def calculate_grade(submission_text, proposed_answer):
     base_grade = 5  # Start with a base grade
+    
+    # Check for conceptual alignment with critical and ethical thinking
+    if "critical thinking" in submission_text.lower() and "ethical thinking" in submission_text.lower():
+        base_grade += 2
+    
+    # Check for real-life examples
+    if "example" in submission_text.lower() or any(keyword in submission_text.lower() for keyword in ["class", "workplace", "alcoholism"]):
+        base_grade += 1
 
-    # Check for overall relevance to proposed answer
+    # Check for structured, step-by-step explanation
+    steps = ["observe", "wonder", "gather", "analyze", "synthesize", "reflect", "decide"]
+    if all(step in submission_text.lower() for step in steps):
+        base_grade += 1
+
+    # Adjust for length to discourage overly brief responses
+    if len(submission_text) < 100:
+        base_grade -= 2
+    elif len(submission_text) > 500:
+        base_grade += 1  # Reward for depth if length exceeds 500
+
+    # Check overall relevance to proposed answer
     if proposed_answer.lower() in submission_text.lower():
         base_grade += 1
-        
-        # Check for conceptual alignment with critical and ethical thinking
-        if "critical thinking" in submission_text.lower() and "ethical thinking" in submission_text.lower():
-            base_grade += 2
-        
-        # Check for real-life examples
-        if "example" in submission_text.lower() or any(keyword in submission_text.lower() for keyword in ["class", "workplace", "alcoholism"]):
-            base_grade += 1
-
-        # Check for structured, step-by-step explanation
-        steps = ["observe", "wonder", "gather", "analyze", "synthesize", "reflect", "decide"]
-        if all(step in submission_text.lower() for step in steps):
-            base_grade += 1
-
-        # Adjust for length to discourage overly brief responses
-        if len(submission_text) < 100:
-            base_grade -= 2
-        elif len(submission_text) > 500:
-            base_grade += 1  # Reward for depth if length exceeds 500
-
-        # Ensure the grade is within 0-10 range
-        return min(max(base_grade, 0), 10)
     else:
-        # Assign low marks (0) if no correlation
-        return 0
+        base_grade -= 1
+
+    # Ensure the grade is within 0-10 range
+    return min(max(base_grade, 0), 10)
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -145,11 +144,8 @@ if st.button("Download and Grade Submissions"):
                     calculated_grade = calculate_grade(submission_text, proposed_answer)
 
                     # Update feedback to address the student directly
-                    if calculated_grade == 0:
-                        feedback_message = f"Dear {user_name},\n\nYour submission lacks relevance to the proposed answer. Please ensure that you address the key points in your response.\n\n{feedback}\n\nPlease revise accordingly."
-                    else:
-                        feedback_message = f"Dear {user_name},\n\nYour submission shows promise, but here are a few things you need to work on:\n\n{feedback}\n\nPlease revise accordingly."
-
+                    feedback_message = f"Dear {user_name},\n\nYour submission shows promise, but here are a few things you need to work on:\n\n{feedback}\n\nPlease revise accordingly."
+                    
                     feedback_key = f"{user_id}_{assignment_id}"
 
                     # Store feedback and grade in session state
@@ -179,3 +175,34 @@ if st.button("Submit Feedback to Canvas"):
             else:
                 st.error(f"Failed to submit feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
 
+# Display previous feedback
+st.subheader("Previous Feedback:")
+if 'feedback_data' in st.session_state and st.session_state.feedback_data:
+    for key, feedback in st.session_state.feedback_data.items():
+        st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
+        
+        # Editable feedback text area
+        editable_feedback = st.text_area(
+            f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})",
+            value=feedback['Feedback'],
+            key=f"feedback_{feedback['User ID']}"
+        )
+        
+        # Editable grade input
+        editable_grade = st.number_input(
+            f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
+            value=feedback['Grade'],
+            min_value=0, max_value=10,
+            key=f"grade_{feedback['User ID']}"
+        )
+        
+        st.markdown(f"**Feedback Preview:** {editable_feedback}")
+        st.markdown(f"**Grade Preview:** {editable_grade}")
+
+st.write("### Sentiment Analysis of Feedback")
+if st.session_state.feedback_data:
+    feedback_list = [entry['Feedback'] for entry in st.session_state.feedback_data.values()]
+    sentiment_scores = [TextBlob(feedback).sentiment.polarity for feedback in feedback_list]
+    st.line_chart(sentiment_scores)
+else:
+    st.warning("No feedback data available for sentiment analysis.")
