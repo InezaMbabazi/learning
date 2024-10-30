@@ -58,11 +58,11 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     response = requests.put(url, headers=headers, json=payload)
     return response.status_code in [200, 201]
 
-def get_grading(student_submission, proposed_answer):
+def get_grading(student_submission, proposed_answer, student_name):
     grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
     grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
     grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide constructive feedback without mentioning any grade."
+    grading_prompt += f"Provide constructive feedback addressed to {student_name}, without mentioning any grade."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
