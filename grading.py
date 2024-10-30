@@ -61,34 +61,30 @@ def get_grading(student_submission, proposed_answers):
     feedback = ""
     grade = 0
     
-    # Print proposed answers for debugging
-    print("Proposed Answers:")
-    print(proposed_answers)
-    
-    # Split the proposed answers into a list of tuples (question, answer)
+    # Split the proposed answers into a dictionary (question -> answer)
     proposed_list = [line.split("o Answer:") for line in proposed_answers.strip().split("\n") if line]
     
     proposed_dict = {}
     for item in proposed_list:
-        if len(item) == 2:  # Ensure that both question and answer are present
-            question = item[0].strip()
-            answer = item[1].strip()
+        if len(item) == 2:  # Ensure both question and answer are present
+            question = item[0].strip().lower()  # Normalize to lowercase
+            answer = item[1].strip().lower()  # Normalize to lowercase
             proposed_dict[question] = answer
 
     # Check submission for relevance to proposed questions
-    for question in proposed_dict.keys():
-        if question.lower() in student_submission.lower():
+    for question, proposed_answer in proposed_dict.items():
+        if question in student_submission.lower():  # Check for question presence
             grade += 1  # Count relevant question addressed
             
             # Check for correlation with the proposed answer
-            if proposed_dict[question].lower() in student_submission.lower():
+            if proposed_answer in student_submission.lower():
                 feedback += f"Your submission correlates well with the proposed answer for '{question}'.\n"
             else:
                 feedback += f"Your submission mentions the question '{question}', but the answer is not aligned. Consider elaborating more on this topic.\n"
         else:
             feedback += f"Your submission does not address the question '{question}'.\n"
     
-    # Final feedback
+    # Final feedback summary
     if grade == len(proposed_dict):
         feedback += "Excellent work! You've addressed all questions well.\n"
     elif grade > 0:
@@ -97,8 +93,9 @@ def get_grading(student_submission, proposed_answers):
         feedback += "Please ensure to address the questions in your submission.\n"
     
     # Return feedback and final grade
-    final_grade = min(grade, len(proposed_dict))  # Ensure grade does not exceed the number of questions
+    final_grade = min(grade, len(proposed_dict))  # Ensure grade does not exceed number of questions
     return feedback, final_grade
+
 
 
 # Streamlit UI
