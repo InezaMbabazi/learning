@@ -143,7 +143,7 @@ if st.button("Download and Grade Submissions"):
                     feedback = get_grading(submission_text, proposed_answer)
 
                     # Rephrase the feedback to address the student directly
-                    feedback_message = f"You need to do the following:\n\n{feedback}\n\nBest regards,\nThe Grading Team"
+                    feedback_message = f"You need to do the following:\n\n{feedback}"
                     
                     calculated_grade = calculate_grade(submission_text, proposed_answer)
 
