@@ -59,10 +59,11 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     return response.status_code in [200, 201]
 
 def get_grading(student_submission, proposed_answer):
+ def get_grading(student_submission, proposed_answer):
     grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
     grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
     grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide constructive feedback without mentioning any grade."
+    grading_prompt += "Provide constructive feedback using the phrases 'You have...' and 'You need to...' to guide the student without mentioning any grade."
 
     try:
         response = openai.ChatCompletion.create(
@@ -70,6 +71,10 @@ def get_grading(student_submission, proposed_answer):
             messages=[{"role": "user", "content": grading_prompt}]
         )
         feedback = response['choices'][0]['message']['content']
+        
+        # Optional: Add more personalization
+        feedback = feedback.replace("You should", "You need to").replace("You could", "You may want to")
+
         return feedback
     except Exception as e:
         st.error(f"Error while getting grading feedback: {str(e)}")
