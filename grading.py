@@ -189,18 +189,20 @@ if 'feedback_data' in st.session_state and st.session_state.feedback_data:
         )
         
         # Editable grade input
-editable_grade = st.number_input(
-    f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
-    value=float(feedback['Grade']),  # Ensure this is a float
-    min_value=0.0,
-    max_value=10.0,
-    step=0.1,
-    format="%.1f",
-    key=f"editable_grade_{feedback['User ID']}_{assignment_id}"
-)
+        editable_grade = st.number_input(
+            f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
+            value=feedback['Grade'],
+            min_value=0, max_value=10,
+            key=f"grade_{feedback['User ID']}"
+        )
         
-        # Update the feedback and grade in session state
-        st.session_state.feedback_data[key]['Feedback'] = editable_feedback
-        st.session_state.feedback_data[key]['Grade'] = editable_grade
-        
-        st.markdown("---")
+        st.markdown(f"**Feedback Preview:** {editable_feedback}")
+        st.markdown(f"**Grade Preview:** {editable_grade}")
+
+st.write("### Sentiment Analysis of Feedback")
+if st.session_state.feedback_data:
+    feedback_list = [entry['Feedback'] for entry in st.session_state.feedback_data.values()]
+    sentiment_scores = [TextBlob(feedback).sentiment.polarity for feedback in feedback_list]
+    st.line_chart(sentiment_scores)
+else:
+    st.warning("No feedback data available for sentiment analysis.")
