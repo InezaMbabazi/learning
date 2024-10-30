@@ -5,6 +5,7 @@ import io
 from docx import Document
 import openai
 import pandas as pd
+from textblob import TextBlob  # Import TextBlob for sentiment analysis
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
@@ -61,7 +62,7 @@ def get_grading(student_submission, proposed_answer):
     grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
     grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
     grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide constructive feedback."
+    grading_prompt += "Provide constructive feedback without mentioning any grade."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -71,10 +72,6 @@ def get_grading(student_submission, proposed_answer):
     return feedback
 
 def calculate_grade(submission_text, proposed_answer):
-    # Check for alignment with the proposed answer
-    if proposed_answer.lower() not in submission_text.lower():
-        return 0  # Assign zero if the submission is not aligned
-
     base_grade = 5  # Start with a base grade
     
     # Check for conceptual alignment with critical and ethical thinking
@@ -95,6 +92,12 @@ def calculate_grade(submission_text, proposed_answer):
         base_grade -= 2
     elif len(submission_text) > 500:
         base_grade += 1  # Reward for depth if length exceeds 500
+
+    # Check overall relevance to proposed answer
+    if proposed_answer.lower() in submission_text.lower():
+        base_grade += 1
+    else:
+        base_grade -= 1
 
     # Ensure the grade is within 0-10 range
     return min(max(base_grade, 0), 10)
@@ -140,8 +143,8 @@ if st.button("Download and Grade Submissions"):
                     feedback = get_grading(submission_text, proposed_answer)
                     calculated_grade = calculate_grade(submission_text, proposed_answer)
 
-                    # Update feedback to address the user directly
-                    feedback_message = f"Hello {user_name},\n\nHere are some insights on your submission:\n\n{feedback}\n\nPlease revise accordingly."
+                    # Update feedback to address the student directly
+                    feedback_message = f"Dear {user_name},\n\nYour submission shows promise, but here are a few things you need to work on:\n\n{feedback}\n\nPlease revise accordingly."
                     
                     feedback_key = f"{user_id}_{assignment_id}"
 
