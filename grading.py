@@ -58,18 +58,23 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     response = requests.put(url, headers=headers, json=payload)
     return response.status_code in [200, 201]
 
-def get_grading(student_submission, proposed_answer, student_name):
+def get_grading(student_submission, proposed_answer):
     grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
     grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
     grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += f"Provide constructive feedback addressed to {student_name}, without mentioning any grade."
+    grading_prompt += "Provide constructive feedback without mentioning any grade."
 
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": grading_prompt}]
-    )
-    feedback = response['choices'][0]['message']['content']
-    return feedback
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": grading_prompt}]
+        )
+        feedback = response['choices'][0]['message']['content']
+        return feedback
+    except Exception as e:
+        st.error(f"Error while getting grading feedback: {str(e)}")
+        return "Unable to provide feedback at this time."
+
 
 def calculate_grade(submission_text, proposed_answer):
     base_grade = 5  # Start with a base grade
