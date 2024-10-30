@@ -69,7 +69,19 @@ def get_grading(student_submission, proposed_answer):
         messages=[{"role": "user", "content": grading_prompt}]
     )
     feedback = response['choices'][0]['message']['content']
-    return feedback
+    
+    # Calculate the grade using the existing function
+    calculated_grade = calculate_grade(student_submission, proposed_answer)
+    
+    # Align feedback with calculated grade
+    if calculated_grade >= 7:
+        feedback = f"Great job! Your submission is well done. Here are some minor suggestions: {feedback}"
+    elif calculated_grade >= 4:
+        feedback = f"Your submission is decent, but there are areas to improve: {feedback}"
+    else:
+        feedback = f"There are significant areas for improvement in your submission: {feedback}"
+
+    return feedback, calculated_grade
 
 def calculate_grade(submission_text, proposed_answer):
     base_grade = 5  # Start with a base grade
@@ -140,11 +152,10 @@ if st.button("Download and Grade Submissions"):
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    feedback = get_grading(submission_text, proposed_answer)
-                    calculated_grade = calculate_grade(submission_text, proposed_answer)
+                    feedback, calculated_grade = get_grading(submission_text, proposed_answer)
 
                     # Update feedback to address the student directly
-                    feedback_message = f"Dear {user_name},\n\nYour submission shows promise, but here are a few things you need to work on:\n\n{feedback}\n\nPlease revise accordingly."
+                    feedback_message = f"Dear {user_name},\n\n{feedback}\n\nPlease revise accordingly."
                     
                     feedback_key = f"{user_id}_{assignment_id}"
 
@@ -179,30 +190,8 @@ if st.button("Submit Feedback to Canvas"):
 st.subheader("Previous Feedback:")
 if 'feedback_data' in st.session_state and st.session_state.feedback_data:
     for key, feedback in st.session_state.feedback_data.items():
-        st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
-        
-        # Editable feedback text area
-        editable_feedback = st.text_area(
-            f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})",
-            value=feedback['Feedback'],
-            key=f"feedback_{feedback['User ID']}"
-        )
-        
-        # Editable grade input
-        editable_grade = st.number_input(
-            f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
-            value=feedback['Grade'],
-            min_value=0, max_value=10,
-            key=f"grade_{feedback['User ID']}"
-        )
-        
-        st.markdown(f"**Feedback Preview:** {editable_feedback}")
-        st.markdown(f"**Grade Preview:** {editable_grade}")
-
-st.write("### Sentiment Analysis of Feedback")
-if st.session_state.feedback_data:
-    feedback_list = [entry['Feedback'] for entry in st.session_state.feedback_data.values()]
-    sentiment_scores = [TextBlob(feedback).sentiment.polarity for feedback in feedback_list]
-    st.line_chart(sentiment_scores)
+        st.markdown(f"**{feedback['Student Name']} (User ID: {feedback['User ID']}):**")
+        st.markdown(f"**Grade:** {feedback['Grade']}")
+        st.markdown(f"**Feedback:** {feedback['Feedback']}")
 else:
-    st.warning("No feedback data available for sentiment analysis.")
+    st.info("No feedback has been generated yet.")
