@@ -62,7 +62,7 @@ def get_grading(student_submission, proposed_answer):
     grading_prompt = f"Evaluate the student's submission in relation to the proposed answer and provide constructive feedback.\n\n"
     grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
     grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide feedback starting with 'You need to do the following.' Include specific reasons for the grade."
+    grading_prompt += "Provide feedback directly, starting with 'You need to do the following.'"
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -70,73 +70,6 @@ def get_grading(student_submission, proposed_answer):
     )
     feedback = response['choices'][0]['message']['content']
     return feedback
-
-def calculate_grade(submission_text, proposed_answer):
-    base_grade = 5  # Start with a base grade
-    reasons = []
-
-    # Check for conceptual alignment with critical and ethical thinking
-    if "critical thinking" in submission_text.lower() and "ethical thinking" in submission_text.lower():
-        base_grade += 2
-        reasons.append("demonstrates critical and ethical thinking")
-
-    # Check for real-life examples
-    if "example" in submission_text.lower() or any(keyword in submission_text.lower() for keyword in ["class", "workplace", "alcoholism"]):
-        base_grade += 1
-        reasons.append("includes relevant examples")
-
-    # Check for structured, step-by-step explanation
-    steps = ["observe", "wonder", "gather", "analyze", "synthesize", "reflect", "decide"]
-    if all(step in submission_text.lower() for step in steps):
-        base_grade += 1
-        reasons.append("provides a structured explanation")
-
-    # Adjust for length to discourage overly brief responses
-    if len(submission_text) < 100:
-        base_grade -= 2
-        reasons.append("submission is too brief")
-    elif len(submission_text) > 500:
-        base_grade += 1  # Reward for depth if length exceeds 500
-
-    # Check overall relevance to proposed answer
-    if proposed_answer.lower() in submission_text.lower():
-        base_grade += 1
-        reasons.append("submission aligns with the proposed answer")
-    else:
-        base_grade -= 1
-        reasons.append("submission does not align with the proposed answer")
-
-    # Ensure the grade is within 0-10 range
-    final_grade = min(max(base_grade, 0), 10)
-
-    return final_grade, reasons
-
-# Feedback Construction
-calculated_grade, grade_reasons = calculate_grade(submission_text, proposed_answer)
-
-feedback_message = (
-    f"You need to do the following:\n\n"
-    f"Your submission received a grade of {calculated_grade} because it {', '.join(grade_reasons)}. "
-    "Here are some suggestions for improvement:\n"
-)
-
-# Add specific feedback based on grading criteria
-if calculated_grade < 5:
-    feedback_message += (
-        "1. Focus on addressing the questions outlined in the proposed answer related to AI, such as defining AI and explaining how it learns from data.\n"
-        "2. Provide examples or scenarios related to AI to demonstrate your understanding.\n"
-        "3. Consider revising your submission to showcase your expertise in the field.\n"
-    )
-elif 5 <= calculated_grade < 8:
-    feedback_message += (
-        "1. While your submission has some strengths, ensure you thoroughly address all parts of the proposed answer.\n"
-        "2. Consider elaborating on examples provided to enhance your explanation.\n"
-    )
-else:
-    feedback_message += (
-        "1. Excellent work! To further improve, you might explore additional advanced concepts or recent developments in AI.\n"
-    )
-
 
 def calculate_grade(submission_text, proposed_answer):
     base_grade = 5  # Start with a base grade
