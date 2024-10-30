@@ -78,30 +78,32 @@ def get_grading(student_submission, proposed_answers):
             print(f"Skipping malformed line: {item}")
 
     for question, proposed_answer in proposed_dict.items():
+        # Check if the student submission contains the question
         if question in student_submission:
-            feedback += f"Your submission addresses the question '{question}'.\n"
-            grade += 1  # Increase grade for addressing the question
+            # Increase grade for addressing the question
+            grade += 1
             
-            # Check for alignment with the proposed answer
+            # Check for correlation with the proposed answer
             if proposed_answer.lower() in student_submission.lower():
                 feedback += f"Your submission correlates well with the proposed answer for '{question}'.\n"
             else:
-                feedback += f"Your submission could elaborate more on the proposed answer related to '{question}'.\n"
+                feedback += f"Your submission does not fully correlate with the proposed answer for '{question}'. Consider elaborating more on this topic.\n"
         else:
             feedback += f"Your submission does not address the question '{question}'.\n"
     
     # Calculate final grade
     final_grade = min(grade, len(proposed_dict))  # Ensure grade does not exceed the number of questions
     
+    # Provide final feedback based on the grade
     if final_grade == len(proposed_dict):
-        feedback += "Excellent work! You've addressed all questions well."
+        feedback += "Excellent work! You've addressed all questions well.\n"
     elif final_grade > 0:
-        feedback += "You've addressed some questions but need to improve on others."
+        feedback += "You've addressed some questions but need to improve on others.\n"
     else:
-        feedback += "Please ensure to address the questions in your submission."
+        feedback += "Please ensure to address the questions in your submission.\n"
     
+    # Return feedback and final grade
     return feedback, final_grade
-
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
