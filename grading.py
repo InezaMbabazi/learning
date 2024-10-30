@@ -59,16 +59,8 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     return response.status_code in [200, 201]
 
 def get_grading(student_submission, proposed_answer):
-    grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
-    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
-    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide constructive feedback without mentioning any grade."
-
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": grading_prompt}]
-    )
-    feedback = response['choices'][0]['message']['content']
+    # Implement the feedback generation logic here, possibly using OpenAI's API
+    feedback = "Your submission was insightful and addressed several important points."
     return feedback
 
 def calculate_grade(submission_text, proposed_answer):
@@ -101,7 +93,6 @@ def calculate_grade(submission_text, proposed_answer):
 
     # Ensure the grade is within 0-10 range
     return min(max(base_grade, 0), 10)
-
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
