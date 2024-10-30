@@ -156,6 +156,10 @@ if st.button("Download and Grade Submissions"):
                             "Grade": calculated_grade
                         }
 
+                    # Display the feedback under the submission
+                    st.markdown(f'<div class="feedback-title">Feedback for {user_name}:</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="feedback">{feedback_message}</div>', unsafe_allow_html=True)
+
 # Submit feedback
 if st.button("Submit Feedback to Canvas"):
     if not st.session_state.feedback_data:
@@ -185,18 +189,15 @@ if 'feedback_data' in st.session_state and st.session_state.feedback_data:
         # Editable grade input with type conversion
         editable_grade = st.number_input(
             f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
-            value=float(feedback['Grade']) if isinstance(feedback['Grade'], (int, float)) else 0.0,  # Ensure it's a float
+            value=feedback['Grade'],
             min_value=0.0,
             max_value=10.0,
             step=0.1,
             format="%.1f",
             key=f"editable_grade_{feedback['User ID']}_{assignment_id}"
         )
-
-        if st.button(f"Update Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})"):
-            # Update the session state with edited feedback and grade
-            st.session_state.feedback_data[key]['Feedback'] = editable_feedback
-            st.session_state.feedback_data[key]['Grade'] = editable_grade
-            st.success(f"Updated feedback for {feedback['Student Name']} (User ID: {feedback['User ID']}).")
-else:
-    st.info("No feedback has been generated yet.")
+        
+        # Update the session state with the new feedback and grade
+        st.session_state.feedback_data[key]['Feedback'] = editable_feedback
+        st.session_state.feedback_data[key]['Grade'] = editable_grade
+        st.markdown("---")
