@@ -141,7 +141,7 @@ if st.button("Download and Grade Submissions"):
                     calculated_grade = calculate_grade(submission_text, proposed_answer)
 
                     # Update feedback to address the user directly
-                    feedback_message = f"Here are some insights on your submission:\n\n{feedback}\n\nPlease revise accordingly."
+                    feedback_message = f"Hello {user_name},\n\nHere are some insights on your submission:\n\n{feedback}\n\nPlease revise accordingly."
                     
                     feedback_key = f"{user_id}_{assignment_id}"
 
@@ -170,11 +170,8 @@ if st.button("Submit Feedback to Canvas"):
 st.subheader("Previous Feedback:")
 if 'feedback_data' in st.session_state and st.session_state.feedback_data:
     for key, feedback in st.session_state.feedback_data.items():
-        st.write(f"Submission by {feedback['Student Name']} (User ID: {feedback['User ID']})")
+        st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
         
-        # Show the student's submission text and aligned feedback directly below
-        st.markdown(f'<div class="submission-text">{feedback["Feedback"]}</div>', unsafe_allow_html=True)
-
         # Editable feedback text area
         editable_feedback = st.text_area(
             f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})",
@@ -185,7 +182,7 @@ if 'feedback_data' in st.session_state and st.session_state.feedback_data:
         # Editable grade input with type conversion
         editable_grade = st.number_input(
             f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
-            value=float(feedback['Grade']) if isinstance(feedback['Grade'], (int, float)) else 0.0,  # Handle possible conversion
+            value=float(feedback['Grade']) if isinstance(feedback['Grade'], (int, float)) else 0.0,  # Ensure it's a float
             min_value=0.0,
             max_value=10.0,
             step=0.1,
@@ -193,12 +190,10 @@ if 'feedback_data' in st.session_state and st.session_state.feedback_data:
             key=f"editable_grade_{feedback['User ID']}_{assignment_id}"
         )
 
-    # Single button for submitting feedback edits
-    if st.button("Update Feedback"):
-        for key, feedback in st.session_state.feedback_data.items():
+        if st.button(f"Update Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})"):
+            # Update the session state with edited feedback and grade
             st.session_state.feedback_data[key]['Feedback'] = editable_feedback
             st.session_state.feedback_data[key]['Grade'] = editable_grade
-        st.success("Updated feedback and grades successfully.")
-
+            st.success(f"Updated feedback for {feedback['Student Name']} (User ID: {feedback['User ID']}).")
 else:
     st.info("No feedback has been generated yet.")
