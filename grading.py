@@ -8,7 +8,7 @@ import pandas as pd
 from textblob import TextBlob  # Import TextBlob for sentiment analysis
 
 # Canvas API token and base URL
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH' # Change this to your environment variable
+API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key
@@ -62,22 +62,14 @@ def get_grading(student_submission, proposed_answer):
     grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
     grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
     grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide constructive feedback using the phrases 'You have...' and 'You need to...' to guide the student without mentioning any grade."
+    grading_prompt += "Provide constructive feedback without mentioning any grade."
 
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": grading_prompt}]
-        )
-        feedback = response['choices'][0]['message']['content']
-        
-        # Optional: Add more personalization
-        feedback = feedback.replace("You should", "You need to").replace("You could", "You may want to")
-
-        return feedback
-    except Exception as e:
-        st.error(f"Error while getting grading feedback: {str(e)}")
-        return "Unable to provide feedback at this time."
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": grading_prompt}]
+    )
+    feedback = response['choices'][0]['message']['content']
+    return feedback
 
 def calculate_grade(submission_text, proposed_answer):
     base_grade = 5  # Start with a base grade
@@ -109,6 +101,7 @@ def calculate_grade(submission_text, proposed_answer):
 
     # Ensure the grade is within 0-10 range
     return min(max(base_grade, 0), 10)
+
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -182,9 +175,26 @@ if 'feedback_data' in st.session_state and st.session_state.feedback_data:
         st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
         
         # Editable feedback text area
-        editable_feedback = st.text_area(f"Edit Feedback for {feedback['Student Name']}", feedback['Feedback'], height=100)
-        st.session_state.feedback_data[key]['Feedback'] = editable_feedback
-
-        st.write(f"Calculated Grade: {feedback['Grade']}")
+        editable_feedback = st.text_area(
+            f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})",
+            value=feedback['Feedback'],
+            key=f"editable_feedback_{feedback['User ID']}_{assignment_id}"
+        )
+        
+        # Editable grade input with type conversion
+        editable_grade = st.number_input(
+            f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
+            value=float(feedback['Grade']) if isinstance(feedback['Grade'], (int, float)) else 0.0,  # Ensure it's a float
+            min_value=0.0,
+            max_value=10.0,
+            step=0.1,
+            key=f"editable_grade_{feedback['User ID']}_{assignment_id}"
+        )
+        
+        # Update the session state with the edited feedback and grade
+        feedback['Feedback'] = editable_feedback
+        feedback['Grade'] = editable_grade
+        
+        st.markdown("---")
 else:
-    st.info("No feedback has been generated yet.")
+    st.write("No previous feedback available.")
