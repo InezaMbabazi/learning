@@ -72,26 +72,27 @@ def get_grading(student_submission, proposed_answer):
     return feedback
 
 def calculate_grade(submission_text, proposed_answer):
-    if proposed_answer.lower() not in submission_text.lower():
-        return 0
-    base_grade = 5
-    keywords = ["important", "necessary", "critical"]
-
+    # Assign a base grade for having matching keywords and relevant content
+    grade = 5  
+    # Add points for length, comprehensiveness, and clarity
     if len(submission_text) > 500:
-        base_grade += 2
+        grade += 2
     elif len(submission_text) < 200:
-        base_grade -= 1
-
+        grade -= 1
+    
+    # Evaluate based on keywords and relevance to proposed answer
+    keywords = ["important", "necessary", "critical"]
     for keyword in keywords:
         if keyword in submission_text.lower():
-            base_grade += 1
+            grade += 0.5
 
     if proposed_answer.lower() in submission_text.lower():
-        base_grade += 2
+        grade += 2
     else:
-        base_grade -= 2
+        grade -= 2
 
-    return min(max(base_grade, 0), 10)
+    # Keep the grade within bounds
+    return min(max(grade, 0), 10)
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
