@@ -58,27 +58,20 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     response = requests.put(url, headers=headers, json=payload)
     return response.status_code in [200, 201]
 
-def get_grading_feedback(submission_text, proposed_answer, grade):
-    # Direct feedback based on grading and alignment with the proposed answer
-    if grade == 0:
-        return "Your submission does not meet the expected response criteria. Please review the course materials and ensure alignment with key points in future responses."
-
-    feedback_prompt = f"Evaluate the submission, giving direct feedback based on a grade of {grade}.\n\n"
-    feedback_prompt += f"**Submission**: {submission_text}\n\n"
-    feedback_prompt += "Provide concise, student-centered feedback, outlining specific areas for improvement."
+def get_grading(student_submission, proposed_answer):
+    grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
+    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
+    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
+    grading_prompt += "Provide constructive feedback without mentioning any grade."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": feedback_prompt}]
+        messages=[{"role": "user", "content": grading_prompt}]
     )
     feedback = response['choices'][0]['message']['content']
     return feedback
 
 def calculate_grade(submission_text, proposed_answer):
-    # Assign grade 0 if the answer does not align with the proposed answer
-    if proposed_answer.lower() not in submission_text.lower():
-        return 0
-
     base_grade = 5  # Start with a base grade
     
     # Check for conceptual alignment with critical and ethical thinking
@@ -100,8 +93,15 @@ def calculate_grade(submission_text, proposed_answer):
     elif len(submission_text) > 500:
         base_grade += 1  # Reward for depth if length exceeds 500
 
+    # Check overall relevance to proposed answer
+    if proposed_answer.lower() in submission_text.lower():
+        base_grade += 1
+    else:
+        base_grade -= 1
+
     # Ensure the grade is within 0-10 range
     return min(max(base_grade, 0), 10)
+
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -141,16 +141,17 @@ if st.button("Download and Grade Submissions"):
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
+                    feedback = get_grading(submission_text, proposed_answer)
                     calculated_grade = calculate_grade(submission_text, proposed_answer)
-                    feedback = get_grading_feedback(submission_text, proposed_answer, calculated_grade)
 
+                    feedback_message = f"Dear {user_name},\n\n{feedback}"
                     feedback_key = f"{user_id}_{assignment_id}"
 
                     if feedback_key not in st.session_state.feedback_data:
                         st.session_state.feedback_data[feedback_key] = {
-                            "Name": user_name,
+                            "Student Name": user_name,
                             "User ID": user_id,
-                            "Feedback": feedback,
+                            "Feedback": feedback_message,
                             "Grade": calculated_grade
                         }
 
@@ -160,41 +161,40 @@ if st.button("Submit Feedback to Canvas"):
         st.warning("No feedback available to submit.")
     else:
         for key, entry in st.session_state.feedback_data.items():
+            # Retrieve the edited feedback and grade from the session state
             success = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
             if success:
-                st.success(f"Successfully submitted feedback for {entry['Name']} (User ID: {entry['User ID']}).")
+                st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
             else:
-                st.error(f"Failed to submit feedback for {entry['Name']} (User ID: {entry['User ID']}).")
+                st.error(f"Failed to submit feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
 
-# Display previous feedback with editable fields
+# Display previous feedback
 st.subheader("Previous Feedback:")
 if 'feedback_data' in st.session_state and st.session_state.feedback_data:
     for key, feedback in st.session_state.feedback_data.items():
-        st.write(f"Name: {feedback['Name']} (User ID: {feedback['User ID']})")
-
+        st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
+        
         # Editable feedback text area
         editable_feedback = st.text_area(
-            f"Edit Feedback for {feedback['Name']} (User ID: {feedback['User ID']})",
+            f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})",
             value=feedback['Feedback'],
             key=f"editable_feedback_{feedback['User ID']}_{assignment_id}"
         )
-
-        # Editable grade input
+        
+        # Editable grade input with type conversion
         editable_grade = st.number_input(
-            f"Edit Grade for {feedback['Name']} (User ID: {feedback['User ID']})",
-            value=float(feedback['Grade']),
+            f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
+            value=float(feedback['Grade']) if isinstance(feedback['Grade'], (int, float)) else 0.0,  # Ensure it's a float
             min_value=0.0,
             max_value=10.0,
             step=0.1,
             key=f"editable_grade_{feedback['User ID']}_{assignment_id}"
         )
-
-        # Update feedback in session state
-        st.session_state.feedback_data[key]['Feedback'] = editable_feedback
-        st.session_state.feedback_data[key]['Grade'] = editable_grade
-        st.success(f"Updated feedback and grade for {feedback['Name']}.")
-
-# Clear session state button
-if st.button("Clear All Feedback Data"):
-    st.session_state.feedback_data.clear()
-    st.success("All feedback data cleared.")
+        
+        # Update the session state with the edited feedback and grade
+        feedback['Feedback'] = editable_feedback
+        feedback['Grade'] = editable_grade
+        
+        st.markdown("---")
+else:
+    st.write("No previous feedback available.")
