@@ -59,8 +59,16 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     return response.status_code in [200, 201]
 
 def get_grading(student_submission, proposed_answer):
-    # Implement the feedback generation logic here, possibly using OpenAI's API
-    feedback = "Your submission was insightful and addressed several important points."
+    grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
+    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
+    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
+    grading_prompt += "Provide constructive feedback without mentioning any grade."
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": grading_prompt}]
+    )
+    feedback = response['choices'][0]['message']['content']
     return feedback
 
 def calculate_grade(submission_text, proposed_answer):
@@ -93,6 +101,7 @@ def calculate_grade(submission_text, proposed_answer):
 
     # Ensure the grade is within 0-10 range
     return min(max(base_grade, 0), 10)
+
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -131,11 +140,11 @@ if st.button("Download and Grade Submissions"):
                 if submission_text:
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
+
                     feedback = get_grading(submission_text, proposed_answer)
                     calculated_grade = calculate_grade(submission_text, proposed_answer)
 
-                    # Rephrased feedback message
-                    feedback_message = f"Hello {user_name},\n\nThank you for your submission! Here are some insights on your work:\n{feedback}\n\nKeep up the good effort!"
+                    feedback_message = f"Dear {user_name},\n\n{feedback}"
                     feedback_key = f"{user_id}_{assignment_id}"
 
                     if feedback_key not in st.session_state.feedback_data:
