@@ -72,33 +72,68 @@ def get_grading(student_submission, proposed_answer):
     return feedback
 
 def calculate_grade(submission_text, proposed_answer):
-    # Check for alignment with the proposed answer
-    if proposed_answer.lower() not in submission_text.lower():
-        return 0  # Assign zero if the submission does not align with the proposed answer
+    base_grade = 0  # Start with a base grade of 0
+    
+    # Check for overall relevance to proposed answer
+    if proposed_answer.lower() in submission_text.lower():
+        # If there's correlation, start with a base grade
+        base_grade = 5  
 
-    base_grade = 5  # Start with a base grade
+        # Check for conceptual alignment with critical and ethical thinking
+        if "critical thinking" in submission_text.lower() and "ethical thinking" in submission_text.lower():
+            base_grade += 2
+        
+        # Check for real-life examples
+        if "example" in submission_text.lower() or any(keyword in submission_text.lower() for keyword in ["class", "workplace", "alcoholism"]):
+            base_grade += 1
 
-    # Check for conceptual alignment with critical and ethical thinking
-    if "critical thinking" in submission_text.lower() and "ethical thinking" in submission_text.lower():
-        base_grade += 2
+        # Check for structured, step-by-step explanation
+        steps = ["observe", "wonder", "gather", "analyze", "synthesize", "reflect", "decide"]
+        if all(step in submission_text.lower() for step in steps):
+            base_grade += 1
 
-    # Check for real-life examples
-    if "example" in submission_text.lower() or any(keyword in submission_text.lower() for keyword in ["class", "workplace", "alcoholism"]):
-        base_grade += 1
+        # Adjust for length to discourage overly brief responses
+        if len(submission_text) < 100:
+            base_grade -= 2
+        elif len(submission_text) > 500:
+            base_grade += 1  # Reward for depth if length exceeds 500
 
-    # Check for structured, step-by-step explanation
-    steps = ["observe", "wonder", "gather", "analyze", "synthesize", "reflect", "decide"]
-    if all(step in submission_text.lower() for step in steps):
-        base_grade += 1
+        # Ensure the grade is within 0-10 range
+        return min(max(base_grade, 0), 10)
+    else:
+        # If there's no correlation, return a grade of zero
+        return 0
 
-    # Adjust for length to discourage overly brief responses
-    if len(submission_text) < 100:
-        base_grade -= 2
-    elif len(submission_text) > 500:
-        base_grade += 1  # Reward for depth if length exceeds 500
+# In the grading loop, update the feedback message based on the correlation check
+if submission_text:
+    st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-    # Ensure the grade is within 0-10 range
-    return min(max(base_grade, 0), 10)
+    feedback = get_grading(submission_text, proposed_answer)
+    calculated_grade = calculate_grade(submission_text, proposed_answer)
+
+    # Update feedback based on grade
+    if calculated_grade == 0:
+        feedback_message = f"Dear {user_name},\n\nYour submission does not correlate with the proposed answer. Please revise your work accordingly.\n\n{feedback}"
+    else:
+        feedback_message = f"Dear {user_name},\n\nYour submission shows promise, but here are a few things you need to work on:\n\n{feedback}\n\nPlease revise accordingly."
+    
+    feedback_key = f"{user_id}_{assignment_id}"
+
+    # Store feedback and grade in session state
+    st.session_state.feedback_data[feedback_key] = {
+        "Student Name": user_name,
+        "User ID": user_id,
+        "Feedback": feedback_message,
+        "Grade": calculated_grade
+    }
+
+    # Display feedback and grade directly under the submission
+    st.markdown(f'<div class="feedback-title">Feedback:</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="feedback">{feedback_message}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="feedback-title">Grade:</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="feedback">{calculated_grade}</div>', unsafe_allow_html=True)
+
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
