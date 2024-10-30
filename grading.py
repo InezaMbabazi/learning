@@ -5,7 +5,6 @@ import io
 from docx import Document
 import openai
 import pandas as pd
-from textblob import TextBlob  # Import TextBlob for sentiment analysis
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
@@ -62,17 +61,24 @@ def get_grading(student_submission, proposed_answer):
     grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
     grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
     grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide constructive feedback without mentioning any grade."
+    grading_prompt += "Provide constructive feedback, including a grade from 0 to 10."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": grading_prompt}]
     )
     feedback = response['choices'][0]['message']['content']
-    
-    # Calculate the grade using the existing function
-    calculated_grade = calculate_grade(student_submission, proposed_answer)
-    
+
+    # Extract the grade from the feedback
+    # Here we assume that the model returns something like "Grade: 8/10"
+    try:
+        calculated_grade = int(feedback.split("Grade:")[1].split("/")[0].strip())
+    except (IndexError, ValueError):
+        calculated_grade = 0  # Default to 0 if parsing fails
+
+    # Ensure the grade is within 0-10 range
+    calculated_grade = min(max(calculated_grade, 0), 10)
+
     # Align feedback with calculated grade
     if calculated_grade >= 7:
         feedback = f"Great job! Your submission is well done. Here are some minor suggestions: {feedback}"
@@ -82,37 +88,6 @@ def get_grading(student_submission, proposed_answer):
         feedback = f"There are significant areas for improvement in your submission: {feedback}"
 
     return feedback, calculated_grade
-
-def calculate_grade(submission_text, proposed_answer):
-    base_grade = 5  # Start with a base grade
-    
-    # Check for conceptual alignment with critical and ethical thinking
-    if "critical thinking" in submission_text.lower() and "ethical thinking" in submission_text.lower():
-        base_grade += 2
-    
-    # Check for real-life examples
-    if "example" in submission_text.lower() or any(keyword in submission_text.lower() for keyword in ["class", "workplace", "alcoholism"]):
-        base_grade += 1
-
-    # Check for structured, step-by-step explanation
-    steps = ["observe", "wonder", "gather", "analyze", "synthesize", "reflect", "decide"]
-    if all(step in submission_text.lower() for step in steps):
-        base_grade += 1
-
-    # Adjust for length to discourage overly brief responses
-    if len(submission_text) < 100:
-        base_grade -= 2
-    elif len(submission_text) > 500:
-        base_grade += 1  # Reward for depth if length exceeds 500
-
-    # Check overall relevance to proposed answer
-    if proposed_answer.lower() in submission_text.lower():
-        base_grade += 1
-    else:
-        base_grade -= 1
-
-    # Ensure the grade is within 0-10 range
-    return min(max(base_grade, 0), 10)
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
