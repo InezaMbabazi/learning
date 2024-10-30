@@ -78,26 +78,8 @@ def get_grading(student_submission, proposed_answer):
         grade = 1
         feedback = f"Your submission demonstrates some correlation with the proposed answer. However, it would benefit from further elaboration on the key concepts related to '{proposed_answer}'."
 
+    # Return feedback and calculated grade
     return feedback, grade
-    # Extract the grade from the feedback
-    # Here we assume that the model returns something like "Grade: 8/10"
-    try:
-        calculated_grade = int(feedback.split("Grade:")[1].split("/")[0].strip())
-    except (IndexError, ValueError):
-        calculated_grade = 0  # Default to 0 if parsing fails
-
-    # Ensure the grade is within 0-10 range
-    calculated_grade = min(max(calculated_grade, 0), 10)
-
-    # Align feedback with calculated grade
-    if calculated_grade >= 7:
-        feedback = f"Great job! Your submission is well done. Here are some minor suggestions: {feedback}"
-    elif calculated_grade >= 4:
-        feedback = f"Your submission is decent, but there are areas to improve: {feedback}"
-    else:
-        feedback = f"There are significant areas for improvement in your submission: {feedback}"
-
-    return feedback, calculated_grade
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
