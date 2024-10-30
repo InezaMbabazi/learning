@@ -74,36 +74,32 @@ def get_grading(student_submission, proposed_answers):
             question = item[0].strip()
             answer = item[1].strip()
             proposed_dict[question] = answer
-        else:
-            print(f"Skipping malformed line: {item}")
 
-    for question, proposed_answer in proposed_dict.items():
-        # Check if the student submission contains the question
-        if question in student_submission:
-            # Increase grade for addressing the question
-            grade += 1
+    # Check submission for relevance to proposed questions
+    for question in proposed_dict.keys():
+        if question.lower() in student_submission.lower():
+            grade += 1  # Count relevant question addressed
             
             # Check for correlation with the proposed answer
-            if proposed_answer.lower() in student_submission.lower():
+            if proposed_dict[question].lower() in student_submission.lower():
                 feedback += f"Your submission correlates well with the proposed answer for '{question}'.\n"
             else:
-                feedback += f"Your submission does not fully correlate with the proposed answer for '{question}'. Consider elaborating more on this topic.\n"
+                feedback += f"Your submission mentions the question '{question}', but the answer is not aligned. Consider elaborating more on this topic.\n"
         else:
             feedback += f"Your submission does not address the question '{question}'.\n"
     
-    # Calculate final grade
-    final_grade = min(grade, len(proposed_dict))  # Ensure grade does not exceed the number of questions
-    
-    # Provide final feedback based on the grade
-    if final_grade == len(proposed_dict):
+    # Final feedback
+    if grade == len(proposed_dict):
         feedback += "Excellent work! You've addressed all questions well.\n"
-    elif final_grade > 0:
+    elif grade > 0:
         feedback += "You've addressed some questions but need to improve on others.\n"
     else:
         feedback += "Please ensure to address the questions in your submission.\n"
     
     # Return feedback and final grade
+    final_grade = min(grade, len(proposed_dict))  # Ensure grade does not exceed the number of questions
     return feedback, final_grade
+
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
