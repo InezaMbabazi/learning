@@ -72,12 +72,16 @@ def get_grading(student_submission, proposed_answer):
     return feedback
 
 def calculate_grade(submission_text, proposed_answer):
+    # Check for alignment with the proposed answer
+    if proposed_answer.lower() not in submission_text.lower():
+        return 0  # Assign zero if the submission does not align with the proposed answer
+
     base_grade = 5  # Start with a base grade
-    
+
     # Check for conceptual alignment with critical and ethical thinking
     if "critical thinking" in submission_text.lower() and "ethical thinking" in submission_text.lower():
         base_grade += 2
-    
+
     # Check for real-life examples
     if "example" in submission_text.lower() or any(keyword in submission_text.lower() for keyword in ["class", "workplace", "alcoholism"]):
         base_grade += 1
@@ -92,12 +96,6 @@ def calculate_grade(submission_text, proposed_answer):
         base_grade -= 2
     elif len(submission_text) > 500:
         base_grade += 1  # Reward for depth if length exceeds 500
-
-    # Check overall relevance to proposed answer
-    if proposed_answer.lower() in submission_text.lower():
-        base_grade += 1
-    else:
-        base_grade -= 1
 
     # Ensure the grade is within 0-10 range
     return min(max(base_grade, 0), 10)
@@ -183,26 +181,22 @@ if 'feedback_data' in st.session_state and st.session_state.feedback_data:
         
         # Editable feedback text area
         editable_feedback = st.text_area(
-            f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})",
-            value=feedback['Feedback'],
-            key=f"feedback_{feedback['User ID']}"
+            f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})", 
+            value=feedback['Feedback'], 
+            key=f"edit_feedback_{feedback['User ID']}"
         )
         
-        # Editable grade input
         editable_grade = st.number_input(
-            f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
-            value=feedback['Grade'],
-            min_value=0, max_value=10,
-            key=f"grade_{feedback['User ID']}"
+            f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})", 
+            value=feedback['Grade'], 
+            min_value=0, 
+            max_value=10, 
+            key=f"edit_grade_{feedback['User ID']}"
         )
-        
-        st.markdown(f"**Feedback Preview:** {editable_feedback}")
-        st.markdown(f"**Grade Preview:** {editable_grade}")
 
-st.write("### Sentiment Analysis of Feedback")
-if st.session_state.feedback_data:
-    feedback_list = [entry['Feedback'] for entry in st.session_state.feedback_data.values()]
-    sentiment_scores = [TextBlob(feedback).sentiment.polarity for feedback in feedback_list]
-    st.line_chart(sentiment_scores)
+        # Update session state with edited feedback and grade
+        st.session_state.feedback_data[key]['Feedback'] = editable_feedback
+        st.session_state.feedback_data[key]['Grade'] = editable_grade
 else:
-    st.warning("No feedback data available for sentiment analysis.")
+    st.write("No previous feedback available.")
+
