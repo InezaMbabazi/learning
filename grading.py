@@ -59,8 +59,7 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     return response.status_code in [200, 201]
 
 def get_grading(submission_text, proposed_answer):
-    grading_prompt = f"Evaluate the submission in relation to the proposed answer and provide constructive feedback.\n\n"
-    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
+    grading_prompt = f"Evaluate the submission and provide constructive feedback.\n\n"
     grading_prompt += f"**Submission**: {submission_text}\n\n"
     grading_prompt += "Provide feedback in a direct manner, addressing the user as 'you' and specifying what should be improved."
 
@@ -72,6 +71,10 @@ def get_grading(submission_text, proposed_answer):
     return feedback
 
 def calculate_grade(submission_text, proposed_answer):
+    # Set the grade to 0 if not aligned with the proposed answer
+    if proposed_answer.lower() not in submission_text.lower():
+        return 0
+
     base_grade = 5  # Start with a base grade
     
     # Check for conceptual alignment with critical and ethical thinking
@@ -92,12 +95,6 @@ def calculate_grade(submission_text, proposed_answer):
         base_grade -= 2
     elif len(submission_text) > 500:
         base_grade += 1  # Reward for depth if length exceeds 500
-
-    # Check overall relevance to proposed answer
-    if proposed_answer.lower() in submission_text.lower():
-        base_grade += 1
-    else:
-        base_grade -= 1
 
     # Ensure the grade is within 0-10 range
     return min(max(base_grade, 0), 10)
