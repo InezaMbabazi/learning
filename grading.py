@@ -140,11 +140,11 @@ if st.button("Download and Grade Submissions"):
                 if submission_text:
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
-
                     feedback = get_grading(submission_text, proposed_answer)
                     calculated_grade = calculate_grade(submission_text, proposed_answer)
 
-                    feedback_message = f"Dear {user_name},\n\n{feedback}"
+                    # Rephrased feedback message
+                    feedback_message = f"Hello {user_name},\n\nThank you for your submission! Here are some insights on your work:\n{feedback}\n\nKeep up the good effort!"
                     feedback_key = f"{user_id}_{assignment_id}"
 
                     if feedback_key not in st.session_state.feedback_data:
