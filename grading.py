@@ -62,7 +62,7 @@ def get_grading(student_submission, proposed_answer):
     grading_prompt = f"Evaluate the student's submission in relation to the proposed answer and provide constructive feedback.\n\n"
     grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
     grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide feedback in a direct manner addressing the student, such as 'You should do this.'"
+    grading_prompt += "Provide feedback directly, starting with 'You need to do the following.'"
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -142,7 +142,7 @@ if st.button("Download and Grade Submissions"):
 
                     feedback = get_grading(submission_text, proposed_answer)
 
-                    # Rephrase the feedback to address the student directly
+                    # Rephrase the feedback to address directly
                     feedback_message = f"You need to do the following:\n\n{feedback}"
                     
                     calculated_grade = calculate_grade(submission_text, proposed_answer)
