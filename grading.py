@@ -5,7 +5,6 @@ import io
 from docx import Document
 import openai
 import pandas as pd
-from textblob import TextBlob  # Import TextBlob for sentiment analysis
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
@@ -158,9 +157,27 @@ if st.button("Download and Grade Submissions"):
 
                     # Display feedback and grade directly under the submission
                     st.markdown(f'<div class="feedback-title">Feedback:</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="feedback">{feedback_message}</div>', unsafe_allow_html=True)
+                    editable_feedback = st.text_area(
+                        f"Edit Feedback for {user_name} (User ID: {user_id})",
+                        value=feedback_message,
+                        key=f"feedback_{user_id}"
+                    )
+                    st.session_state.feedback_data[feedback_key]['Feedback'] = editable_feedback  # Update the session state
+
                     st.markdown(f'<div class="feedback-title">Grade:</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="feedback">{calculated_grade}</div>', unsafe_allow_html=True)
+                    editable_grade = st.number_input(
+                        f"Edit Grade for {user_name} (User ID: {user_id})",
+                        value=calculated_grade,
+                        min_value=0,
+                        max_value=10,
+                        step=0.5,
+                        key=f"grade_{user_id}"
+                    )
+                    st.session_state.feedback_data[feedback_key]['Grade'] = editable_grade  # Update the session state
+
+                    # Display the final feedback and grade
+                    st.markdown(f'<div class="feedback">{editable_feedback}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="feedback">{editable_grade}</div>', unsafe_allow_html=True)
 
 # Submit feedback
 if st.button("Submit Feedback to Canvas"):
@@ -171,25 +188,6 @@ if st.button("Submit Feedback to Canvas"):
             # Retrieve the edited feedback and grade from the session state
             success = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
             if success:
-                st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
+                st.success(f"Feedback submitted for {entry['Student Name']} (User ID: {entry['User ID']})")
             else:
-                st.error(f"Failed to submit feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
-
-# Display previous feedback
-st.subheader("Previous Feedback:")
-if 'feedback_data' in st.session_state and st.session_state.feedback_data:
-    for key, feedback in st.session_state.feedback_data.items():
-        st.write(f"Student: {feedback['Student Name']} (User ID: {feedback['User ID']})")
-        
-        # Editable feedback text area
-        editable_feedback = st.text_area(
-            f"Edit Feedback for {feedback['Student Name']} (User ID: {feedback['User ID']})",
-            value=feedback['Feedback'],
-            key=f"feedback_{feedback['User ID']}"
-        )
-        
-        # Update the feedback in session state
-        st.session_state.feedback_data[key]['Feedback'] = editable_feedback
-        
-        st.write(f"Grade: {feedback['Grade']}")
-        st.markdown("---")
+                st.error(f"Failed to submit feedback for {entry['Student Name']} (User ID: {entry['User ID']})")
