@@ -148,13 +148,13 @@ if st.button("Download and Grade Submissions"):
                     
                     feedback_key = f"{user_id}_{assignment_id}"
 
-                    if feedback_key not in st.session_state.feedback_data:
-                        st.session_state.feedback_data[feedback_key] = {
-                            "Student Name": user_name,
-                            "User ID": user_id,
-                            "Feedback": feedback_message,
-                            "Grade": calculated_grade
-                        }
+                    # Store feedback and grade in session state
+                    st.session_state.feedback_data[feedback_key] = {
+                        "Student Name": user_name,
+                        "User ID": user_id,
+                        "Feedback": feedback_message,
+                        "Grade": calculated_grade
+                    }
 
                     # Display feedback and grade directly under the submission
                     st.markdown(f'<div class="feedback-title">Feedback:</div>', unsafe_allow_html=True)
@@ -188,8 +188,18 @@ if 'feedback_data' in st.session_state and st.session_state.feedback_data:
             key=f"feedback_{feedback['User ID']}"
         )
         
-        # Update the feedback in session state
-        st.session_state.feedback_data[key]['Feedback'] = editable_feedback
+        # Editable grade input
+        editable_grade = st.number_input(
+            f"Edit Grade for {feedback['Student Name']} (User ID: {feedback['User ID']})",
+            value=feedback['Grade'],
+            min_value=0,
+            max_value=10,
+            step=0.1,
+            key=f"grade_{feedback['User ID']}"
+        )
         
-        st.write(f"Grade: {feedback['Grade']}")
+        # Update the feedback and grade in session state
+        st.session_state.feedback_data[key]['Feedback'] = editable_feedback
+        st.session_state.feedback_data[key]['Grade'] = editable_grade
+        
         st.markdown("---")
