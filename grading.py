@@ -61,10 +61,22 @@ def get_grading(student_submission, proposed_answers):
     feedback = ""
     grade = 0
     
+    # Print proposed answers for debugging
+    print("Proposed Answers:")
+    print(proposed_answers)
+    
     # Split the proposed answers into a list of tuples (question, answer)
     proposed_list = [line.split("o Answer:") for line in proposed_answers.strip().split("\n") if line]
-    proposed_dict = {question.strip(): answer.strip() for question, answer in proposed_list}
     
+    proposed_dict = {}
+    for item in proposed_list:
+        if len(item) == 2:  # Ensure that both question and answer are present
+            question = item[0].strip()
+            answer = item[1].strip()
+            proposed_dict[question] = answer
+        else:
+            print(f"Skipping malformed line: {item}")
+
     for question, proposed_answer in proposed_dict.items():
         if question in student_submission:
             feedback += f"Your submission addresses the question '{question}'.\n"
@@ -89,6 +101,7 @@ def get_grading(student_submission, proposed_answers):
         feedback += "Please ensure to address the questions in your submission."
     
     return feedback, final_grade
+
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
