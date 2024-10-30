@@ -57,29 +57,38 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     response = requests.put(url, headers=headers, json=payload)
     return response.status_code in [200, 201]
 
-def get_grading(student_submission, proposed_answer):
-    # Prepare the grading prompt to evaluate alignment
-    grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
-    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
-    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide feedback that emphasizes alignment with the proposed answer and specify if the submission correlates (1) or does not correlate (0) with the proposed answer."
-
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": grading_prompt}]
-    )
-    feedback = response['choices'][0]['message']['content']
-
-    # Determine if there's a correlation based on the feedback
-    if "no correlation" in feedback.lower() or "not relevant" in feedback.lower():
-        grade = 0
-        feedback = f"Your submission does not correlate with the proposed answer related to '{proposed_answer}'. Please revise your submission to address the key points outlined in the proposed answer."
+def get_grading(student_submission, proposed_answers):
+    feedback = ""
+    grade = 0
+    
+    # Split the proposed answers into a list of tuples (question, answer)
+    proposed_list = [line.split("o Answer:") for line in proposed_answers.strip().split("\n") if line]
+    proposed_dict = {question.strip(): answer.strip() for question, answer in proposed_list}
+    
+    for question, proposed_answer in proposed_dict.items():
+        if question in student_submission:
+            feedback += f"Your submission addresses the question '{question}'.\n"
+            grade += 1  # Increase grade for addressing the question
+            
+            # Check for alignment with the proposed answer
+            if proposed_answer.lower() in student_submission.lower():
+                feedback += f"Your submission correlates well with the proposed answer for '{question}'.\n"
+            else:
+                feedback += f"Your submission could elaborate more on the proposed answer related to '{question}'.\n"
+        else:
+            feedback += f"Your submission does not address the question '{question}'.\n"
+    
+    # Calculate final grade
+    final_grade = min(grade, len(proposed_dict))  # Ensure grade does not exceed the number of questions
+    
+    if final_grade == len(proposed_dict):
+        feedback += "Excellent work! You've addressed all questions well."
+    elif final_grade > 0:
+        feedback += "You've addressed some questions but need to improve on others."
     else:
-        grade = 1
-        feedback = f"Your submission demonstrates some correlation with the proposed answer. However, it would benefit from further elaboration on the key concepts related to '{proposed_answer}'."
-
-    # Return feedback and calculated grade
-    return feedback, grade
+        feedback += "Please ensure to address the questions in your submission."
+    
+    return feedback, final_grade
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
