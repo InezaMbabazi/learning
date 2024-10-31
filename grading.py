@@ -58,10 +58,12 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     return response.status_code in [200, 201]
 
 def get_grading(student_submission, proposed_answer):
-    grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
-    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
-    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Assess the correlation between the two. If the submission closely aligns with the proposed answer, return 1; otherwise, return 0. Provide constructive feedback for the student."
+    grading_prompt = (
+        f"Evaluate the student's submission in relation to the proposed answer:\n\n"
+        f"**Proposed Answer**: {proposed_answer}\n\n"
+        f"**Student Submission**: {student_submission}\n\n"
+        f"Assess the correlation between the two. If the submission closely aligns with the proposed answer, return 1; otherwise, return 0. Provide constructive feedback for the student."
+    )
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -69,32 +71,32 @@ def get_grading(student_submission, proposed_answer):
     )
     feedback = response['choices'][0]['message']['content']
 
-    # Extracting the grade based on correlation assessment
-    alignment_grade = 1 if '1' in feedback else 0
+    # Analyze the feedback content for phrases indicating alignment or misalignment
+    positive_indicators = ["closely aligns", "aligns well", "shows understanding", "good alignment"]
+    negative_indicators = ["does not closely align", "lack alignment", "could improve alignment", "needs stronger connection"]
 
-    # Revised feedback to address the student based on alignment grade
+    alignment_grade = 1 if any(indicator in feedback for indicator in positive_indicators) else 0
+
+    # Construct feedback messages based on the alignment grade
     if alignment_grade == 1:
         feedback_message = (
             f"Dear Student,\n\n"
             f"Thank you for your submission. After reviewing it against the proposed answer, "
-            f"we have assessed that your response closely aligns with the expected criteria. "
-            f"\n\nHere’s some feedback to help you build on your strengths:\n"
+            f"we have assessed that your response closely aligns with the expected criteria.\n\n"
+            f"Here’s some feedback to help you continue building on your strengths:\n"
             f"{feedback}\n\n"
             f"Keep up the great work!\n\n"
             f"Best regards,\nThe Grading Team"
         )
     else:
-        # Revised feedback ensuring clarity on lack of alignment
         feedback_message = (
             f"Dear Student,\n\n"
             f"Thank you for your submission. After reviewing it against the proposed answer, "
-            f"we have assessed that your response does not closely align with the expected criteria. "
-            f"\n\nHere’s some constructive feedback to help you improve:\n"
-            f"While your submission demonstrates an understanding of the topics discussed, "
-            f"there are several areas that need more clarity and a stronger connection to the proposed answer:\n"
+            f"we have assessed that your response does not closely align with the expected criteria.\n\n"
+            f"Here’s some constructive feedback to help you improve:\n"
             f"{feedback}\n\n"
-            f"To improve your submission, consider providing more specific examples and analysis, "
-            f"which will strengthen your arguments and enhance the depth of your reflections.\n\n"
+            f"To improve your submission, consider providing more specific examples and analysis to "
+            f"strengthen your arguments and enhance the depth of your reflections.\n\n"
             f"Please take the time to address these points for a stronger submission in the future.\n\n"
             f"Best regards,\nThe Grading Team"
         )
