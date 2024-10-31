@@ -71,37 +71,35 @@ def get_grading(student_submission, proposed_answer):
     )
     feedback = response['choices'][0]['message']['content']
 
-    # Analyze the feedback content for phrases indicating alignment or misalignment
-    positive_indicators = ["closely aligns", "aligns well", "shows understanding", "good alignment"]
-    negative_indicators = ["does not closely align", "lack alignment", "could improve alignment", "needs stronger connection"]
+    # Indicators for assessing alignment
+    strong_alignment_indicators = ["closely aligns", "aligns well", "clear alignment", "strong understanding"]
+    partial_alignment_indicators = ["some alignment", "fairly well", "basic understanding", "some areas for improvement"]
+    misalignment_indicators = ["does not closely align", "lack of alignment", "needs stronger connection"]
 
-    alignment_grade = 1 if any(indicator in feedback for indicator in positive_indicators) else 0
-
-    # Construct feedback messages based on the alignment grade
-    if alignment_grade == 1:
-        feedback_message = (
-            f"Dear Student,\n\n"
-            f"Thank you for your submission. After reviewing it against the proposed answer, "
-            f"we have assessed that your response closely aligns with the expected criteria.\n\n"
-            f"Here’s some feedback to help you continue building on your strengths:\n"
-            f"{feedback}\n\n"
-            f"Keep up the great work!\n\n"
-            f"Best regards,\nThe Grading Team"
-        )
+    # Determine alignment grade based on keyword detection
+    if any(indicator in feedback for indicator in strong_alignment_indicators):
+        alignment_grade = 1
+        intro_message = "After reviewing it against the proposed answer, we have assessed that your response closely aligns with the expected criteria."
+    elif any(indicator in feedback for indicator in partial_alignment_indicators):
+        alignment_grade = 1
+        intro_message = "After reviewing it against the proposed answer, we have assessed that your response shows some alignment with the expected criteria, but there are areas for improvement."
     else:
-        feedback_message = (
-            f"Dear Student,\n\n"
-            f"Thank you for your submission. After reviewing it against the proposed answer, "
-            f"we have assessed that your response does not closely align with the expected criteria.\n\n"
-            f"Here’s some constructive feedback to help you improve:\n"
-            f"{feedback}\n\n"
-            f"To improve your submission, consider providing more specific examples and analysis to "
-            f"strengthen your arguments and enhance the depth of your reflections.\n\n"
-            f"Please take the time to address these points for a stronger submission in the future.\n\n"
-            f"Best regards,\nThe Grading Team"
-        )
+        alignment_grade = 0
+        intro_message = "After reviewing it against the proposed answer, we have assessed that your response does not closely align with the expected criteria."
+
+    # Construct the feedback message with the assessed alignment
+    feedback_message = (
+        f"Dear Student,\n\n"
+        f"Thank you for your submission. {intro_message}\n\n"
+        f"Here’s some constructive feedback to help you improve:\n"
+        f"{feedback}\n\n"
+        f"To improve your submission, consider providing more specific examples and analysis to strengthen your arguments and enhance the depth of your reflections.\n\n"
+        f"Please take the time to address these points for a stronger submission in the future.\n\n"
+        f"Best regards,\nThe Grading Team"
+    )
 
     return feedback_message, alignment_grade
+
 
 
 
