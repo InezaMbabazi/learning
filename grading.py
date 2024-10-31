@@ -7,7 +7,7 @@ import openai
 import pandas as pd
 
 # Canvas API token and base URL
-API_TOKEN = 'YOUR_API_TOKEN'  # Replace with your actual API token
+API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your actual API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key
