@@ -29,16 +29,31 @@ st.markdown("""
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     response = requests.get(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions", headers=headers)
-    return response.json() if response.status_code == 200 else []
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error("Failed to retrieve submissions.")
+        return []
 
 def download_submission_file(file_url):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     response = requests.get(file_url, headers=headers)
     return response.content if response.status_code == 200 else None
 
+def display_excel_content(file_content):
+    df = pd.read_excel(io.BytesIO(file_content))
+    st.dataframe(df)
+
 def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
-    payload = {"comment": {"text_comment": feedback}, "submission": {"posted_grade": grade}}
+    payload = {
+        "comment": {
+            "text_comment": feedback
+        },
+        "submission": {
+            "posted_grade": grade
+        }
+    }
     url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
     response = requests.put(url, headers=headers, json=payload)
     return response.status_code in [200, 201]
@@ -47,7 +62,7 @@ def get_grading(student_submission, proposed_answer):
     grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
     grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
     grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide constructive feedback directly addressing the student without mentioning any grade."
+    grading_prompt += "Provide constructive feedback without mentioning any grade."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -56,6 +71,21 @@ def get_grading(student_submission, proposed_answer):
     feedback = response['choices'][0]['message']['content']
     
     # Calculate the grade using the existing function
+    calculated_grade = calculate_grade(student_submission, proposed_answer)
+    
+    # Check correlation with proposed answer for grading
+    correlation_grade = 1 if proposed_answer.lower() in student_submission.lower() else 0
+
+    # Update feedback to address the student directly
+    if calculated_grade >= 7:
+        feedback = f"Dear student,\n\nGreat job! Your submission is well done. Here are some minor suggestions: {feedback}"
+    elif calculated_grade >= 4:
+        feedback = f"Dear student,\n\nYour submission is decent, but there are areas to improve: {feedback}"
+    else:
+        feedback = f"Dear student,\n\nThere are significant areas for improvement in your submission: {feedback}"
+
+    return feedback, calculated_grade, correlation_grade
+
 def calculate_grade(submission_text, proposed_answer):
     base_grade = 5  # Start with a base grade
     
@@ -87,57 +117,6 @@ def calculate_grade(submission_text, proposed_answer):
     # Ensure the grade is within 0-10 range
     return min(max(base_grade, 0), 10)
 
-def get_grading(student_submission, proposed_answer):
-    grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
-    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
-    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide constructive feedback directly addressing the student without mentioning any grade."
-
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": grading_prompt}]
-    )
-    feedback = response['choices'][0]['message']['content']
-    
-    # Calculate the grade using the existing function
-    calculated_grade = calculate_grade(student_submission, proposed_answer)
-    
-    # Direct feedback based on calculated grade correlation
-    if calculated_grade >= 7:
-        feedback = f"Dear Student,\n\nGreat job! Your submission aligns well with the proposed answer. Here are a few suggestions to consider: {feedback}"
-    elif calculated_grade >= 4:
-        feedback = f"Dear Student,\n\nYour submission is decent, but there are areas where more alignment with the proposed answer would strengthen it: {feedback}"
-    else:
-        feedback = f"Dear Student,\n\nThere are significant areas for improvement in your submission to meet the proposed answer's requirements: {feedback}"
-
-    return feedback, calculated_grade
-
-def get_grading(student_submission, proposed_answer):
-    grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
-    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
-    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide constructive feedback directly addressing the student without mentioning any grade."
-
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": grading_prompt}]
-    )
-    feedback = response['choices'][0]['message']['content']
-    
-    # Calculate the grade using the existing function
-    calculated_grade = calculate_grade(student_submission, proposed_answer)
-    
-    # Direct feedback based on calculated grade correlation
-    if calculated_grade >= 7:
-        feedback = f"Dear Student,\n\nGreat job! Your submission aligns well with the proposed answer. Here are a few suggestions to consider: {feedback}"
-    elif calculated_grade >= 4:
-        feedback = f"Dear Student,\n\nYour submission is decent, but there are areas where more alignment with the proposed answer would strengthen it: {feedback}"
-    else:
-        feedback = f"Dear Student,\n\nThere are significant areas for improvement in your submission to meet the proposed answer's requirements: {feedback}"
-
-    return feedback, calculated_grade
-
-
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allow_html=True)
@@ -146,6 +125,9 @@ course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
 assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
 
 proposed_answer = st.text_area("Enter the proposed answer for evaluation:", "")
+
+if 'feedback_data' not in st.session_state:
+    st.session_state.feedback_data = {}
 
 if st.button("Download and Grade Submissions"):
     submissions = get_submissions(course_id, assignment_id)
@@ -164,17 +146,45 @@ if st.button("Download and Grade Submissions"):
                 elif filename.endswith(".docx") and file_content:
                     doc = Document(io.BytesIO(file_content))
                     submission_text = "\n".join([para.text for para in doc.paragraphs])
-                
+                elif filename.endswith(".xlsx") and file_content:
+                    st.markdown(f'<div class="submission-title">Excel Submission from {user_name}</div>', unsafe_allow_html=True)
+                    display_excel_content(file_content)
+                    continue
+
                 if submission_text:
-                    feedback, grade = get_grading(submission_text, proposed_answer)
-                    feedback_message = f"Dear {user_name},\n\n{feedback}\n\nPlease review this feedback to improve."
+                    st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    st.markdown(f"### Feedback for {user_name} (User ID: {user_id})")
-                    st.markdown(f"**Feedback:** {feedback_message}")
-                    st.markdown(f"**Grade:** {'1 (Aligned)' if grade == 1 else '0 (Not Aligned)'}")
+                    feedback, calculated_grade, correlation_grade = get_grading(submission_text, proposed_answer)
 
-                    # Submit feedback
-                    if submit_feedback(course_id, assignment_id, user_id, feedback_message, grade):
-                        st.success(f"Feedback submitted successfully for {user_name}.")
-                    else:
-                        st.error(f"Failed to submit feedback for {user_name}.")
+                    feedback_message = f"{feedback}\n\nPlease revise accordingly."
+                    
+                    feedback_key = f"{user_id}_{assignment_id}"
+
+                    # Store feedback and grade in session state
+                    st.session_state.feedback_data[feedback_key] = {
+                        "Student Name": user_name,
+                        "User ID": user_id,
+                        "Feedback": feedback_message,
+                        "Grade": calculated_grade,
+                        "Correlation Grade": correlation_grade
+                    }
+
+                    # Display feedback and grade directly under the submission
+                    st.markdown(f'<div class="feedback-title">Feedback:</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="feedback">{feedback_message}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="feedback-title">Grade:</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="feedback">{calculated_grade}</div>', unsafe_allow_html=True)
+
+# Submit feedback
+if st.button("Submit Feedback to Canvas"):
+    if not st.session_state.feedback_data:
+        st.warning("No feedback available to submit.")
+    else:
+        for key, entry in st.session_state.feedback_data.items():
+            # Retrieve the edited feedback and grade from the session state
+            success = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
+            if success:
+                st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
+            else:
+                st.error(f"Failed to submit feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
