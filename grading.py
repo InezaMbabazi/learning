@@ -56,7 +56,7 @@ def get_grading(student_submission, proposed_answer):
     feedback = response['choices'][0]['message']['content']
     
     # Calculate the grade using the existing function
- def calculate_grade(submission_text, proposed_answer):
+ def calculate_grade(submission_text, proposed_answer)
     base_grade = 5  # Start with a base grade
     
     # Check for conceptual alignment with critical and ethical thinking
