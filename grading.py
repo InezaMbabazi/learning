@@ -70,13 +70,13 @@ def get_grading(student_submission, proposed_answer):
     feedback = response['choices'][0]['message']['content']
     
     # Check for alignment with proposed answer for grading
-    alignment_grade = 1 if proposed_answer.lower() in student_submission.lower() else 0
+    alignment_grade = 1 if student_submission.lower().strip() == proposed_answer.lower().strip() else 0
 
     # Update feedback to address the student directly
     if alignment_grade == 1:
-        feedback = f"Dear student,\n\nGreat job! Your submission is well done. Here are some minor suggestions: {feedback}"
+        feedback = f"Dear student,\n\nGreat job! Your submission addresses the question correctly. Here are some minor suggestions: {feedback}"
     else:
-        feedback = f"Dear student,\n\nThere are significant areas for improvement in your submission: {feedback}"
+        feedback = f"Dear student,\n\nYour submission does not adequately address the question. Here are some areas for improvement: {feedback}"
 
     return feedback, alignment_grade
 
