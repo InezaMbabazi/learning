@@ -83,16 +83,20 @@ def get_grading(student_submission, proposed_answer):
             f"Best regards,\nThe Grading Team"
         )
     else:
+        # Ensuring the feedback is honest about the lack of alignment
         feedback_message = (
             f"Dear Student,\n\n"
             f"Thank you for your submission. After reviewing it against the proposed answer, "
             f"we have assessed that your response does not closely align with the expected criteria. "
-            f"\n\nHere’s some feedback to help you improve:\n{feedback}\n\n"
+            f"\n\nHere’s some constructive feedback to help you improve:\n"
+            f"While your submission addresses some relevant concepts, there are key areas that need more clarity and connection to the proposed answer:\n"
+            f"{feedback}\n\n"
             f"Please take the time to address these points for a stronger submission in the future.\n\n"
             f"Best regards,\nThe Grading Team"
         )
 
     return feedback_message, alignment_grade
+
 
 
 # Streamlit UI
