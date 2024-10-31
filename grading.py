@@ -64,13 +64,21 @@ def get_similarity_grade(proposed_answer, student_submission):
     similarity_prompt += f"**Student Submission**: {student_submission}\n\n"
     similarity_prompt += "Please give a score of 1 if the submission aligns with the proposed answer, otherwise give 0."
 
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": similarity_prompt}]
-    )
-    similarity_score = int(response['choices'][0]['message']['content'].strip())
-
-    return similarity_score
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": similarity_prompt}]
+        )
+        # Check if the response contains the expected structure
+        if 'choices' in response and len(response['choices']) > 0:
+            similarity_score = int(response['choices'][0]['message']['content'].strip())
+            return similarity_score
+        else:
+            st.error("Unexpected response structure from OpenAI API.")
+            return 0  # Default to 0 if the response is unexpected
+    except Exception as e:
+        st.error(f"Error while communicating with OpenAI API: {str(e)}")
+        return 0  # Default to 0 on error
 
 def get_grading(student_submission, proposed_answer):
     feedback_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
