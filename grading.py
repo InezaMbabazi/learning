@@ -56,6 +56,50 @@ def get_grading(student_submission, proposed_answer):
     feedback = response['choices'][0]['message']['content']
     
     # Calculate the grade using the existing function
+ def calculate_grade(submission_text, proposed_answer):
+    base_grade = 5  # Start with a base grade
+    
+    # Check for conceptual alignment with critical and ethical thinking
+    if "critical thinking" in submission_text.lower() and "ethical thinking" in submission_text.lower():
+        base_grade += 2
+    
+    # Check for real-life examples
+    if "example" in submission_text.lower() or any(keyword in submission_text.lower() for keyword in ["class", "workplace", "alcoholism"]):
+        base_grade += 1
+
+    # Check for structured, step-by-step explanation
+    steps = ["observe", "wonder", "gather", "analyze", "synthesize", "reflect", "decide"]
+    if all(step in submission_text.lower() for step in steps):
+        base_grade += 1
+
+    # Adjust for length to discourage overly brief responses
+    if len(submission_text) < 100:
+        base_grade -= 2
+    elif len(submission_text) > 500:
+        base_grade += 1  # Reward for depth if length exceeds 500
+
+    # Check overall relevance to proposed answer
+    if proposed_answer.lower() in submission_text.lower():
+        base_grade += 1
+    else:
+        base_grade -= 1
+
+    # Ensure the grade is within 0-10 range
+    return min(max(base_grade, 0), 10)
+
+def get_grading(student_submission, proposed_answer):
+    grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
+    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
+    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
+    grading_prompt += "Provide constructive feedback directly addressing the student without mentioning any grade."
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": grading_prompt}]
+    )
+    feedback = response['choices'][0]['message']['content']
+    
+    # Calculate the grade using the existing function
     calculated_grade = calculate_grade(student_submission, proposed_answer)
     
     # Direct feedback based on calculated grade correlation
