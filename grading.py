@@ -5,7 +5,6 @@ import io
 from docx import Document
 import openai
 import pandas as pd
-from textblob import TextBlob  # Import TextBlob for sentiment analysis
 
 # Canvas API token and base URL
 API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
@@ -70,52 +69,16 @@ def get_grading(student_submission, proposed_answer):
     )
     feedback = response['choices'][0]['message']['content']
     
-    # Calculate the grade using the existing function
-    calculated_grade = calculate_grade(student_submission, proposed_answer)
-    
-    # Check correlation with proposed answer for grading
-    correlation_grade = 1 if proposed_answer.lower() in student_submission.lower() else 0
+    # Check for alignment with proposed answer for grading
+    alignment_grade = 1 if proposed_answer.lower() in student_submission.lower() else 0
 
     # Update feedback to address the student directly
-    if calculated_grade >= 7:
+    if alignment_grade == 1:
         feedback = f"Dear student,\n\nGreat job! Your submission is well done. Here are some minor suggestions: {feedback}"
-    elif calculated_grade >= 4:
-        feedback = f"Dear student,\n\nYour submission is decent, but there are areas to improve: {feedback}"
     else:
         feedback = f"Dear student,\n\nThere are significant areas for improvement in your submission: {feedback}"
 
-    return feedback, calculated_grade, correlation_grade
-
-def calculate_grade(submission_text, proposed_answer):
-    base_grade = 5  # Start with a base grade
-    
-    # Check for conceptual alignment with critical and ethical thinking
-    if "critical thinking" in submission_text.lower() and "ethical thinking" in submission_text.lower():
-        base_grade += 2
-    
-    # Check for real-life examples
-    if "example" in submission_text.lower() or any(keyword in submission_text.lower() for keyword in ["class", "workplace", "alcoholism"]):
-        base_grade += 1
-
-    # Check for structured, step-by-step explanation
-    steps = ["observe", "wonder", "gather", "analyze", "synthesize", "reflect", "decide"]
-    if all(step in submission_text.lower() for step in steps):
-        base_grade += 1
-
-    # Adjust for length to discourage overly brief responses
-    if len(submission_text) < 100:
-        base_grade -= 2
-    elif len(submission_text) > 500:
-        base_grade += 1  # Reward for depth if length exceeds 500
-
-    # Check overall relevance to proposed answer
-    if proposed_answer.lower() in submission_text.lower():
-        base_grade += 1
-    else:
-        base_grade -= 1
-
-    # Ensure the grade is within 0-10 range
-    return min(max(base_grade, 0), 10)
+    return feedback, alignment_grade
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -155,7 +118,7 @@ if st.button("Download and Grade Submissions"):
                     st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
-                    feedback, calculated_grade, correlation_grade = get_grading(submission_text, proposed_answer)
+                    feedback, alignment_grade = get_grading(submission_text, proposed_answer)
 
                     feedback_message = f"{feedback}\n\nPlease revise accordingly."
                     
@@ -166,15 +129,14 @@ if st.button("Download and Grade Submissions"):
                         "Student Name": user_name,
                         "User ID": user_id,
                         "Feedback": feedback_message,
-                        "Grade": calculated_grade,
-                        "Correlation Grade": correlation_grade
+                        "Grade": alignment_grade
                     }
 
                     # Display feedback and grade directly under the submission
                     st.markdown(f'<div class="feedback-title">Feedback:</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="feedback">{feedback_message}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="feedback-title">Grade:</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="feedback">{calculated_grade}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="feedback">{alignment_grade}</div>', unsafe_allow_html=True)
 
 # Submit feedback
 if st.button("Submit Feedback to Canvas"):
