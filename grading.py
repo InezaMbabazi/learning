@@ -44,10 +44,10 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     return response.status_code in [200, 201]
 
 def get_grading(student_submission, proposed_answer):
-    grading_prompt = f"Evaluate the following student submission against the proposed answer and provide specific feedback:\n\n"
+    grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
     grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
     grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Respond with clear, direct feedback that can be shared with the student."
+    grading_prompt += "Provide constructive feedback directly addressing the student without mentioning any grade."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -55,9 +55,19 @@ def get_grading(student_submission, proposed_answer):
     )
     feedback = response['choices'][0]['message']['content']
     
-    # Calculate alignment score
-    grade = 1 if proposed_answer.lower() in student_submission.lower() else 0
-    return feedback, grade
+    # Calculate the grade using the existing function
+    calculated_grade = calculate_grade(student_submission, proposed_answer)
+    
+    # Direct feedback based on calculated grade correlation
+    if calculated_grade >= 7:
+        feedback = f"Dear Student,\n\nGreat job! Your submission aligns well with the proposed answer. Here are a few suggestions to consider: {feedback}"
+    elif calculated_grade >= 4:
+        feedback = f"Dear Student,\n\nYour submission is decent, but there are areas where more alignment with the proposed answer would strengthen it: {feedback}"
+    else:
+        feedback = f"Dear Student,\n\nThere are significant areas for improvement in your submission to meet the proposed answer's requirements: {feedback}"
+
+    return feedback, calculated_grade
+
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
