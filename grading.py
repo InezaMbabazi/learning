@@ -59,10 +59,10 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
 
 def get_grading(student_submission, proposed_answer):
     grading_prompt = (
-        f"Evaluate the student's submission in relation to the proposed answer:\n\n"
+        f"Evaluate the student's submission:\n\n"
         f"**Proposed Answer**: {proposed_answer}\n\n"
         f"**Student Submission**: {student_submission}\n\n"
-        f"Assess the correlation between the two. If the submission closely aligns with the proposed answer, return 1; otherwise, return 0. Provide constructive feedback for the student."
+        f"Assess the correlation between the two. If the submission closely aligns with the expected criteria, return 1; otherwise, return 0. Provide constructive feedback for the student."
     )
 
     response = openai.ChatCompletion.create(
@@ -79,13 +79,13 @@ def get_grading(student_submission, proposed_answer):
     # Determine alignment grade based on keyword detection
     if any(indicator in feedback for indicator in strong_alignment_indicators):
         alignment_grade = 1
-        intro_message = "After reviewing it against the proposed answer, we have assessed that your response closely aligns with the expected criteria."
+        intro_message = "After reviewing your submission, we have assessed that it closely aligns with the expected criteria."
     elif any(indicator in feedback for indicator in partial_alignment_indicators):
         alignment_grade = 1
-        intro_message = "After reviewing it against the proposed answer, we have assessed that your response shows some alignment with the expected criteria, but there are areas for improvement."
+        intro_message = "After reviewing your submission, we have assessed that it shows some alignment with the expected criteria, but there are areas for improvement."
     else:
         alignment_grade = 0
-        intro_message = "After reviewing it against the proposed answer, we have assessed that your response does not closely align with the expected criteria."
+        intro_message = "After reviewing your submission, we have assessed that it does not closely align with the expected criteria."
 
     # Construct the feedback message with the assessed alignment
     feedback_message = (
@@ -99,6 +99,7 @@ def get_grading(student_submission, proposed_answer):
     )
 
     return feedback_message, alignment_grade
+
 
 
 
