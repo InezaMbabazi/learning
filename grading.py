@@ -57,20 +57,35 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     response = requests.put(url, headers=headers, json=payload)
     return response.status_code in [200, 201]
 
-def get_grading(student_submission, proposed_answer):
-    grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
-    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
-    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Provide constructive feedback without mentioning any grade."
+def get_similarity_grade(proposed_answer, student_submission):
+    # Create a prompt to compare the proposed answer and student submission
+    similarity_prompt = f"Evaluate the similarity between the following answers:\n\n"
+    similarity_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
+    similarity_prompt += f"**Student Submission**: {student_submission}\n\n"
+    similarity_prompt += "Please give a score of 1 if the submission aligns with the proposed answer, otherwise give 0."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": grading_prompt}]
+        messages=[{"role": "user", "content": similarity_prompt}]
     )
-    feedback = response['choices'][0]['message']['content']
+    similarity_score = int(response['choices'][0]['message']['content'].strip())
+
+    return similarity_score
+
+def get_grading(student_submission, proposed_answer):
+    feedback_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
+    feedback_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
+    feedback_prompt += f"**Student Submission**: {student_submission}\n\n"
+    feedback_prompt += "Provide constructive feedback without mentioning any grade."
+
+    feedback_response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": feedback_prompt}]
+    )
+    feedback = feedback_response['choices'][0]['message']['content']
     
-    # Check for alignment with proposed answer for grading
-    alignment_grade = 1 if student_submission.lower().strip() == proposed_answer.lower().strip() else 0
+    # Get similarity grade
+    alignment_grade = get_similarity_grade(proposed_answer, student_submission)
 
     # Update feedback to address the student directly
     if alignment_grade == 1:
@@ -132,11 +147,19 @@ if st.button("Download and Grade Submissions"):
                         "Grade": alignment_grade
                     }
 
+                    # Editable feedback and grade
+                    editable_feedback = st.text_area(f"Edit Feedback for {user_name}:", feedback_message, key=f"feedback_{user_id}")
+                    editable_grade = st.number_input(f"Edit Grade for {user_name}:", min_value=0, max_value=1, value=alignment_grade, key=f"grade_{user_id}")
+
+                    # Update stored feedback and grade
+                    st.session_state.feedback_data[feedback_key]['Feedback'] = editable_feedback
+                    st.session_state.feedback_data[feedback_key]['Grade'] = editable_grade
+
                     # Display feedback and grade directly under the submission
                     st.markdown(f'<div class="feedback-title">Feedback:</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="feedback">{feedback_message}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="feedback">{editable_feedback}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="feedback-title">Grade:</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="feedback">{alignment_grade}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="feedback">{editable_grade}</div>', unsafe_allow_html=True)
 
 # Submit feedback
 if st.button("Submit Feedback to Canvas"):
@@ -150,3 +173,9 @@ if st.button("Submit Feedback to Canvas"):
                 st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
             else:
                 st.error(f"Failed to submit feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
+
+# Display feedback data
+if st.session_state.feedback_data:
+    st.markdown('<h2 class="header">Submitted Feedback</h2>', unsafe_allow_html=True)
+    for key, entry in st.session_state.feedback_data.items():
+        st.markdown(f"<div><strong>{entry['Student Name']} (User ID: {entry['User ID']})</strong>: {entry['Feedback']} - Grade: {entry['Grade']}</div>", unsafe_allow_html=True)
