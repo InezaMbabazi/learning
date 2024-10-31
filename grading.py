@@ -56,7 +56,7 @@ def get_grading(student_submission, proposed_answer):
     feedback = response['choices'][0]['message']['content']
     
     # Calculate the grade using the existing function
- def calculate_grade(submission_text, proposed_answer)
+def calculate_grade(submission_text, proposed_answer):
     base_grade = 5  # Start with a base grade
     
     # Check for conceptual alignment with critical and ethical thinking
@@ -86,6 +86,31 @@ def get_grading(student_submission, proposed_answer):
 
     # Ensure the grade is within 0-10 range
     return min(max(base_grade, 0), 10)
+
+def get_grading(student_submission, proposed_answer):
+    grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
+    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
+    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
+    grading_prompt += "Provide constructive feedback directly addressing the student without mentioning any grade."
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": grading_prompt}]
+    )
+    feedback = response['choices'][0]['message']['content']
+    
+    # Calculate the grade using the existing function
+    calculated_grade = calculate_grade(student_submission, proposed_answer)
+    
+    # Direct feedback based on calculated grade correlation
+    if calculated_grade >= 7:
+        feedback = f"Dear Student,\n\nGreat job! Your submission aligns well with the proposed answer. Here are a few suggestions to consider: {feedback}"
+    elif calculated_grade >= 4:
+        feedback = f"Dear Student,\n\nYour submission is decent, but there are areas where more alignment with the proposed answer would strengthen it: {feedback}"
+    else:
+        feedback = f"Dear Student,\n\nThere are significant areas for improvement in your submission to meet the proposed answer's requirements: {feedback}"
+
+    return feedback, calculated_grade
 
 def get_grading(student_submission, proposed_answer):
     grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
