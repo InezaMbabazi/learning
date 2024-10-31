@@ -7,7 +7,7 @@ import openai
 import pandas as pd
 
 # Canvas API token and base URL
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'  # Replace with your actual API token
+API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key
@@ -57,50 +57,27 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     response = requests.put(url, headers=headers, json=payload)
     return response.status_code in [200, 201]
 
-def get_similarity_grade(proposed_answer, student_submission):
-    similarity_prompt = f"Evaluate the similarity between the following answers:\n\n"
-    similarity_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
-    similarity_prompt += f"**Student Submission**: {student_submission}\n\n"
-    similarity_prompt += "Please give a score of 1 if the submission aligns with the proposed answer, otherwise give 0."
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": similarity_prompt}]
-        )
-        if 'choices' in response and len(response['choices']) > 0:
-            content = response['choices'][0]['message']['content'].strip()
-            # Extract integer score from the response
-            if content.isdigit():
-                return int(content)
-            else:
-                st.error(f"Unexpected content from OpenAI API for similarity grade: {content}")
-                return 0
-        else:
-            st.error("Unexpected response structure from OpenAI API.")
-            return 0
-    except Exception as e:
-        st.error(f"Error while communicating with OpenAI API: {str(e)}")
-        return 0
-
 def get_grading(student_submission, proposed_answer):
-    feedback_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
-    feedback_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
-    feedback_prompt += f"**Student Submission**: {student_submission}\n\n"
-    feedback_prompt += "Provide constructive feedback without mentioning any grade."
+    grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
+    grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
+    grading_prompt += f"**Student Submission**: {student_submission}\n\n"
+    grading_prompt += "Assess the correlation between the two. If the submission is closely aligned with the proposed answer, return 1; otherwise, return 0. Provide constructive feedback."
 
-    feedback_response = openai.ChatCompletion.create(
+    response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": feedback_prompt}]
+        messages=[{"role": "user", "content": grading_prompt}]
     )
-    feedback = feedback_response['choices'][0]['message']['content']
-    
-    alignment_grade = get_similarity_grade(proposed_answer, student_submission)
+    feedback = response['choices'][0]['message']['content']
 
-    if alignment_grade == 1:
-        feedback = f"Dear student,\n\nGreat job! Your submission addresses the question correctly. Here are some minor suggestions: {feedback}"
+    # Extracting the grade based on correlation assessment
+    # Assume the model returns '1' or '0' in the response content
+    if '1' in feedback:
+        alignment_grade = 1
     else:
-        feedback = f"Dear student,\n\nYour submission does not adequately address the question. Here are some areas for improvement: {feedback}"
+        alignment_grade = 0
+
+    # Update feedback to address the student directly
+    feedback = f"Dear student,\n\n{feedback}"
 
     return feedback, alignment_grade
 
@@ -176,13 +153,9 @@ if st.button("Submit Feedback to Canvas"):
         st.warning("No feedback available to submit.")
     else:
         for key, entry in st.session_state.feedback_data.items():
+            # Retrieve the edited feedback and grade from the session state
             success = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
             if success:
                 st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
             else:
                 st.error(f"Failed to submit feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
-
-st.markdown("<h2 class='header'>Feedback Records</h2>", unsafe_allow_html=True)
-for key, entry in st.session_state.feedback_data.items():
-    st.markdown(f"**{entry['Student Name']} (User ID: {entry['User ID']})**: {entry['Feedback']} (Grade: {entry['Grade']})")
-
