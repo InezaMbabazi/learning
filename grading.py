@@ -72,17 +72,28 @@ def get_grading(student_submission, proposed_answer):
     # Extracting the grade based on correlation assessment
     alignment_grade = 1 if '1' in feedback else 0
 
-    # Rephrased feedback to address the student
-    feedback = (
-        f"Dear Student,\n\n"
-        f"Thank you for your submission. After reviewing it against the proposed answer, "
-        f"we have assessed that your response {'closely aligns' if alignment_grade == 1 else 'does not closely align'} "
-        f"with the expected criteria. "
-        f"\n\nHere’s some feedback to help you improve:\n{feedback}\n\n"
-        f"Best regards,\nThe Grading Team"
-    )
+    # Revised feedback to address the student based on alignment grade
+    if alignment_grade == 1:
+        feedback_message = (
+            f"Dear Student,\n\n"
+            f"Thank you for your submission. After reviewing it against the proposed answer, "
+            f"we have assessed that your response closely aligns with the expected criteria. "
+            f"\n\nHere’s some feedback to help you build on your strengths:\n{feedback}\n\n"
+            f"Keep up the great work!\n\n"
+            f"Best regards,\nThe Grading Team"
+        )
+    else:
+        feedback_message = (
+            f"Dear Student,\n\n"
+            f"Thank you for your submission. After reviewing it against the proposed answer, "
+            f"we have assessed that your response does not closely align with the expected criteria. "
+            f"\n\nHere’s some feedback to help you improve:\n{feedback}\n\n"
+            f"Please take the time to address these points for a stronger submission in the future.\n\n"
+            f"Best regards,\nThe Grading Team"
+        )
 
-    return feedback, alignment_grade
+    return feedback_message, alignment_grade
+
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
