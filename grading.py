@@ -61,7 +61,7 @@ def get_grading(student_submission, proposed_answer):
     grading_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
     grading_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
     grading_prompt += f"**Student Submission**: {student_submission}\n\n"
-    grading_prompt += "Assess the correlation between the two. If the submission is closely aligned with the proposed answer, return 1; otherwise, return 0. Provide constructive feedback."
+    grading_prompt += "Assess the correlation between the two. If the submission closely aligns with the proposed answer, return 1; otherwise, return 0. Provide constructive feedback for the student."
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -70,14 +70,17 @@ def get_grading(student_submission, proposed_answer):
     feedback = response['choices'][0]['message']['content']
 
     # Extracting the grade based on correlation assessment
-    # Assume the model returns '1' or '0' in the response content
-    if '1' in feedback:
-        alignment_grade = 1
-    else:
-        alignment_grade = 0
+    alignment_grade = 1 if '1' in feedback else 0
 
-    # Update feedback to address the student directly
-    feedback = f"Dear student,\n\n{feedback}"
+    # Rephrased feedback to address the student
+    feedback = (
+        f"Dear Student,\n\n"
+        f"Thank you for your submission. After reviewing it against the proposed answer, "
+        f"we have assessed that your response {'closely aligns' if alignment_grade == 1 else 'does not closely align'} "
+        f"with the expected criteria. "
+        f"\n\nHere’s some feedback to help you improve:\n{feedback}\n\n"
+        f"Best regards,\nThe Grading Team"
+    )
 
     return feedback, alignment_grade
 
