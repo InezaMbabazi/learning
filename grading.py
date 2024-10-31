@@ -7,7 +7,7 @@ import openai
 import pandas as pd
 
 # Canvas API token and base URL
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
+API_TOKEN = 'YOUR_API_TOKEN'  # Replace with your actual API token
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key
@@ -58,7 +58,6 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     return response.status_code in [200, 201]
 
 def get_similarity_grade(proposed_answer, student_submission):
-    # Create a prompt to compare the proposed answer and student submission
     similarity_prompt = f"Evaluate the similarity between the following answers:\n\n"
     similarity_prompt += f"**Proposed Answer**: {proposed_answer}\n\n"
     similarity_prompt += f"**Student Submission**: {student_submission}\n\n"
@@ -69,16 +68,20 @@ def get_similarity_grade(proposed_answer, student_submission):
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": similarity_prompt}]
         )
-        # Check if the response contains the expected structure
         if 'choices' in response and len(response['choices']) > 0:
-            similarity_score = int(response['choices'][0]['message']['content'].strip())
-            return similarity_score
+            content = response['choices'][0]['message']['content'].strip()
+            # Extract integer score from the response
+            if content.isdigit():
+                return int(content)
+            else:
+                st.error(f"Unexpected content from OpenAI API for similarity grade: {content}")
+                return 0
         else:
             st.error("Unexpected response structure from OpenAI API.")
-            return 0  # Default to 0 if the response is unexpected
+            return 0
     except Exception as e:
         st.error(f"Error while communicating with OpenAI API: {str(e)}")
-        return 0  # Default to 0 on error
+        return 0
 
 def get_grading(student_submission, proposed_answer):
     feedback_prompt = f"Evaluate the student's submission in relation to the proposed answer:\n\n"
@@ -92,10 +95,8 @@ def get_grading(student_submission, proposed_answer):
     )
     feedback = feedback_response['choices'][0]['message']['content']
     
-    # Get similarity grade
     alignment_grade = get_similarity_grade(proposed_answer, student_submission)
 
-    # Update feedback to address the student directly
     if alignment_grade == 1:
         feedback = f"Dear student,\n\nGreat job! Your submission addresses the question correctly. Here are some minor suggestions: {feedback}"
     else:
@@ -175,15 +176,13 @@ if st.button("Submit Feedback to Canvas"):
         st.warning("No feedback available to submit.")
     else:
         for key, entry in st.session_state.feedback_data.items():
-            # Retrieve the edited feedback and grade from the session state
             success = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
             if success:
                 st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
             else:
                 st.error(f"Failed to submit feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
 
-# Display feedback data
-if st.session_state.feedback_data:
-    st.markdown('<h2 class="header">Submitted Feedback</h2>', unsafe_allow_html=True)
-    for key, entry in st.session_state.feedback_data.items():
-        st.markdown(f"<div><strong>{entry['Student Name']} (User ID: {entry['User ID']})</strong>: {entry['Feedback']} - Grade: {entry['Grade']}</div>", unsafe_allow_html=True)
+st.markdown("<h2 class='header'>Feedback Records</h2>", unsafe_allow_html=True)
+for key, entry in st.session_state.feedback_data.items():
+    st.markdown(f"**{entry['Student Name']} (User ID: {entry['User ID']})**: {entry['Feedback']} (Grade: {entry['Grade']})")
+
