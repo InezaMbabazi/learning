@@ -64,7 +64,7 @@ def get_grading(student_submission, proposed_answer):
         f"Evaluate the submission:\n\n"
         f"**Proposed Answer**: {proposed_answer}\n\n"
         f"**Submission**: {student_submission}\n\n"
-        f"Assess the correlation between the two. If the submission closely aligns with the expected criteria, return 1; otherwise, return 0. Provide constructive feedback for the student."
+        f"Assess the correlation between the two. If the submission closely aligns with the expected criteria, return 1; otherwise, return 0. Provide constructive feedback for the student, including suggestions based on the proposed answer."
     )
 
     response = openai.ChatCompletion.create(
@@ -77,7 +77,22 @@ def get_grading(student_submission, proposed_answer):
     if "closely aligns" in feedback or "aligns well" in feedback:
         alignment_grade = 1
     else:
-        alignment_grade = 1
+        alignment_grade = 0
+
+        # Generate additional feedback based on the proposed answer
+        additional_feedback_prompt = (
+            f"The submission does not closely align with the expected criteria.\n\n"
+            f"**Proposed Answer**: {proposed_answer}\n\n"
+            f"Based on the proposed answer, please provide constructive feedback to guide the student."
+        )
+
+        additional_response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": additional_feedback_prompt}]
+        )
+        additional_feedback = additional_response['choices'][0]['message']['content']
+
+        feedback += "\n\nAdditional Feedback Based on Proposed Answer:\n" + additional_feedback
 
     # Feedback message for the student
     feedback_message = (
@@ -86,6 +101,7 @@ def get_grading(student_submission, proposed_answer):
     )
 
     return feedback_message, alignment_grade
+
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
