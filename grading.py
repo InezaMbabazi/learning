@@ -1,6 +1,5 @@
-import streamlit as st 
+import streamlit as st
 import requests
-import os
 import io
 from docx import Document
 import openai
@@ -58,6 +57,9 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     return response.status_code in [200, 201]
 
 def get_grading(student_submission, proposed_answer):
+    if not proposed_answer.strip():
+        return "No proposed answer provided. Unable to give feedback.", 0
+
     grading_prompt = (
         f"Evaluate the student's submission:\n\n"
         f"**Proposed Answer**: {proposed_answer}\n\n"
@@ -71,48 +73,28 @@ def get_grading(student_submission, proposed_answer):
     )
     feedback = response['choices'][0]['message']['content']
 
-    # Indicators for assessing alignment
-    strong_alignment_indicators = ["closely aligns", "aligns well", "clear alignment", "strong understanding"]
-    partial_alignment_indicators = ["some alignment", "fairly well", "basic understanding", "some areas for improvement"]
-    misalignment_indicators = ["does not closely align", "lack of alignment", "needs stronger connection"]
-
-    # Determine alignment grade based on keyword detection
-    if any(indicator in feedback for indicator in strong_alignment_indicators):
+    # Indicators for alignment grading
+    if "closely aligns" in feedback or "aligns well" in feedback:
         alignment_grade = 1
-        intro_message = "After reviewing your submission, we have assessed that it closely aligns with the expected criteria."
-    elif any(indicator in feedback for indicator in partial_alignment_indicators):
-        alignment_grade = 1
-        intro_message = "After reviewing your submission, we have assessed that it shows some alignment with the expected criteria, but there are areas for improvement."
     else:
         alignment_grade = 0
-        intro_message = "After reviewing your submission, we have assessed that it does not closely align with the expected criteria."
 
-    # Construct the feedback message with the assessed alignment
+    # Feedback message for the student
     feedback_message = (
-        f"Dear Student,\n\n"
-        f"Thank you for your submission. {intro_message}\n\n"
-        f"Here’s some constructive feedback to help you improve:\n"
-        f"{feedback}\n\n"
-        f"To improve your submission, consider providing more specific examples and analysis to strengthen your arguments and enhance the depth of your reflections.\n\n"
-        f"Please take the time to address these points for a stronger submission in the future.\n\n"
-        f"Best regards,\nThe Grading Team"
+        f"Dear Student,\n\nThank you for your submission. Here’s some feedback:\n\n{feedback}\n\n"
+        f"Please use this feedback to enhance your future work.\n\nBest regards,\nThe Grading Team"
     )
 
     return feedback_message, alignment_grade
-
-
-
-
-
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allow_html=True)
 
-course_id = st.number_input("Enter Course ID:", min_value=1, step=1, value=2906)
-assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1, value=47134)
+course_id = st.number_input("Enter Course ID:", min_value=1, step=1)
+assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1)
 
-proposed_answer = st.text_area("Enter the proposed answer for evaluation:", "")
+proposed_answer = st.text_area("Enter the proposed answer for evaluation:")
 
 if 'feedback_data' not in st.session_state:
     st.session_state.feedback_data = {}
@@ -144,28 +126,21 @@ if st.button("Download and Grade Submissions"):
                     st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
 
                     feedback, alignment_grade = get_grading(submission_text, proposed_answer)
-
-                    feedback_message = f"{feedback}\n\nPlease revise accordingly."
-                    
                     feedback_key = f"{user_id}_{assignment_id}"
 
                     # Store feedback and grade in session state
                     st.session_state.feedback_data[feedback_key] = {
                         "Student Name": user_name,
                         "User ID": user_id,
-                        "Feedback": feedback_message,
+                        "Feedback": feedback,
                         "Grade": alignment_grade
                     }
 
                     # Editable feedback and grade
-                    editable_feedback = st.text_area(f"Edit Feedback for {user_name}:", feedback_message, key=f"feedback_{user_id}")
+                    editable_feedback = st.text_area(f"Edit Feedback for {user_name}:", feedback, key=f"feedback_{user_id}")
                     editable_grade = st.number_input(f"Edit Grade for {user_name}:", min_value=0, max_value=1, value=alignment_grade, key=f"grade_{user_id}")
 
-                    # Update stored feedback and grade
-                    st.session_state.feedback_data[feedback_key]['Feedback'] = editable_feedback
-                    st.session_state.feedback_data[feedback_key]['Grade'] = editable_grade
-
-                    # Display feedback and grade directly under the submission
+                    # Display feedback and grade
                     st.markdown(f'<div class="feedback-title">Feedback:</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="feedback">{editable_feedback}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="feedback-title">Grade:</div>', unsafe_allow_html=True)
@@ -177,7 +152,6 @@ if st.button("Submit Feedback to Canvas"):
         st.warning("No feedback available to submit.")
     else:
         for key, entry in st.session_state.feedback_data.items():
-            # Retrieve the edited feedback and grade from the session state
             success = submit_feedback(course_id, assignment_id, entry['User ID'], entry['Feedback'], entry['Grade'])
             if success:
                 st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
