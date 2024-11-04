@@ -10,7 +10,7 @@ API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9C
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key
-openai.api_key = st.secrets["openai"]["api_key"]
+openai.api_key = st.secrets["openai"]["api_key"]get
 
 st.set_page_config(page_title="Kepler College Grading System", page_icon="📚", layout="wide")
 st.markdown("""
@@ -64,41 +64,37 @@ def get_grading(student_submission, proposed_answer):
         f"Evaluate the submission:\n\n"
         f"**Proposed Answer**: {proposed_answer}\n\n"
         f"**Submission**: {student_submission}\n\n"
-        f"Assess the correlation between the two. If the submission closely aligns with the expected criteria, return 1; otherwise, return 0. Provide constructive feedback for the student based on the proposed answer."
+        f"Assess the correlation between the two. If the submission closely aligns with the expected criteria, return 1; otherwise, return 0."
     )
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": grading_prompt}]
     )
+    
     feedback = response['choices'][0]['message']['content']
 
     # Indicators for alignment grading
     if "closely aligns" in feedback or "aligns well" in feedback:
         alignment_grade = 1
+        # Provide positive feedback
+        feedback_message = (
+            f"Dear Student,\n\nThank you for your submission. Your response aligns well with the proposed answer. "
+            f"Keep up the good work!\n\nBest regards,\nThe Grading Team"
+        )
     else:
         alignment_grade = 0
-        
         # Generate feedback based on the proposed answer only
         feedback_message = (
-            f"Dear Student,\n\n"
-            f"Thank you for your submission. However, your response does not align with the proposed answer. "
+            f"Dear Student,\n\nThank you for your submission. However, your response does not align with the proposed answer. "
             f"To improve, please consider the following:\n\n"
             f"**Proposed Answer**: {proposed_answer}\n\n"
             f"Here are some suggestions to help you learn from the proposed answer:\n"
             f"- Analyze how the proposed answer addresses the key points and concepts relevant to the assignment.\n"
             f"- Identify areas in your submission that could be more closely related to the proposed answer.\n"
             f"- Use the proposed answer as a framework to structure your thoughts and responses in the future.\n\n"
-            f"Please use this feedback to enhance your future work.\n\n"
-            f"Best regards,\nThe Grading Team"
+            f"Please use this feedback to enhance your future work.\n\nBest regards,\nThe Grading Team"
         )
-        return feedback_message, alignment_grade
-
-    # Feedback message for the student
-    feedback_message = (
-        f"Dear Student,\n\nThank you for your submission. Here’s some feedback:\n\n{feedback}\n\n"
-        f"Please use this feedback to enhance your future work.\n\nBest regards,\nThe Grading Team"
-    )
 
     return feedback_message, alignment_grade
 
