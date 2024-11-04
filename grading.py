@@ -84,19 +84,21 @@ def get_grading(student_submission, proposed_answer):
         )
     else:
         alignment_grade = 0
-        # Generate feedback based on the proposed answer only
+        # Specific feedback based on proposed answer
         feedback_message = (
             f"Dear Student,\n\nThank you for your submission. However, your response does not align with the proposed answer. "
             f"To improve, please consider the following:\n\n"
             f"**Proposed Answer**: {proposed_answer}\n\n"
-            f"Here are some suggestions to help you learn from the proposed answer:\n"
-            f"- Analyze how the proposed answer addresses the key points and concepts relevant to the assignment.\n"
-            f"- Identify areas in your submission that could be more closely related to the proposed answer.\n"
-            f"- Use the proposed answer as a framework to structure your thoughts and responses in the future.\n\n"
-            f"Please use this feedback to enhance your future work.\n\nBest regards,\nThe Grading Team"
+            f"Here are some specific suggestions to help you enhance your response:\n"
+            f"- **Clarify Key Concepts**: Make sure to clearly define and explain the key concepts mentioned in the proposed answer.\n"
+            f"- **Support with Examples**: Provide relevant examples or case studies that illustrate your points, similar to those in the proposed answer.\n"
+            f"- **Organize Your Thoughts**: Structure your response logically, addressing each part of the question systematically.\n"
+            f"- **Reflect on Ethical Considerations**: If applicable, discuss any ethical implications or considerations as highlighted in the proposed answer.\n\n"
+            f"Use these suggestions to guide your revisions and improve your future submissions.\n\nBest regards,\nThe Grading Team"
         )
 
     return feedback_message, alignment_grade
+
 
 
 
