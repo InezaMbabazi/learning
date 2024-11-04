@@ -64,7 +64,7 @@ def get_grading(student_submission, proposed_answer):
         f"Evaluate the submission:\n\n"
         f"**Proposed Answer**: {proposed_answer}\n\n"
         f"**Submission**: {student_submission}\n\n"
-        f"Assess the correlation between the two. If the submission closely aligns with the expected criteria, return 1; otherwise, return 0."
+        f"Assess the correlation between the two. If the submission closely aligns with the expected criteria, return 1; otherwise, return 0. Provide specific areas for improvement if alignment is low."
     )
 
     response = openai.ChatCompletion.create(
@@ -74,7 +74,7 @@ def get_grading(student_submission, proposed_answer):
     
     feedback = response['choices'][0]['message']['content']
 
-    # Indicators for alignment grading
+    # Determine the alignment grade based on feedback
     if "closely aligns" in feedback or "aligns well" in feedback:
         alignment_grade = 1
         # Provide positive feedback
@@ -85,20 +85,28 @@ def get_grading(student_submission, proposed_answer):
     else:
         alignment_grade = 0
         # Specific feedback based on proposed answer
+        # Here we would create a follow-up prompt to ask for specific improvement suggestions
+        improvement_prompt = (
+            f"Based on the proposed answer: {proposed_answer}\n"
+            f"And the student submission: {student_submission}\n"
+            f"Please identify specific areas where the student could improve their response."
+        )
+
+        improvement_response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": improvement_prompt}]
+        )
+        
+        specific_improvements = improvement_response['choices'][0]['message']['content']
+
         feedback_message = (
             f"Dear Student,\n\nThank you for your submission. However, your response does not align with the proposed answer. "
-            f"To improve, please consider the following:\n\n"
-            f"**Proposed Answer**: {proposed_answer}\n\n"
-            f"Here are some specific suggestions to help you enhance your response:\n"
-            f"- **Clarify Key Concepts**: Make sure to clearly define and explain the key concepts mentioned in the proposed answer.\n"
-            f"- **Support with Examples**: Provide relevant examples or case studies that illustrate your points, similar to those in the proposed answer.\n"
-            f"- **Organize Your Thoughts**: Structure your response logically, addressing each part of the question systematically.\n"
-            f"- **Reflect on Ethical Considerations**: If applicable, discuss any ethical implications or considerations as highlighted in the proposed answer.\n\n"
+            f"To improve, please consider the following specific suggestions:\n\n"
+            f"{specific_improvements}\n\n"
             f"Use these suggestions to guide your revisions and improve your future submissions.\n\nBest regards,\nThe Grading Team"
         )
 
     return feedback_message, alignment_grade
-
 
 
 
