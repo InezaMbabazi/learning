@@ -10,7 +10,7 @@ API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9C
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key
-openai.api_key = st.secrets["openai"]["api_key"]get
+openai.api_key = st.secrets["openai"]["api_key"]
 
 st.set_page_config(page_title="Kepler College Grading System", page_icon="📚", layout="wide")
 st.markdown("""
