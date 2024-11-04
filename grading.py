@@ -61,9 +61,9 @@ def get_grading(student_submission, proposed_answer):
         return "No proposed answer provided. Unable to give feedback.", 0
 
     grading_prompt = (
-        f"Evaluate the student's submission:\n\n"
+        f"Evaluate the submission:\n\n"
         f"**Proposed Answer**: {proposed_answer}\n\n"
-        f"**Student Submission**: {student_submission}\n\n"
+        f"**Submission**: {student_submission}\n\n"
         f"Assess the correlation between the two. If the submission closely aligns with the expected criteria, return 1; otherwise, return 0. Provide constructive feedback for the student."
     )
 
@@ -74,7 +74,10 @@ def get_grading(student_submission, proposed_answer):
     feedback = response['choices'][0]['message']['content']
 
     # Indicators for alignment grading
-    alignment_grade = 1 if "closely aligns" in feedback or "aligns well" in feedback else 0
+    if "closely aligns" in feedback or "aligns well" in feedback:
+        alignment_grade = 1
+    else:
+        alignment_grade = 0
 
     # Feedback message for the student
     feedback_message = (
