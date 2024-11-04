@@ -60,13 +60,14 @@ def get_grading(submission_text, proposed_answer):
     if not proposed_answer.strip():
         return "No proposed answer provided. Unable to give feedback.", 0
 
-    # Initial check for correlation
+    # Improved correlation check prompt with more specific instructions
     correlation_prompt = (
-        f"Analyze whether the following submission correlates with the proposed answer:\n\n"
-        f"**Proposed Answer**: {proposed_answer}\n\n"
-        f"**Submission**: {submission_text}\n\n"
-        f"Please respond with either 'highly correlates' if they are closely aligned, "
-        f"or 'does not correlate closely' if they do not align well."
+        f"Determine if the following user submission adequately covers the key points of the proposed answer.\n\n"
+        f"**Proposed Answer**:\n{proposed_answer}\n\n"
+        f"**User Submission**:\n{submission_text}\n\n"
+        f"Consider the accuracy, relevance, and completeness of the user submission. "
+        f"Please respond with 'highly correlates' if the submission includes most key points from the proposed answer, "
+        f"or 'does not correlate closely' if it lacks essential information or is off-topic."
     )
 
     correlation_response = openai.ChatCompletion.create(
@@ -86,9 +87,9 @@ def get_grading(submission_text, proposed_answer):
     else:
         alignment_grade = 0
         improvement_prompt = (
-            f"Based on the proposed answer: {proposed_answer}\n"
-            f"And the submission: {submission_text}\n"
-            f"Please identify specific areas where the response could be improved."
+            f"Based on the proposed answer:\n{proposed_answer}\n\n"
+            f"And the user submission:\n{submission_text}\n\n"
+            f"Please identify specific areas where the response could be improved to match the expected answer more closely."
         )
 
         improvement_response = openai.ChatCompletion.create(
