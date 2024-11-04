@@ -79,18 +79,20 @@ def get_grading(student_submission, proposed_answer):
     else:
         alignment_grade = 0
         
-        # If the submission does not closely align, generate feedback based on the proposed answer only
-        feedback_prompt = (
-            f"The submission does not closely align with the expected criteria.\n\n"
+        # Generate feedback based on the proposed answer only
+        feedback_message = (
+            f"Dear Student,\n\n"
+            f"Thank you for your submission. However, your response does not align with the proposed answer. "
+            f"To improve, please consider the following:\n\n"
             f"**Proposed Answer**: {proposed_answer}\n\n"
-            f"Please provide constructive feedback to guide the student based solely on the proposed answer."
+            f"Here are some suggestions to help you learn from the proposed answer:\n"
+            f"- Analyze how the proposed answer addresses the key points and concepts relevant to the assignment.\n"
+            f"- Identify areas in your submission that could be more closely related to the proposed answer.\n"
+            f"- Use the proposed answer as a framework to structure your thoughts and responses in the future.\n\n"
+            f"Please use this feedback to enhance your future work.\n\n"
+            f"Best regards,\nThe Grading Team"
         )
-
-        feedback_response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": feedback_prompt}]
-        )
-        feedback = feedback_response['choices'][0]['message']['content']
+        return feedback_message, alignment_grade
 
     # Feedback message for the student
     feedback_message = (
@@ -99,6 +101,7 @@ def get_grading(student_submission, proposed_answer):
     )
 
     return feedback_message, alignment_grade
+
 
 
 # Streamlit UI
