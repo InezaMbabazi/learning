@@ -56,14 +56,14 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     response = requests.put(url, headers=headers, json=payload)
     return response.status_code in [200, 201]
 
-def get_grading(student_submission, proposed_answer):
+def get_grading(submission_text, proposed_answer):
     if not proposed_answer.strip():
         return "No proposed answer provided. Unable to give feedback.", 0
 
     grading_prompt = (
         f"Evaluate the submission:\n\n"
         f"**Proposed Answer**: {proposed_answer}\n\n"
-        f"**Submission**: {student_submission}\n\n"
+        f"**Submission**: {submission_text}\n\n"
         f"Assess the correlation between the two. If the submission closely aligns with the expected criteria, return 1; otherwise, return 0. Provide specific areas for improvement if alignment is low."
     )
 
@@ -77,19 +77,16 @@ def get_grading(student_submission, proposed_answer):
     # Determine the alignment grade based on feedback
     if "closely aligns" in feedback or "aligns well" in feedback:
         alignment_grade = 1
-        # Provide positive feedback
         feedback_message = (
-            f"Dear Student,\n\nThank you for your submission. Your response aligns well with the proposed answer. "
-            f"Keep up the good work!\n\nBest regards,\nThe Grading Team"
+            "Thank you for your response. Your answer aligns well with the expected answer. "
+            "Keep up the good work!\n\nBest regards,\nThe Grading Team"
         )
     else:
         alignment_grade = 0
-        # Specific feedback based on proposed answer
-        # Here we would create a follow-up prompt to ask for specific improvement suggestions
         improvement_prompt = (
             f"Based on the proposed answer: {proposed_answer}\n"
-            f"And the student submission: {student_submission}\n"
-            f"Please identify specific areas where the student could improve their response."
+            f"And the submission: {submission_text}\n"
+            f"Please identify specific areas where the response could be improved."
         )
 
         improvement_response = openai.ChatCompletion.create(
@@ -100,13 +97,14 @@ def get_grading(student_submission, proposed_answer):
         specific_improvements = improvement_response['choices'][0]['message']['content']
 
         feedback_message = (
-            f"Dear Student,\n\nThank you for your submission. However, your response does not align with the proposed answer. "
-            f"To improve, please consider the following specific suggestions:\n\n"
+            "Thank you for your response. However, your answer does not align with the expected answer. "
+            "To improve, please consider the following specific suggestions:\n\n"
             f"{specific_improvements}\n\n"
-            f"Use these suggestions to guide your revisions and improve your future submissions.\n\nBest regards,\nThe Grading Team"
+            "Use these suggestions to guide your revisions and strengthen future responses.\n\nBest regards,\nThe Grading Team"
         )
 
     return feedback_message, alignment_grade
+
 
 
 
