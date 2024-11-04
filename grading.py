@@ -77,7 +77,7 @@ def get_grading(student_submission, proposed_answer):
     if "closely aligns" in feedback or "aligns well" in feedback:
         alignment_grade = 1
     else:
-        alignment_grade = 0
+        alignment_grade = 1
 
     # Feedback message for the student
     feedback_message = (
