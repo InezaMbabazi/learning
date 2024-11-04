@@ -60,22 +60,24 @@ def get_grading(submission_text, proposed_answer):
     if not proposed_answer.strip():
         return "No proposed answer provided. Unable to give feedback.", 0
 
-    grading_prompt = (
-        f"Evaluate the submission:\n\n"
+    # Initial check for correlation
+    correlation_prompt = (
+        f"Analyze whether the following submission correlates with the proposed answer:\n\n"
         f"**Proposed Answer**: {proposed_answer}\n\n"
         f"**Submission**: {submission_text}\n\n"
-        f"Assess the correlation between the two. If the submission closely aligns with the expected criteria, return 1; otherwise, return 0. Provide specific areas for improvement if alignment is low."
+        f"Please respond with either 'highly correlates' if they are closely aligned, "
+        f"or 'does not correlate closely' if they do not align well."
     )
 
-    response = openai.ChatCompletion.create(
+    correlation_response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": grading_prompt}]
+        messages=[{"role": "user", "content": correlation_prompt}]
     )
-    
-    feedback = response['choices'][0]['message']['content']
 
-    # Determine the alignment grade based on feedback
-    if "closely aligns" in feedback or "aligns well" in feedback:
+    correlation_feedback = correlation_response['choices'][0]['message']['content']
+
+    # Process feedback based on correlation result
+    if "highly correlates" in correlation_feedback:
         alignment_grade = 1
         feedback_message = (
             "Thank you for your response. Your answer aligns well with the expected answer. "
