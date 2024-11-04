@@ -74,10 +74,7 @@ def get_grading(student_submission, proposed_answer):
     feedback = response['choices'][0]['message']['content']
 
     # Indicators for alignment grading
-    if "closely aligns" in feedback or "aligns well" in feedback:
-        alignment_grade = 1
-    else:
-        alignment_grade = 0
+    alignment_grade = 1 if "closely aligns" in feedback or "aligns well" in feedback else 0
 
     # Feedback message for the student
     feedback_message = (
@@ -111,6 +108,7 @@ if st.button("Download and Grade Submissions"):
             for attachment in attachments:
                 file_content = download_submission_file(attachment['url'])
                 filename = attachment['filename']
+                
                 if filename.endswith(".txt") and file_content:
                     submission_text = file_content.decode('utf-8')
                 elif filename.endswith(".docx") and file_content:
