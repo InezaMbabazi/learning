@@ -103,7 +103,7 @@ def get_grading(submission_text, proposed_answer):
             "Thank you for your response. However, your answer does not align with the expected answer. "
             "To improve, please consider the following specific suggestions:\n\n"
             f"{specific_improvements}\n\n"
-            "Use these suggestions to guide your revisions and strengthen future responses.\n\nBest regards,\nThe Grading Team"
+            "Use these suggestions to guide your revisions and strengthen future responses."
         )
 
     return feedback_message, alignment_grade
