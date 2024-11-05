@@ -82,7 +82,7 @@ def get_grading(submission_text, proposed_answer):
         alignment_grade = 1
         feedback_message = (
             "Thank you for your response. Your answer aligns well with the expected answer. "
-            "Keep up the good work!\n\nBest regards,\nThe Grading Team"
+            "Keep up the good work!\n\nBest regards,"
         )
     else:
         alignment_grade = 0
