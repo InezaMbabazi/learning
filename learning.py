@@ -1,4 +1,3 @@
-
 import streamlit as st
 import openai
 import PyPDF2
@@ -28,6 +27,17 @@ def load_pdf_content(file):
             content += text + "\n"
     return content.strip()
 
+# Function to handle chatbot responses
+def chat_with_content(question, lesson_content):
+    prompt = f"The following is lesson content:\n{lesson_content}\n\nUser's question: {question}\nAnswer the question based on the content provided."
+    
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    answer = response['choices'][0]['message']['content'].strip()
+    return answer
+
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Lesson Assistant")
@@ -47,45 +57,31 @@ uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 st.subheader("Option 2: Paste Specific Lesson Content Here")
 manual_content = st.text_area("Paste lesson content here:")
 
-# Session state to track if questions have been generated
-if 'generated_questions' not in st.session_state:
-    st.session_state.generated_questions = []
-
 # Load content from PDF or manual input
 lesson_content = None
 if uploaded_file is not None:
     lesson_content = load_pdf_content(uploaded_file)
     st.subheader("PDF Content")
-    # Streamlit has a built-in way to display files
-    st.write(lesson_content)  # Display text content of PDF directly
+    st.write(lesson_content)
 elif manual_content:
     lesson_content = manual_content
 
-# Generate questions if content is available
+# Chatbot interaction
+st.subheader("Ask a Question About the Lesson Content")
 if lesson_content:
-    if st.button("Generate Questions"):
-        st.session_state.generated_questions = generate_questions_from_content(lesson_content)
+    user_question = st.text_input("Your question about the lesson content:")
     
-    if st.session_state.generated_questions:
-        st.subheader("Test Questions")
-
-        # Student answers section
-        student_answers = []
-        with st.form(key='question_form'):
-            for i, question in enumerate(st.session_state.generated_questions):
-                st.write(f"Question {i+1}: {question}")
-                answer = st.text_input(f"Your answer to question {i+1}", key=f"answer_{i}")
-                student_answers.append(answer)
-            
-            # Submit button for form
-            submit = st.form_submit_button("Submit Answers")
-            
-            if submit and all(student_answers):
-                # Assuming you have a function get_grading for feedback
-                feedback = get_grading(student_answers, st.session_state.generated_questions, lesson_content)
-                st.subheader("Feedback on Your Answers:")
-                st.markdown(f"<div class='chatbox'>{feedback}</div>", unsafe_allow_html=True)
-            elif submit:
-                st.warning("Please answer all questions before submitting.")
+    if user_question:
+        answer = chat_with_content(user_question, lesson_content)
+        st.write("**Answer:**")
+        st.write(answer)
 else:
     st.write("Please upload a PDF file or enter the lesson content manually.")
+
+# Generate test questions if content is available
+if lesson_content:
+    if st.button("Generate Test Questions"):
+        generated_questions = generate_questions_from_content(lesson_content)
+        st.subheader("Generated Test Questions")
+        for i, question in enumerate(generated_questions, 1):
+            st.write(f"Question {i}: {question}")
