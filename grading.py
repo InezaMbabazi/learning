@@ -60,14 +60,12 @@ def get_grading(submission_text, proposed_answer):
     if not proposed_answer.strip():
         return "No proposed answer provided. Unable to give feedback.", 0
 
-    # Improved correlation check prompt with more specific instructions
+    # Correlation check prompt with positive feedback integration
     correlation_prompt = (
-        f"Determine if the following user submission adequately covers the key points of the proposed answer.\n\n"
+        f"Evaluate the following user submission based on its alignment with the proposed answer, and identify specific strengths and areas for improvement.\n\n"
         f"**Proposed Answer**:\n{proposed_answer}\n\n"
         f"**User Submission**:\n{submission_text}\n\n"
-        f"Consider the accuracy, relevance, and completeness of the user submission. "
-        f"Please respond with 'highly correlates' if the submission includes most key points from the proposed answer, "
-        f"or 'needs improvement' if it lacks essential information or is off-topic."
+        f"Please point out aspects where the submission is correct or insightful, and suggest any ways to better cover the expected answer’s key points."
     )
 
     correlation_response = openai.ChatCompletion.create(
@@ -77,11 +75,11 @@ def get_grading(submission_text, proposed_answer):
 
     correlation_feedback = correlation_response['choices'][0]['message']['content']
 
-    # Process feedback based on correlation result
+    # Assess feedback based on positive and constructive feedback result
     if "highly correlates" in correlation_feedback:
         alignment_grade = 1
         feedback_message = (
-            "Thank you for your response. Your answer aligns well with the expected answer. "
+            "Thank you for your response. Your answer aligns well with the expected answer and covers the key points effectively. "
             "Keep up the good work!\n\nBest regards,"
         )
     else:
@@ -89,7 +87,8 @@ def get_grading(submission_text, proposed_answer):
         improvement_prompt = (
             f"Based on the proposed answer:\n{proposed_answer}\n\n"
             f"And the user submission:\n{submission_text}\n\n"
-            f"Please provide specific suggestions to help the user enhance their response and better address the key points."
+            f"Please highlight any strengths in the response (e.g., where it aligns well with the expected answer), "
+            f"and offer specific suggestions to improve its completeness or accuracy where needed."
         )
 
         improvement_response = openai.ChatCompletion.create(
@@ -100,12 +99,15 @@ def get_grading(submission_text, proposed_answer):
         specific_improvements = improvement_response['choices'][0]['message']['content']
 
         feedback_message = (
-            "Thank you for your response. Here are some suggestions to help strengthen your answer:\n\n"
+            "Thank you for your response. Here’s some positive feedback on your answer:\n\n"
+            f"{correlation_feedback}\n\n"
+            "To enhance your answer further, consider the following suggestions:\n\n"
             f"{specific_improvements}\n\n"
-            "Use these suggestions to guide your revisions and strengthen future responses."
+            "Use these strengths and tips to guide your revisions and strengthen future responses."
         )
 
     return feedback_message, alignment_grade
+
 
 
 
