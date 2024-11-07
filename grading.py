@@ -67,7 +67,7 @@ def get_grading(submission_text, proposed_answer):
         f"**User Submission**:\n{submission_text}\n\n"
         f"Consider the accuracy, relevance, and completeness of the user submission. "
         f"Please respond with 'highly correlates' if the submission includes most key points from the proposed answer, "
-        f"or 'does not correlate closely' if it lacks essential information or is off-topic."
+        f"or 'needs improvement' if it lacks essential information or is off-topic."
     )
 
     correlation_response = openai.ChatCompletion.create(
@@ -89,7 +89,7 @@ def get_grading(submission_text, proposed_answer):
         improvement_prompt = (
             f"Based on the proposed answer:\n{proposed_answer}\n\n"
             f"And the user submission:\n{submission_text}\n\n"
-            f"Please identify specific areas where the response could be improved to match the expected answer more closely."
+            f"Please provide specific suggestions to help the user enhance their response and better address the key points."
         )
 
         improvement_response = openai.ChatCompletion.create(
@@ -100,8 +100,7 @@ def get_grading(submission_text, proposed_answer):
         specific_improvements = improvement_response['choices'][0]['message']['content']
 
         feedback_message = (
-            "Thank you for your response. However, your answer does not align with the expected answer. "
-            "To improve, please consider the following specific suggestions:\n\n"
+            "Thank you for your response. Here are some suggestions to help strengthen your answer:\n\n"
             f"{specific_improvements}\n\n"
             "Use these suggestions to guide your revisions and strengthen future responses."
         )
