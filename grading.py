@@ -67,21 +67,45 @@ def get_grading(submission_text, proposed_answer):
         correlation_percentage = 0  # Fallback if parsing fails
         st.warning("Could not parse correlation percentage. Defaulting to 0.")
 
-    if correlation_percentage >= 10:
+    feedback_message, alignment_grade = generate_feedback(correlation_percentage, submission_text, proposed_answer)
+
+    return feedback_message, alignment_grade
+
+def generate_feedback(correlation_percentage, submission_text, proposed_answer):
+    """
+    Generate feedback based on the correlation percentage.
+    """
+    if correlation_percentage >= 90:
         feedback_message = (
-            f"Thank you for your response. Your answer shows a {correlation_percentage}% alignment with the expected answer."
-            f" Here’s feedback to guide you based on the proposed answer:\n\n"
+            f"Excellent! Your response aligns {correlation_percentage}% with the proposed answer. "
+            "Minimal changes needed. Well done!\n\n"
+            "Your submission is well-structured. Here are a few fine-tuning suggestions:\n"
         )
         alignment_grade = 1
+    elif 70 <= correlation_percentage < 90:
+        feedback_message = (
+            f"Good job! Your response aligns {correlation_percentage}% with the proposed answer. "
+            "There are a few areas that could be improved.\n\n"
+            "Consider revisiting the following parts for better alignment:\n"
+        )
+        alignment_grade = 1
+    elif 50 <= correlation_percentage < 70:
+        feedback_message = (
+            f"Your response aligns {correlation_percentage}% with the proposed answer. "
+            "There are moderate discrepancies. Please work on the following areas:\n"
+        )
+        alignment_grade = 0
     else:
         feedback_message = (
-            f"Your response has a low alignment ({correlation_percentage}%) with the expected answer. "
-            "To improve, refer closely to the key points outlined in the proposed answer.\n\n"
+            f"Your response has a low alignment ({correlation_percentage}%) with the proposed answer. "
+            "Consider revising your response to better match the key points from the proposed answer.\n\n"
+            "Here are the major areas that need improvement:\n"
         )
         alignment_grade = 0
 
+    # Request improvement suggestions
     improvement_prompt = (
-        f"Provide feedback on how to improve the following response to align with the expected answer:\n\n"
+        f"Provide specific feedback on how to improve the following response to align with the expected answer:\n\n"
         f"**Proposed Answer**:\n{proposed_answer}\n\n**User Submission**:\n{submission_text}\n\n"
     )
     
