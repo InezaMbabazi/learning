@@ -73,19 +73,9 @@ def get_grading(submission_text, proposed_answer):
 
 def generate_feedback(correlation_percentage, submission_text, proposed_answer):
     """
-    Generate feedback based on the correlation percentage, ensuring that for low correlation,
-    the feedback focuses strictly on the proposed answer.
+    Generate feedback based on the correlation percentage.
     """
-    if correlation_percentage == 0:
-        feedback_message = (
-            f"Your response has no alignment with the proposed answer. Please carefully review the proposed answer "
-            "and revise your response to ensure it addresses the key points. Here are the areas that need to be focused on:\n\n"
-            f"**Proposed Answer**:\n{proposed_answer}\n\n"
-            "You may want to focus on directly addressing the core components of the proposed answer. "
-            "Ensure that your response covers the main ideas exactly as outlined."
-        )
-        alignment_grade = 0
-    elif correlation_percentage >= 90:
+    if correlation_percentage >= 90:
         feedback_message = (
             f"Excellent! Your response aligns {correlation_percentage}% with the proposed answer. "
             "Minimal changes needed. Well done!\n\n"
@@ -113,7 +103,7 @@ def generate_feedback(correlation_percentage, submission_text, proposed_answer):
         )
         alignment_grade = 0
 
-    # Request improvement suggestions from OpenAI API
+    # Request improvement suggestions
     improvement_prompt = (
         f"Provide specific feedback on how to improve the following response to align with the expected answer:\n\n"
         f"**Proposed Answer**:\n{proposed_answer}\n\n**User Submission**:\n{submission_text}\n\n"
@@ -128,7 +118,6 @@ def generate_feedback(correlation_percentage, submission_text, proposed_answer):
     feedback_message += specific_improvements
 
     return feedback_message, alignment_grade
-
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
