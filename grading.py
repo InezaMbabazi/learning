@@ -24,6 +24,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Reset session state function
+def reset_state():
+    st.session_state.feedback_data = {}
+    st.session_state.proposed_answer = ""
+
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     response = requests.get(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions", headers=headers)
@@ -60,7 +65,7 @@ def get_grading(submission_text, proposed_answer):
     if not proposed_answer.strip():
         return "No proposed answer provided. Unable to give feedback.", 0
 
-    # Prompt for calculating the correlation percentage, focusing on alignment with the proposed answer
+    # Prompt for calculating the correlation percentage
     correlation_prompt = (
         f"Evaluate the alignment between the following user submission and the proposed answer. "
         f"Provide only a correlation percentage as a number between 0 and 100.\n\n"
@@ -81,42 +86,19 @@ def get_grading(submission_text, proposed_answer):
 
     # Construct feedback based on correlation percentage
     if correlation_percentage >= 10:
-        # Positive feedback with guidance
         feedback_message = (
             f"Thank you for your response. Your answer shows a {correlation_percentage}% alignment with the expected answer. "
             f"Here's what you did well and where you can improve, referring directly to the proposed answer:\n\n"
         )
         alignment_grade = 1
     else:
-        # Guidance for low correlation
         feedback_message = (
             f"Your response has a low correlation with the proposed answer ({correlation_percentage}%). "
-            f"To improve, focus specifically on the key points in the proposed answer. "
-            f"The proposed answer discusses the topic of biology, so please make sure your response aligns with that subject area.\n\n"
+            f"To improve, focus specifically on the key points in the proposed answer.\n\n"
         )
         alignment_grade = 0
 
-    # Improvement suggestions to guide the student, using the proposed answer as a model
-    improvement_prompt = (
-        f"Given that the proposed answer is focused on the topic of biology, provide guidance to the student on how they should adjust their response to focus on this topic.\n\n"
-        f"**Proposed Answer**:\n{proposed_answer}\n\n"
-        f"**User Submission**:\n{submission_text}\n\n"
-        "Provide step-by-step guidance for the student to focus on the biology-related content in the proposed answer, avoiding unrelated topics."
-    )
-    
-    improvement_response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": improvement_prompt}]
-    )
-    
-    specific_improvements = improvement_response['choices'][0]['message']['content']
-    feedback_message += specific_improvements
-
     return feedback_message, alignment_grade
-
-
-
-
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -125,11 +107,20 @@ st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allo
 course_id = st.number_input("Enter Course ID:", min_value=1, step=1)
 assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1)
 
-proposed_answer = st.text_area("Enter the proposed answer for evaluation:")
+# Proposed Answer with session state
+proposed_answer = st.text_area("Enter the proposed answer for evaluation:", 
+                               value=st.session_state.get("proposed_answer", ""))
 
-if 'feedback_data' not in st.session_state:
-    st.session_state.feedback_data = {}
+# Save proposed answer to session state
+if proposed_answer:
+    st.session_state.proposed_answer = proposed_answer
 
+# Button for resetting all feedback and the proposed answer
+if st.button("Reset"):
+    reset_state()
+    st.success("All inputs have been reset.")
+
+# Continue with submission processing as usual
 if st.button("Download and Grade Submissions"):
     submissions = get_submissions(course_id, assignment_id)
     if submissions:
@@ -172,14 +163,10 @@ if st.button("Download and Grade Submissions"):
                     editable_feedback = st.text_area(f"Edit Feedback for {user_name}:", feedback, key=f"feedback_{user_id}")
                     editable_grade = st.number_input(f"Edit Grade for {user_name}:", min_value=0, max_value=1, value=alignment_grade, key=f"grade_{user_id}")
 
-                    # Display feedback and grade
                     st.markdown(f'<div class="feedback-title">Feedback:</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="feedback">{editable_feedback}</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="feedback-title">Grade:</div>', unsafe_allow_html=True)
                     st.markdown(f'<div class="feedback">{editable_grade}</div>', unsafe_allow_html=True)
-
-
-
 
 # Submit feedback
 if st.button("Submit Feedback to Canvas"):
