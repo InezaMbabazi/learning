@@ -180,7 +180,7 @@ if st.button("Download and Grade Submissions"):
 
 
 
- if st.button("Reset"):
+ if st.button("Reset")
         st.session_state.proposed_answer = ""
         st.session_state.submission_text = ""
         st.session_state.feedback = ""
