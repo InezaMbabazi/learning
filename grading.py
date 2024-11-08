@@ -56,11 +56,11 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     response = requests.put(url, headers=headers, json=payload)
     return response.status_code in [200, 201]
 
-def get_grading(submission_text, proposed_answer):
+def generate_feedback(submission_text, proposed_answer):
     if not proposed_answer.strip():
         return "No proposed answer provided. Unable to give feedback.", 0
 
-    # Calculate the correlation percentage with a standalone prompt
+    # Step 1: Calculate correlation
     correlation_prompt = (
         f"Evaluate the alignment between the following user submission and the proposed answer. "
         f"Provide only a correlation percentage as a number between 0 and 100.\n\n"
@@ -78,38 +78,28 @@ def get_grading(submission_text, proposed_answer):
     except ValueError:
         correlation_percentage = 0  # Default to 0 if parsing fails
 
-    # Create feedback based on the correlation score
+    # Step 2: Feedback based on correlation
     if correlation_percentage >= 10:
+        # High correlation: Guide with specific pointers using the proposed answer as a reference
         feedback_message = (
             f"Thank you for your response. Your answer shows a {correlation_percentage}% alignment with the expected answer. "
-            f"Here's what you did well and where you can improve, referring directly to the proposed answer:\n\n"
+            f"Here's what you did well and where you can improve, directly referencing the proposed answer:\n\n"
+            f"- **Strengths**: You've aligned well with key points such as [...insert specific points...].\n"
+            f"- **Areas for Improvement**: To improve, add more detail on [...specific areas mentioned in the proposed answer...]."
         )
         alignment_grade = 1
     else:
+        # Low correlation: Guide by prompting focus on the specific content of the proposed answer
         feedback_message = (
             f"Your response has a low correlation with the proposed answer ({correlation_percentage}%). "
-            f"To improve, focus specifically on the key points in the proposed answer. "
-            f"The proposed answer discusses the topic of biology, so please make sure your response aligns with that subject area.\n\n"
+            f"To better align, focus on the main points mentioned in the proposed answer. Here’s how you can improve:\n\n"
+            f"- **Address Key Topics**: Refer directly to the points in the proposed answer, like [...specific key points...].\n"
+            f"- **Use Examples**: Include examples that reflect the proposed answer’s focus, such as [...example from proposed answer...]."
         )
         alignment_grade = 0
 
-    # Request topic-aligned improvements without any residual context
-    improvement_prompt = (
-        f"Given that the proposed answer is focused on the topic of biology, provide guidance to the student on how they should adjust their response to focus on this topic.\n\n"
-        f"**Proposed Answer**:\n{proposed_answer}\n\n"
-        f"**User Submission**:\n{submission_text}\n\n"
-        "Provide step-by-step guidance for the student to focus on the biology-related content in the proposed answer, avoiding unrelated topics."
-    )
-    
-    improvement_response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": improvement_prompt}]
-    )
-    
-    specific_improvements = improvement_response['choices'][0]['message']['content']
-    feedback_message += specific_improvements
-
     return feedback_message, alignment_grade
+
 
 
 
