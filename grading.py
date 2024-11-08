@@ -91,16 +91,17 @@ def get_grading(submission_text, proposed_answer):
         # Guidance for low correlation
         feedback_message = (
             f"Your response has a low correlation with the proposed answer ({correlation_percentage}%). "
-            f"To better align, consider the specific points made in the proposed answer. Here’s how you can improve:\n\n"
+            f"To improve, focus specifically on the key points in the proposed answer. "
+            f"The proposed answer discusses the topic of biology, so please make sure your response aligns with that subject area.\n\n"
         )
         alignment_grade = 0
 
     # Improvement suggestions to guide the student, using the proposed answer as a model
     improvement_prompt = (
-        f"Given the proposed answer:\n{proposed_answer}\n\n"
-        f"And the user submission:\n{submission_text}\n\n"
-        "Provide step-by-step guidance to help the user adjust their response to match the proposed answer more closely. "
-        "Highlight any specific details or examples from the proposed answer that should be addressed in the student’s response."
+        f"Given that the proposed answer is focused on the topic of biology, provide guidance to the student on how they should adjust their response to focus on this topic.\n\n"
+        f"**Proposed Answer**:\n{proposed_answer}\n\n"
+        f"**User Submission**:\n{submission_text}\n\n"
+        "Provide step-by-step guidance for the student to focus on the biology-related content in the proposed answer, avoiding unrelated topics."
     )
     
     improvement_response = openai.ChatCompletion.create(
@@ -112,6 +113,7 @@ def get_grading(submission_text, proposed_answer):
     feedback_message += specific_improvements
 
     return feedback_message, alignment_grade
+
 
 
 
