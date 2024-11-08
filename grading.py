@@ -60,53 +60,58 @@ def get_grading(submission_text, proposed_answer):
     if not proposed_answer.strip():
         return "No proposed answer provided. Unable to give feedback.", 0
 
-    # Improved correlation check prompt with more specific instructions
+    # Prompt to evaluate the correlation percentage
     correlation_prompt = (
-        f"Determine if the following user submission adequately covers the key points of the proposed answer.\n\n"
+        f"Evaluate the percentage correlation between the following user submission and the proposed answer. "
+        f"Provide a number only, representing the correlation percentage from 0 to 100.\n\n"
         f"**Proposed Answer**:\n{proposed_answer}\n\n"
         f"**User Submission**:\n{submission_text}\n\n"
-        f"Consider the accuracy, relevance, and completeness of the user submission. "
-        f"Please respond with 'highly correlates' if the submission includes most key points from the proposed answer, "
-        f"or 'needs improvement' if it lacks essential information or is off-topic."
     )
 
+    # Retrieve correlation percentage from OpenAI
     correlation_response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": correlation_prompt}]
     )
+    
+    # Extract correlation percentage as a number
+    try:
+        correlation_percentage = float(correlation_response['choices'][0]['message']['content'].strip())
+    except ValueError:
+        correlation_percentage = 0  # Default to 0 if parsing fails
 
-    correlation_feedback = correlation_response['choices'][0]['message']['content']
-
-    # Process feedback based on correlation result
-    if "highly correlates" in correlation_feedback:
+    # Generate feedback based on correlation percentage
+    if correlation_percentage > 10:
+        # Appreciation feedback
+        feedback_message = (
+            f"Your response aligns well with the proposed answer, achieving a correlation of {correlation_percentage}%. "
+            "Keep up the good work! Here are some suggestions for further improvement:\n\n"
+        )
         alignment_grade = 1
-        feedback_message = (
-            "Thank you for your response. Your answer aligns well with the expected answer. "
-            "Keep up the good work!\n\nBest regards,"
-        )
     else:
-        alignment_grade = 0
-        improvement_prompt = (
-            f"Based on the proposed answer:\n{proposed_answer}\n\n"
-            f"And the user submission:\n{submission_text}\n\n"
-            f"Please provide specific suggestions to help the user enhance their response and better address the key points."
-        )
-
-        improvement_response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": improvement_prompt}]
-        )
-        
-        specific_improvements = improvement_response['choices'][0]['message']['content']
-
+        # No appreciation, focus on areas of improvement
         feedback_message = (
-            "Thank you for your response. Here are some suggestions to help strengthen your answer:\n\n"
-            f"{specific_improvements}\n\n"
-            "Use these suggestions to guide your revisions and strengthen future responses."
+            "Your response has a low correlation with the proposed answer (below 10%). "
+            "Please review the following areas to enhance your submission:\n\n"
         )
+        alignment_grade = 0
+
+    # Generate specific improvement suggestions
+    improvement_prompt = (
+        f"Based on the proposed answer:\n{proposed_answer}\n\n"
+        f"And the user submission:\n{submission_text}\n\n"
+        "Please provide specific suggestions for improvement."
+    )
+    
+    improvement_response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": improvement_prompt}]
+    )
+    
+    specific_improvements = improvement_response['choices'][0]['message']['content']
+    feedback_message += specific_improvements
 
     return feedback_message, alignment_grade
-
 
 
 
