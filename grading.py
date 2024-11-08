@@ -60,7 +60,7 @@ def get_grading(submission_text, proposed_answer):
     if not proposed_answer.strip():
         return "No proposed answer provided. Unable to give feedback.", 0
 
-    # Prompt for calculating the correlation percentage, focusing on alignment with the proposed answer
+    # Calculate the correlation percentage with a standalone prompt
     correlation_prompt = (
         f"Evaluate the alignment between the following user submission and the proposed answer. "
         f"Provide only a correlation percentage as a number between 0 and 100.\n\n"
@@ -68,7 +68,6 @@ def get_grading(submission_text, proposed_answer):
         f"**User Submission**:\n{submission_text}\n\n"
     )
 
-    # Get correlation percentage
     correlation_response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": correlation_prompt}]
@@ -79,16 +78,14 @@ def get_grading(submission_text, proposed_answer):
     except ValueError:
         correlation_percentage = 0  # Default to 0 if parsing fails
 
-    # Construct feedback based on correlation percentage
+    # Create feedback based on the correlation score
     if correlation_percentage >= 10:
-        # Positive feedback with guidance
         feedback_message = (
             f"Thank you for your response. Your answer shows a {correlation_percentage}% alignment with the expected answer. "
             f"Here's what you did well and where you can improve, referring directly to the proposed answer:\n\n"
         )
         alignment_grade = 1
     else:
-        # Guidance for low correlation
         feedback_message = (
             f"Your response has a low correlation with the proposed answer ({correlation_percentage}%). "
             f"To improve, focus specifically on the key points in the proposed answer. "
@@ -96,7 +93,7 @@ def get_grading(submission_text, proposed_answer):
         )
         alignment_grade = 0
 
-    # Improvement suggestions to guide the student, using the proposed answer as a model
+    # Request topic-aligned improvements without any residual context
     improvement_prompt = (
         f"Given that the proposed answer is focused on the topic of biology, provide guidance to the student on how they should adjust their response to focus on this topic.\n\n"
         f"**Proposed Answer**:\n{proposed_answer}\n\n"
