@@ -180,12 +180,6 @@ if st.button("Download and Grade Submissions"):
 
 
 
- if st.button("Reset")
-        st.session_state.proposed_answer = ""
-        st.session_state.submission_text = ""
-        st.session_state.feedback = ""
-        st.session_state.alignment_grade = None
-        st.experimental_rerun()  # Refresh the app to apply the reset
 
 # Submit feedback
 if st.button("Submit Feedback to Canvas"):
