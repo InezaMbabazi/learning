@@ -13,6 +13,8 @@ BASE_URL = 'https://kepler.instructure.com/api/v1'
 openai.api_key = st.secrets["openai"]["api_key"]
 
 st.set_page_config(page_title="Kepler College Grading System", page_icon="📚", layout="wide")
+
+# Styling
 st.markdown("""
 <style>
     .header { text-align: center; color: #4B0082; font-size: 30px; font-weight: bold; }
@@ -23,11 +25,6 @@ st.markdown("""
     .feedback { border: 2px solid #4B0082; padding: 10px; border-radius: 10px; background-color: #E6FFE6; color: #333; }
 </style>
 """, unsafe_allow_html=True)
-
-# Reset session state function
-def reset_state():
-    st.session_state.feedback_data = {}
-    st.session_state.proposed_answer = ""
 
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
@@ -62,10 +59,7 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     return response.status_code in [200, 201]
 
 def get_grading(submission_text, proposed_answer):
-    if not proposed_answer.strip():
-        return "No proposed answer provided. Unable to give feedback.", 0
-
-    # Prompt for calculating the correlation percentage
+    # Initialize fresh prompts to avoid carryover content
     correlation_prompt = (
         f"Evaluate the alignment between the following user submission and the proposed answer. "
         f"Provide only a correlation percentage as a number between 0 and 100.\n\n"
@@ -73,30 +67,42 @@ def get_grading(submission_text, proposed_answer):
         f"**User Submission**:\n{submission_text}\n\n"
     )
 
-    # Get correlation percentage
     correlation_response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": correlation_prompt}]
     )
-    
+
     try:
         correlation_percentage = float(correlation_response['choices'][0]['message']['content'].strip())
     except ValueError:
         correlation_percentage = 0  # Default to 0 if parsing fails
 
-    # Construct feedback based on correlation percentage
     if correlation_percentage >= 10:
         feedback_message = (
             f"Thank you for your response. Your answer shows a {correlation_percentage}% alignment with the expected answer. "
-            f"Here's what you did well and where you can improve, referring directly to the proposed answer:\n\n"
+            f"Here's what you did well and where you can improve:\n\n"
         )
         alignment_grade = 1
     else:
         feedback_message = (
             f"Your response has a low correlation with the proposed answer ({correlation_percentage}%). "
-            f"To improve, focus specifically on the key points in the proposed answer.\n\n"
+            f"To improve, focus on key points in the proposed answer.\n\n"
         )
         alignment_grade = 0
+
+    improvement_prompt = (
+        f"Provide guidance to the student on how to align their response better.\n\n"
+        f"**Proposed Answer**:\n{proposed_answer}\n\n"
+        f"**User Submission**:\n{submission_text}\n\n"
+    )
+
+    improvement_response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": improvement_prompt}]
+    )
+    
+    specific_improvements = improvement_response['choices'][0]['message']['content']
+    feedback_message += specific_improvements
 
     return feedback_message, alignment_grade
 
@@ -106,21 +112,11 @@ st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allo
 
 course_id = st.number_input("Enter Course ID:", min_value=1, step=1)
 assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1)
+proposed_answer = st.text_area("Enter the proposed answer for evaluation:")
 
-# Proposed Answer with session state
-proposed_answer = st.text_area("Enter the proposed answer for evaluation:", 
-                               value=st.session_state.get("proposed_answer", ""))
+if 'feedback_data' not in st.session_state:
+    st.session_state.feedback_data = {}
 
-# Save proposed answer to session state
-if proposed_answer:
-    st.session_state.proposed_answer = proposed_answer
-
-# Button for resetting all feedback and the proposed answer
-if st.button("Reset"):
-    reset_state()
-    st.success("All inputs have been reset.")
-
-# Continue with submission processing as usual
 if st.button("Download and Grade Submissions"):
     submissions = get_submissions(course_id, assignment_id)
     if submissions:
@@ -145,13 +141,9 @@ if st.button("Download and Grade Submissions"):
                     continue
 
                 if submission_text:
-                    st.markdown(f'<div class="submission-title">Submission by {user_name} (User ID: {user_id})</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="submission-text">{submission_text}</div>', unsafe_allow_html=True)
-
                     feedback, alignment_grade = get_grading(submission_text, proposed_answer)
                     feedback_key = f"{user_id}_{assignment_id}"
 
-                    # Store feedback and grade in session state
                     st.session_state.feedback_data[feedback_key] = {
                         "Student Name": user_name,
                         "User ID": user_id,
@@ -159,7 +151,6 @@ if st.button("Download and Grade Submissions"):
                         "Grade": alignment_grade
                     }
 
-                    # Editable feedback and grade
                     editable_feedback = st.text_area(f"Edit Feedback for {user_name}:", feedback, key=f"feedback_{user_id}")
                     editable_grade = st.number_input(f"Edit Grade for {user_name}:", min_value=0, max_value=1, value=alignment_grade, key=f"grade_{user_id}")
 
@@ -179,3 +170,6 @@ if st.button("Submit Feedback to Canvas"):
                 st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
             else:
                 st.error(f"Failed to submit feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
+
+        # Clear feedback data after submission
+        st.session_state.feedback_data = {}
