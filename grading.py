@@ -60,15 +60,15 @@ def get_grading(submission_text, proposed_answer):
     if not proposed_answer.strip():
         return "No proposed answer provided. Unable to give feedback.", 0
 
-    # Determine the correlation percentage based on relevance to the proposed answer
+    # Prompt for calculating the correlation percentage, focusing on alignment with the proposed answer
     correlation_prompt = (
-        f"Evaluate the degree of relevance between the following user submission and the proposed answer "
-        f"by providing a correlation percentage as a number between 0 and 100. Consider accuracy, relevance, and completeness.\n\n"
+        f"Evaluate the alignment between the following user submission and the proposed answer. "
+        f"Provide only a correlation percentage as a number between 0 and 100.\n\n"
         f"**Proposed Answer**:\n{proposed_answer}\n\n"
         f"**User Submission**:\n{submission_text}\n\n"
     )
 
-    # Request correlation percentage from OpenAI
+    # Get correlation percentage
     correlation_response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": correlation_prompt}]
@@ -79,38 +79,37 @@ def get_grading(submission_text, proposed_answer):
     except ValueError:
         correlation_percentage = 0  # Default to 0 if parsing fails
 
-    # Decide feedback content based on correlation percentage
-    if correlation_percentage > 10:
-        # Construct positive feedback highlighting alignment with the proposed answer
+    # Construct feedback based on correlation percentage
+    if correlation_percentage >= 10:
+        # Positive feedback with guidance
         feedback_message = (
-            f"Your response aligns with the expected content in the proposed answer with a correlation of {correlation_percentage}%. "
-            f"Good work on covering these aspects: {proposed_answer}. Keep it up, and refine further to improve completeness!\n\n"
+            f"Thank you for your response. Your answer shows a {correlation_percentage}% alignment with the expected answer. "
+            f"Here's what you did well and where you can improve, referring directly to the proposed answer:\n\n"
         )
         alignment_grade = 1
     else:
-        # Construct improvement feedback directly referencing the proposed answer
+        # Guidance for low correlation
         feedback_message = (
-            f"Your response seems off-topic from the proposed answer, which focuses on: {proposed_answer}. "
-            f"To improve, please revisit this topic and provide a response that specifically addresses the key points listed. "
-            f"Here are some suggestions:\n\n"
+            f"Your response has a low correlation with the proposed answer ({correlation_percentage}%). "
+            f"To better align, consider the specific points made in the proposed answer. Here’s how you can improve:\n\n"
         )
         alignment_grade = 0
 
-        # Request specific suggestions on how the student can align their response with the proposed answer
-        improvement_prompt = (
-            f"Given the proposed answer:\n{proposed_answer}\n\n"
-            f"And the user submission:\n{submission_text}\n\n"
-            "Provide actionable feedback to guide the student on how to improve their response so it better aligns with the "
-            "proposed answer. Emphasize areas that are missing or incorrect, and instruct the student on how to approach the correct topic."
-        )
-        
-        improvement_response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": improvement_prompt}]
-        )
-        
-        specific_improvements = improvement_response['choices'][0]['message']['content']
-        feedback_message += specific_improvements
+    # Improvement suggestions to guide the student, using the proposed answer as a model
+    improvement_prompt = (
+        f"Given the proposed answer:\n{proposed_answer}\n\n"
+        f"And the user submission:\n{submission_text}\n\n"
+        "Provide step-by-step guidance to help the user adjust their response to match the proposed answer more closely. "
+        "Highlight any specific details or examples from the proposed answer that should be addressed in the student’s response."
+    )
+    
+    improvement_response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": improvement_prompt}]
+    )
+    
+    specific_improvements = improvement_response['choices'][0]['message']['content']
+    feedback_message += specific_improvements
 
     return feedback_message, alignment_grade
 
