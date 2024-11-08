@@ -6,25 +6,13 @@ import openai
 import pandas as pd
 
 # Canvas API token and base URL
-API_TOKEN = '1941~tNNratnXzJzMM9N6KDmxV9XMC6rUtBHY2w2K7c299HkkHXGxtWEYWUQVkwch9CAH'
+API_TOKEN = 'YOUR_CANVAS_API_TOKEN'
 BASE_URL = 'https://kepler.instructure.com/api/v1'
 
 # OpenAI API Key
 openai.api_key = st.secrets["openai"]["api_key"]
 
 st.set_page_config(page_title="Kepler College Grading System", page_icon="📚", layout="wide")
-
-# Styling
-st.markdown("""
-<style>
-    .header { text-align: center; color: #4B0082; font-size: 30px; font-weight: bold; }
-    .content { border: 2px solid #4B0082; padding: 20px; border-radius: 10px; background-color: #F3F4F6; }
-    .submission-title { font-size: 24px; color: #4B0082; }
-    .submission-text { font-size: 20px; border: 2px solid #4B0082; padding: 10px; background-color: #E6E6FA; border-radius: 10px; color: #333; font-weight: bold; }
-    .feedback-title { color: #FF4500; font-weight: bold; }
-    .feedback { border: 2px solid #4B0082; padding: 10px; border-radius: 10px; background-color: #E6FFE6; color: #333; }
-</style>
-""", unsafe_allow_html=True)
 
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
@@ -59,43 +47,44 @@ def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     return response.status_code in [200, 201]
 
 def get_grading(submission_text, proposed_answer):
-    # Initialize fresh prompts to avoid carryover content
-    correlation_prompt = (
-        f"Evaluate the alignment between the following user submission and the proposed answer. "
-        f"Provide only a correlation percentage as a number between 0 and 100.\n\n"
-        f"**Proposed Answer**:\n{proposed_answer}\n\n"
-        f"**User Submission**:\n{submission_text}\n\n"
-    )
+    if not proposed_answer.strip():
+        return "No proposed answer provided. Unable to give feedback.", 0
 
-    correlation_response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": correlation_prompt}]
+    correlation_prompt = (
+        f"Compare the following user submission to the proposed answer and rate the alignment as a percentage (0-100)."
+        f"\n\n**Proposed Answer**:\n{proposed_answer}\n\n**User Submission**:\n{submission_text}\n\n"
+        "Provide only the correlation percentage as an integer."
     )
 
     try:
+        correlation_response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": correlation_prompt}]
+        )
         correlation_percentage = float(correlation_response['choices'][0]['message']['content'].strip())
+
     except ValueError:
-        correlation_percentage = 0  # Default to 0 if parsing fails
+        correlation_percentage = 0  # Fallback if parsing fails
+        st.warning("Could not parse correlation percentage. Defaulting to 0.")
 
     if correlation_percentage >= 10:
         feedback_message = (
-            f"Thank you for your response. Your answer shows a {correlation_percentage}% alignment with the expected answer. "
-            f"Here's what you did well and where you can improve:\n\n"
+            f"Thank you for your response. Your answer shows a {correlation_percentage}% alignment with the expected answer."
+            f" Here’s feedback to guide you based on the proposed answer:\n\n"
         )
         alignment_grade = 1
     else:
         feedback_message = (
-            f"Your response has a low correlation with the proposed answer ({correlation_percentage}%). "
-            f"To improve, focus on key points in the proposed answer.\n\n"
+            f"Your response has a low alignment ({correlation_percentage}%) with the expected answer. "
+            "To improve, refer closely to the key points outlined in the proposed answer.\n\n"
         )
         alignment_grade = 0
 
     improvement_prompt = (
-        f"Provide guidance to the student on how to align their response better.\n\n"
-        f"**Proposed Answer**:\n{proposed_answer}\n\n"
-        f"**User Submission**:\n{submission_text}\n\n"
+        f"Provide feedback on how to improve the following response to align with the expected answer:\n\n"
+        f"**Proposed Answer**:\n{proposed_answer}\n\n**User Submission**:\n{submission_text}\n\n"
     )
-
+    
     improvement_response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": improvement_prompt}]
@@ -108,10 +97,11 @@ def get_grading(submission_text, proposed_answer):
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
-st.markdown('<h1 class="header">Kepler College Grading System</h1>', unsafe_allow_html=True)
+st.title("Kepler College Grading System")
 
 course_id = st.number_input("Enter Course ID:", min_value=1, step=1)
 assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1)
+
 proposed_answer = st.text_area("Enter the proposed answer for evaluation:")
 
 if 'feedback_data' not in st.session_state:
@@ -136,11 +126,14 @@ if st.button("Download and Grade Submissions"):
                     doc = Document(io.BytesIO(file_content))
                     submission_text = "\n".join([para.text for para in doc.paragraphs])
                 elif filename.endswith(".xlsx") and file_content:
-                    st.markdown(f'<div class="submission-title">Excel Submission from {user_name}</div>', unsafe_allow_html=True)
+                    st.write(f"Excel Submission from {user_name}")
                     display_excel_content(file_content)
                     continue
 
                 if submission_text:
+                    st.subheader(f"Submission by {user_name} (User ID: {user_id})")
+                    st.text_area("User Submission:", submission_text, height=200)
+
                     feedback, alignment_grade = get_grading(submission_text, proposed_answer)
                     feedback_key = f"{user_id}_{assignment_id}"
 
@@ -154,12 +147,11 @@ if st.button("Download and Grade Submissions"):
                     editable_feedback = st.text_area(f"Edit Feedback for {user_name}:", feedback, key=f"feedback_{user_id}")
                     editable_grade = st.number_input(f"Edit Grade for {user_name}:", min_value=0, max_value=1, value=alignment_grade, key=f"grade_{user_id}")
 
-                    st.markdown(f'<div class="feedback-title">Feedback:</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="feedback">{editable_feedback}</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="feedback-title">Grade:</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="feedback">{editable_grade}</div>', unsafe_allow_html=True)
+                    st.write("Feedback:")
+                    st.write(editable_feedback)
+                    st.write("Grade:")
+                    st.write(editable_grade)
 
-# Submit feedback
 if st.button("Submit Feedback to Canvas"):
     if not st.session_state.feedback_data:
         st.warning("No feedback available to submit.")
@@ -170,6 +162,3 @@ if st.button("Submit Feedback to Canvas"):
                 st.success(f"Successfully submitted feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
             else:
                 st.error(f"Failed to submit feedback for {entry['Student Name']} (User ID: {entry['User ID']}).")
-
-        # Clear feedback data after submission
-        st.session_state.feedback_data = {}
