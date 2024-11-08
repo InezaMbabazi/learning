@@ -60,21 +60,20 @@ def get_grading(submission_text, proposed_answer):
     if not proposed_answer.strip():
         return "No proposed answer provided. Unable to give feedback.", 0
 
-    # Prompt to evaluate the correlation percentage
+    # Prompt to evaluate the correlation percentage based on the proposed answer
     correlation_prompt = (
-        f"Evaluate the percentage correlation between the following user submission and the proposed answer. "
-        f"Provide a number only, representing the correlation percentage from 0 to 100.\n\n"
+        f"Evaluate the percentage correlation between the user submission and the proposed answer. "
+        f"Provide only the correlation percentage as a number between 0 and 100.\n\n"
         f"**Proposed Answer**:\n{proposed_answer}\n\n"
         f"**User Submission**:\n{submission_text}\n\n"
     )
 
-    # Retrieve correlation percentage from OpenAI
+    # Get correlation percentage
     correlation_response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": correlation_prompt}]
     )
     
-    # Extract correlation percentage as a number
     try:
         correlation_percentage = float(correlation_response['choices'][0]['message']['content'].strip())
     except ValueError:
@@ -82,25 +81,26 @@ def get_grading(submission_text, proposed_answer):
 
     # Generate feedback based on correlation percentage
     if correlation_percentage > 10:
-        # Appreciation feedback
+        # Positive feedback with appreciation
         feedback_message = (
-            f"Your response aligns well with the proposed answer, achieving a correlation of {correlation_percentage}%. "
-            "Keep up the good work! Here are some suggestions for further improvement:\n\n"
+            f"Your response aligns with the proposed answer, achieving a correlation of {correlation_percentage}%. "
+            "Well done! Here are some areas to further strengthen your response based on the proposed answer:\n\n"
         )
         alignment_grade = 1
     else:
-        # No appreciation, focus on areas of improvement
+        # Improvement-focused feedback
         feedback_message = (
-            "Your response has a low correlation with the proposed answer (below 10%). "
-            "Please review the following areas to enhance your submission:\n\n"
+            f"Your response has a low correlation with the proposed answer ({correlation_percentage}%). "
+            "Please focus on the following areas to improve alignment with the proposed answer:\n\n"
         )
         alignment_grade = 0
 
-    # Generate specific improvement suggestions
+    # Request specific improvement suggestions in relation to the proposed answer
     improvement_prompt = (
         f"Based on the proposed answer:\n{proposed_answer}\n\n"
         f"And the user submission:\n{submission_text}\n\n"
-        "Please provide specific suggestions for improvement."
+        "Identify specific improvements that would help align the user submission more closely with the proposed answer. "
+        "Provide actionable suggestions directly referencing the proposed answer."
     )
     
     improvement_response = openai.ChatCompletion.create(
