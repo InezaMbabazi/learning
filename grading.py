@@ -60,10 +60,10 @@ def get_grading(submission_text, proposed_answer):
     if not proposed_answer.strip():
         return "No proposed answer provided. Unable to give feedback.", 0
 
-    # Prompt to evaluate the correlation percentage based on the proposed answer
+    # Prompt to evaluate correlation with a direct focus on the proposed answer
     correlation_prompt = (
-        f"Evaluate the percentage correlation between the user submission and the proposed answer. "
-        f"Provide only the correlation percentage as a number between 0 and 100.\n\n"
+        f"Assess how well the following user submission matches the proposed answer, "
+        f"providing only a correlation percentage as a number between 0 and 100.\n\n"
         f"**Proposed Answer**:\n{proposed_answer}\n\n"
         f"**User Submission**:\n{submission_text}\n\n"
     )
@@ -81,26 +81,26 @@ def get_grading(submission_text, proposed_answer):
 
     # Generate feedback based on correlation percentage
     if correlation_percentage > 10:
-        # Positive feedback with appreciation
+        # Appreciation feedback referencing proposed answer
         feedback_message = (
-            f"Your response aligns with the proposed answer, achieving a correlation of {correlation_percentage}%. "
-            "Well done! Here are some areas to further strengthen your response based on the proposed answer:\n\n"
+            f"Your response aligns well with the proposed answer, achieving a correlation of {correlation_percentage}%. "
+            f"Here’s what you did well based on the proposed answer:\n\n"
         )
         alignment_grade = 1
     else:
-        # Improvement-focused feedback
+        # Improvement-focused feedback directly tied to proposed answer
         feedback_message = (
             f"Your response has a low correlation with the proposed answer ({correlation_percentage}%). "
-            "Please focus on the following areas to improve alignment with the proposed answer:\n\n"
+            f"To improve alignment with the proposed answer, focus on the following areas:\n\n"
         )
         alignment_grade = 0
 
-    # Request specific improvement suggestions in relation to the proposed answer
+    # Improvement suggestions referencing the proposed answer
     improvement_prompt = (
-        f"Based on the proposed answer:\n{proposed_answer}\n\n"
+        f"Given the proposed answer:\n{proposed_answer}\n\n"
         f"And the user submission:\n{submission_text}\n\n"
-        "Identify specific improvements that would help align the user submission more closely with the proposed answer. "
-        "Provide actionable suggestions directly referencing the proposed answer."
+        "Please identify specific improvements that would help the user submission more closely align with the proposed answer. "
+        "Provide clear, actionable suggestions referencing parts of the proposed answer directly."
     )
     
     improvement_response = openai.ChatCompletion.create(
