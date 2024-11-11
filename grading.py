@@ -75,6 +75,7 @@ def generate_feedback(correlation_percentage, submission_text, proposed_answer):
     """
     Generate feedback based on the correlation percentage.
     """
+    # Feedback for high alignment
     if correlation_percentage >= 90:
         feedback_message = (
             f"Excellent! Your response aligns {correlation_percentage}% with the proposed answer. "
@@ -82,6 +83,7 @@ def generate_feedback(correlation_percentage, submission_text, proposed_answer):
             "Your submission is well-structured. Here are a few fine-tuning suggestions:\n"
         )
         alignment_grade = 1
+    # Feedback for good alignment
     elif 70 <= correlation_percentage < 90:
         feedback_message = (
             f"Good job! Your response aligns {correlation_percentage}% with the proposed answer. "
@@ -89,35 +91,50 @@ def generate_feedback(correlation_percentage, submission_text, proposed_answer):
             "Consider revisiting the following parts for better alignment:\n"
         )
         alignment_grade = 1
+    # Feedback for moderate alignment
     elif 50 <= correlation_percentage < 70:
         feedback_message = (
             f"Your response aligns {correlation_percentage}% with the proposed answer. "
             "There are moderate discrepancies. Please work on the following areas:\n"
         )
         alignment_grade = 0
-    else:
+    # Feedback for low alignment
+    elif correlation_percentage < 50:
         feedback_message = (
             f"Your response has a low alignment ({correlation_percentage}%) with the proposed answer. "
             "Consider revising your response to better match the key points from the proposed answer.\n\n"
             "Here are the major areas that need improvement:\n"
         )
         alignment_grade = 0
-
-    # Request improvement suggestions
-    improvement_prompt = (
-        f"Provide specific feedback on how to improve the following response to align with the expected answer:\n\n"
-        f"**Proposed Answer**:\n{proposed_answer}\n\n**User Submission**:\n{submission_text}\n\n"
-    )
+    # Specific feedback for zero correlation
+    if correlation_percentage == 0:
+        feedback_message = (
+            "Your response has no alignment with the proposed answer. Please carefully review the proposed answer "
+            "and revise your response to ensure it addresses the key points. Here are the areas that need to be focused on:\n\n"
+            f"**Proposed Answer**:\n{proposed_answer}\n\n"
+            "Focus on directly addressing the core components of the proposed answer. "
+            "Ensure that your response covers the main ideas exactly as outlined."
+        )
+        alignment_grade = 0
     
-    improvement_response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": improvement_prompt}]
-    )
-    
-    specific_improvements = improvement_response['choices'][0]['message']['content']
-    feedback_message += specific_improvements
+    # Generate improvement suggestions using OpenAI API if correlation is above 0%
+    specific_improvements = ""
+    if correlation_percentage > 0:
+        improvement_prompt = (
+            f"Provide specific feedback on how to improve the following response to align with the expected answer:\n\n"
+            f"**Proposed Answer**:\n{proposed_answer}\n\n**User Submission**:\n{submission_text}\n\n"
+        )
+        
+        improvement_response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": improvement_prompt}]
+        )
+        
+        specific_improvements = improvement_response['choices'][0]['message']['content']
+        feedback_message += specific_improvements
 
     return feedback_message, alignment_grade
+
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
