@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import requests
 import io
 from docx import Document
@@ -55,13 +55,10 @@ def check_plagiarism(submission_text):
     payload = {"text": submission_text}
     response = requests.post(f"{TURNITIN_BASE_URL}/check", headers=headers, json=payload)
     if response.status_code == 200:
-        plagiarism_score = response.json().get("plagiarism_score", "N/A")
-        st.markdown(f"<span style='color:red;'>Plagiarism Score: {plagiarism_score}%</span>", unsafe_allow_html=True)
-        return plagiarism_score
+        return response.json().get("plagiarism_score", "N/A")
     else:
         st.warning("Failed to retrieve plagiarism score.")
         return "N/A"
-
 
 def get_grading(submission_text, proposed_answer):
     if not proposed_answer.strip():
@@ -89,10 +86,10 @@ def get_grading(submission_text, proposed_answer):
     return feedback_message, alignment_grade
 
 def generate_feedback(correlation_percentage, submission_text, proposed_answer):
-    # Sample logic to generate feedback based on correlation percentage
+    # Sample feedback generation based on correlation percentage
     if correlation_percentage >= 90:
         feedback_message = "Excellent alignment with the proposed answer."
-        alignment_grade = 1
+        alignment_grade = 1.0
     elif correlation_percentage >= 70:
         feedback_message = "Good alignment, though some details could be improved."
         alignment_grade = 0.8
@@ -104,7 +101,6 @@ def generate_feedback(correlation_percentage, submission_text, proposed_answer):
         alignment_grade = 0.4
     
     return feedback_message, alignment_grade
-
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
@@ -161,7 +157,13 @@ if st.button("Download and Grade Submissions"):
                     }
 
                     editable_feedback = st.text_area(f"Edit Feedback for {user_name}:", feedback, key=f"feedback_{user_id}")
-                    editable_grade = st.number_input(f"Edit Grade for {user_name}:", min_value=0, max_value=1, value=alignment_grade, key=f"grade_{user_id}")
+                    editable_grade = st.number_input(
+                        f"Edit Grade for {user_name}:",
+                        min_value=0.0,  # Use float for consistency
+                        max_value=1.0,  # Use float for consistency
+                        value=float(alignment_grade),  # Ensure alignment_grade is a float
+                        key=f"grade_{user_id}"
+                    )
 
                     st.write("Feedback:")
                     st.write(editable_feedback)
