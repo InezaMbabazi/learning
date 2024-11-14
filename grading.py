@@ -55,10 +55,13 @@ def check_plagiarism(submission_text):
     payload = {"text": submission_text}
     response = requests.post(f"{TURNITIN_BASE_URL}/check", headers=headers, json=payload)
     if response.status_code == 200:
-        return response.json().get("plagiarism_score", "N/A")
+        plagiarism_score = response.json().get("plagiarism_score", "N/A")
+        st.markdown(f"<span style='color:red;'>Plagiarism Score: {plagiarism_score}%</span>", unsafe_allow_html=True)
+        return plagiarism_score
     else:
         st.warning("Failed to retrieve plagiarism score.")
         return "N/A"
+
 
 def get_grading(submission_text, proposed_answer):
     if not proposed_answer.strip():
