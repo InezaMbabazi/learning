@@ -89,9 +89,22 @@ def get_grading(submission_text, proposed_answer):
     return feedback_message, alignment_grade
 
 def generate_feedback(correlation_percentage, submission_text, proposed_answer):
-    # Feedback generation logic (same as in your original code)
-    # ...
+    # Sample logic to generate feedback based on correlation percentage
+    if correlation_percentage >= 90:
+        feedback_message = "Excellent alignment with the proposed answer."
+        alignment_grade = 1
+    elif correlation_percentage >= 70:
+        feedback_message = "Good alignment, though some details could be improved."
+        alignment_grade = 0.8
+    elif correlation_percentage >= 50:
+        feedback_message = "Fair alignment, with room for significant improvement."
+        alignment_grade = 0.6
+    else:
+        feedback_message = "Poor alignment with the proposed answer."
+        alignment_grade = 0.4
+    
     return feedback_message, alignment_grade
+
 
 # Streamlit UI
 st.image("header.png", use_column_width=True)
