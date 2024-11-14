@@ -51,8 +51,8 @@ def get_grading(submission_text, proposed_answer):
         return "No proposed answer provided. Unable to give feedback.", 0
 
     correlation_prompt = (
-        f"Compare the following user submission to the proposed answer and rate the alignment as a percentage (0-100)."
-        f"\n\n**Proposed Answer**:\n{proposed_answer}\n\n**User Submission**:\n{submission_text}\n\n"
+        f"Compare the following submission to the proposed answer and rate the alignment as a percentage (0-100)."
+        f"\n\n**Proposed Answer**:\n{proposed_answer}\n\n**Submission**:\n{submission_text}\n\n"
         "Provide only the correlation percentage as an integer."
     )
 
@@ -122,7 +122,7 @@ def generate_feedback(correlation_percentage, submission_text, proposed_answer):
     if correlation_percentage > 0:
         improvement_prompt = (
             f"Provide specific feedback on how to improve the following response to align with the expected answer:\n\n"
-            f"**Proposed Answer**:\n{proposed_answer}\n\n**User Submission**:\n{submission_text}\n\n"
+            f"**Proposed Answer**:\n{proposed_answer}\n\n**Submission**:\n{submission_text}\n\n"
         )
         
         improvement_response = openai.ChatCompletion.create(
@@ -173,7 +173,7 @@ if st.button("Download and Grade Submissions"):
 
                 if submission_text:
                     st.subheader(f"Submission by {user_name} (User ID: {user_id})")
-                    st.text_area("User Submission:", submission_text, height=200)
+                    st.text_area("Submission:", submission_text, height=200)
 
                     feedback, alignment_grade = get_grading(submission_text, proposed_answer)
                     feedback_key = f"{user_id}_{assignment_id}"
