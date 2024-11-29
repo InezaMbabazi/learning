@@ -13,6 +13,7 @@ if not os.path.exists(RECORDS_DIR):
     os.makedirs(RECORDS_DIR)
 
 # Function to generate multiple-choice questions based on lesson content
+# Function to generate multiple-choice questions based on lesson content
 def generate_mc_questions(lesson_content):
     prompt = f"""
     Based on the following lesson content, generate 3 multiple-choice questions. 
@@ -32,23 +33,33 @@ def generate_mc_questions(lesson_content):
     parsed_questions = []
     for question_raw in questions_raw:
         lines = question_raw.strip().split("\n")
+        
+        # Ensure that we have a question, options, and the correct answer
         if len(lines) < 6:
             st.error(f"Unexpected question format: {lines}")
             continue
         
-        question_text = lines[0]
-        options = lines[1:5]
+        # Extract question text
+        question_text = lines[0].strip()
+
+        # Extract options
+        options = [line.strip() for line in lines[1:5]]  # Options are typically the next four lines
+        
+        # Extract correct answer
         correct_answer_line = next((line for line in lines if "Correct Answer:" in line), None)
         if not correct_answer_line:
             st.error(f"No correct answer found in: {lines}")
             continue
         
-        correct_answer = correct_answer_line.split(":")[-1].strip()
+        # The correct answer is the option marked after "Correct Answer:"
+        correct_answer = correct_answer_line.split(":")[-1].strip().split(" ")[0]  # Get option like A, B, C, D
+        
         parsed_questions.append({
             "question": question_text,
             "options": options,
             "correct": correct_answer
         })
+    
     return parsed_questions
 
 # Function to generate personalized feedback
