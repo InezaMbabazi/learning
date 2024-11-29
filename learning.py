@@ -5,7 +5,7 @@ import PyPDF2
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Function to generate questions based on lesson content
+# Function to generate multiple-choice questions based on lesson content
 def generate_mc_questions(lesson_content):
     prompt = f"""
     Based on the following lesson content, generate 3 multiple-choice questions. 
@@ -54,25 +54,16 @@ def load_pdf_content(file):
             content += text + "\n"
     return content.strip()
 
-# Function to handle chatbot responses
-def chat_with_content(question, lesson_content):
-    prompt = f"The following is lesson content:\n{lesson_content}\n\nUser's question: {question}\nAnswer the question based on the content provided."
-    
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    answer = response['choices'][0]['message']['content'].strip()
-    return answer
-
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Lesson Assistant")
 
-st.markdown("""<div style="background-color: #f0f0f5; padding: 20px; border-radius: 10px;">
-<h3 style="color: #2E86C1;">Welcome to Kepler College's AI-Powered Lesson Assistant</h3>
-<p>Upload your lesson content in <strong>PDF format</strong>, or type the lesson content manually. Submit your content and questions at the end.</p>
-</div>""", unsafe_allow_html=True)
+st.markdown("""
+    <div style="background-color: #f0f0f5; padding: 20px; border-radius: 10px;">
+        <h3 style="color: #2E86C1;">Welcome to Kepler College's AI-Powered Lesson Assistant</h3>
+        <p>Upload your lesson content in <strong>PDF format</strong>, or type the lesson content manually.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Option 1: Upload PDF file
 st.subheader("Option 1: Upload PDF File")
@@ -82,37 +73,51 @@ uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 st.subheader("Option 2: Paste Specific Lesson Content Here")
 manual_content = st.text_area("Paste lesson content here:")
 
-# Processing inputs
+# Load content from PDF or manual input
 lesson_content = None
 if uploaded_file is not None:
     lesson_content = load_pdf_content(uploaded_file)
+    st.subheader("PDF Content")
+    st.write(lesson_content)
 elif manual_content:
     lesson_content = manual_content
 
-# Submit button
-if st.button("Submit"):
-    if not lesson_content:
-        st.error("Please upload a PDF file or enter the lesson content manually.")
-    else:
-        # Display Lesson Content
-        st.subheader("Lesson Content")
-        st.write(lesson_content)
-        
-        # Generate Questions
-        st.subheader("Generated Multiple-Choice Questions")
+# Generate test questions and display them
+if lesson_content:
+    if st.button("Generate Test Questions"):
         mc_questions = generate_mc_questions(lesson_content)
-        for i, question in enumerate(mc_questions, 1):
-            st.write(f"**Question {i}:** {question['question']}")
-            for option in question['options']:
-                st.write(option)
-            st.write(f"**Correct Answer:** {question['correct']}")
-            st.write("---")
+        if mc_questions:
+            st.session_state["questions"] = mc_questions
+        else:
+            st.write("No valid questions were generated. Please revise the content.")
+
+# Display questions and capture user answers
+if "questions" in st.session_state:
+    st.subheader("Test Yourself!")
+    user_answers = []
+    for idx, question in enumerate(st.session_state["questions"]):
+        st.write(f"**Question {idx + 1}:** {question['question']}")
+        for option in question["options"]:
+            st.write(option)
+        user_answer = st.radio(
+            f"Select your answer for Question {idx + 1}:", 
+            options=["A", "B", "C", "D"], 
+            key=f"q{idx + 1}"
+        )
+        user_answers.append(user_answer)
+    
+    # Submit button for all questions
+    if st.button("Submit Answers"):
+        score = 0
+        st.subheader("Results:")
+        for idx, (question, user_answer) in enumerate(zip(st.session_state["questions"], user_answers)):
+            correct_answer = question["correct"]
+            if user_answer == correct_answer:
+                score += 1
+                st.write(f"✅ **Question {idx + 1}: Correct!** The correct answer is {correct_answer}.")
+            else:
+                st.write(f"❌ **Question {idx + 1}: Incorrect.** The correct answer is {correct_answer}.")
         
-        # Chatbot Interaction
-        st.subheader("Ask a Question About the Lesson Content")
-        user_question = st.text_input("Your question about the lesson content:")
-        
-        if user_question:
-            answer = chat_with_content(user_question, lesson_content)
-            st.write("**Answer:**")
-            st.write(answer)
+        st.write(f"**Your Score: {score}/{len(st.session_state['questions'])}**")
+else:
+    st.write("Please upload a lesson or enter content to generate questions.")
