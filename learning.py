@@ -5,45 +5,33 @@ import PyPDF2
 # Initialize OpenAI API with the secret key
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Function to generate questions based on lesson content
-def generate_questions_from_content(lesson_content):
-    prompt = f"Generate 3 questions based on the following lesson content:\n{lesson_content}\n\nEnsure the questions test understanding comprehensively."
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    generated_questions = response['choices'][0]['message']['content'].strip().split("\n")
-    return generated_questions
-
-# Function to assess user answers
-def assess_user_answers(questions, user_answers, lesson_content):
+# Function to generate multiple-choice questions
+def generate_mc_questions(lesson_content):
     prompt = f"""
-    The following are the lesson content, questions, and user answers:
-    Lesson Content: {lesson_content}
-    Questions: {questions}
-    User Answers: {user_answers}
+    Based on the following lesson content, generate 3 multiple-choice questions. 
+    For each question, provide 4 options (A, B, C, D) with one correct answer clearly marked:
     
-    Provide an assessment of the user's answers, identify weaknesses, and suggest areas for improvement.
+    Lesson Content: {lesson_content}
     """
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}]
     )
-    assessment = response['choices'][0]['message']['content'].strip()
-    return assessment
-
-# Function to fetch targeted content based on weaknesses
-def fetch_targeted_content(weaknesses, lesson_content):
-    prompt = f"""
-    Based on the user's weaknesses: {weaknesses}, generate a focused summary or explanation to help them improve. Use the following lesson content for reference:
-    {lesson_content}
-    """
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    targeted_content = response['choices'][0]['message']['content'].strip()
-    return targeted_content
+    questions = response['choices'][0]['message']['content'].strip().split("\n\n")
+    
+    # Parse questions into a structured format
+    parsed_questions = []
+    for question in questions:
+        lines = question.split("\n")
+        question_text = lines[0]
+        options = lines[1:5]
+        correct_answer = lines[5].split(":")[-1].strip()  # Extract the correct answer
+        parsed_questions.append({
+            "question": question_text,
+            "options": options,
+            "correct": correct_answer
+        })
+    return parsed_questions
 
 # Function to load PDF content
 def load_pdf_content(file):
@@ -85,28 +73,28 @@ elif manual_content:
 
 # Adaptive assessment process
 if lesson_content:
-    st.subheader("Adaptive Learning Mode")
+    st.subheader("Multiple-Choice Assessment Mode")
     
-    if st.button("Start Assessment"):
-        generated_questions = generate_questions_from_content(lesson_content)
-        st.subheader("Generated Questions")
+    if st.button("Generate Questions"):
+        mc_questions = generate_mc_questions(lesson_content)
         user_answers = []
-        for i, question in enumerate(generated_questions, 1):
-            user_answer = st.text_input(f"Question {i}: {question}", key=f"q{i}")
-            user_answers.append(user_answer)
+        correct_count = 0
         
-        if st.button("Submit Answers"):
-            assessment = assess_user_answers(generated_questions, user_answers, lesson_content)
-            st.subheader("Assessment and Feedback")
-            st.write(assessment)
+        for i, q in enumerate(mc_questions, 1):
+            st.write(f"**Question {i}:** {q['question']}")
+            answer = st.radio(f"Choose your answer for Question {i}:", q['options'], key=f"q{i}")
+            user_answers.append(answer)
             
-            # Extract weaknesses from the assessment
-            weaknesses = "Identify weaknesses based on the feedback provided."
-            targeted_content = fetch_targeted_content(weaknesses, lesson_content)
-            
-            st.subheader("Targeted Content for Improvement")
-            st.write(targeted_content)
-            
-            st.write("Reassess after reviewing the content to track improvement.")
+            # Compare user answer with correct answer
+            if st.button(f"Submit Answer for Question {i}", key=f"submit{i}"):
+                if answer.startswith(q['correct']):
+                    st.success("Correct!")
+                    correct_count += 1
+                else:
+                    st.error(f"Wrong! The correct answer is: {q['correct']}")
+        
+        # Display final score
+        if st.button("Finish Assessment"):
+            st.write(f"**You got {correct_count}/{len(mc_questions)} questions correct!**")
 else:
     st.write("Please upload a PDF file or enter the lesson content manually.")
