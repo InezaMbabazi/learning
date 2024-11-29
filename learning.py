@@ -9,7 +9,10 @@ openai.api_key = st.secrets["openai"]["api_key"]
 def generate_mc_questions(lesson_content):
     prompt = f"""
     Based on the following lesson content, generate 3 multiple-choice questions. 
-    For each question, provide 4 options (A, B, C, D) with one correct answer clearly marked:
+    For each question, provide:
+    1. The question text.
+    2. Four options (A, B, C, D).
+    3. Mark the correct answer with the format: "Correct Answer: <Option Letter>".
     
     Lesson Content: {lesson_content}
     """
@@ -17,21 +20,30 @@ def generate_mc_questions(lesson_content):
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}]
     )
-    questions = response['choices'][0]['message']['content'].strip().split("\n\n")
+    questions_raw = response['choices'][0]['message']['content'].strip().split("\n\n")
     
-    # Parse questions into a structured format
     parsed_questions = []
-    for question in questions:
-        lines = question.split("\n")
+    for question_raw in questions_raw:
+        lines = question_raw.strip().split("\n")
+        if len(lines) < 6:  # Check if the response is in the correct format
+            st.error(f"Unexpected question format: {lines}")
+            continue  # Skip invalid questions
+        
         question_text = lines[0]
         options = lines[1:5]
-        correct_answer = lines[5].split(":")[-1].strip()  # Extract the correct answer
+        correct_answer_line = next((line for line in lines if "Correct Answer:" in line), None)
+        if not correct_answer_line:
+            st.error(f"No correct answer found in: {lines}")
+            continue  # Skip if no correct answer
+        
+        correct_answer = correct_answer_line.split(":")[-1].strip()
         parsed_questions.append({
             "question": question_text,
             "options": options,
             "correct": correct_answer
         })
     return parsed_questions
+
 
 # Function to load PDF content
 def load_pdf_content(file):
