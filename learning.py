@@ -72,6 +72,22 @@ def load_pdf_content(file):
             content += text + "\n"
     return content.strip()
 
+# Function to handle chatbot responses based on the content
+def chat_with_content(user_question, lesson_content):
+    prompt = f"""
+    The following is lesson content:\n{lesson_content}
+    
+    User's question: {user_question}
+    
+    Please provide a detailed, clear answer based on the lesson content.
+    """
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    answer = response['choices'][0]['message']['content'].strip()
+    return answer
+
 # Streamlit UI
 st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Lesson Assistant")
@@ -99,6 +115,16 @@ if uploaded_file is not None:
     st.write(lesson_content)
 elif manual_content:
     lesson_content = manual_content
+
+# Option for chatting with content
+if lesson_content:
+    st.subheader("Chat with the Content")
+    user_question = st.text_input("Ask a question about the lesson content:")
+
+    if user_question:
+        answer = chat_with_content(user_question, lesson_content)
+        st.write("**Answer:**")
+        st.write(answer)
 
 # Generate test questions and display them
 if lesson_content:
