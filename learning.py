@@ -7,15 +7,43 @@ openai.api_key = st.secrets["openai"]["api_key"]
 
 # Function to generate questions based on lesson content
 def generate_questions_from_content(lesson_content):
-    prompt = f"Generate 3 questions based on the following lesson content:\n{lesson_content}\n\nMake sure the questions test the student's understanding."
-    
+    prompt = f"Generate 3 questions based on the following lesson content:\n{lesson_content}\n\nEnsure the questions test understanding comprehensively."
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}]
     )
-    
     generated_questions = response['choices'][0]['message']['content'].strip().split("\n")
     return generated_questions
+
+# Function to assess user answers
+def assess_user_answers(questions, user_answers, lesson_content):
+    prompt = f"""
+    The following are the lesson content, questions, and user answers:
+    Lesson Content: {lesson_content}
+    Questions: {questions}
+    User Answers: {user_answers}
+    
+    Provide an assessment of the user's answers, identify weaknesses, and suggest areas for improvement.
+    """
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    assessment = response['choices'][0]['message']['content'].strip()
+    return assessment
+
+# Function to fetch targeted content based on weaknesses
+def fetch_targeted_content(weaknesses, lesson_content):
+    prompt = f"""
+    Based on the user's weaknesses: {weaknesses}, generate a focused summary or explanation to help them improve. Use the following lesson content for reference:
+    {lesson_content}
+    """
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    targeted_content = response['choices'][0]['message']['content'].strip()
+    return targeted_content
 
 # Function to load PDF content
 def load_pdf_content(file):
@@ -27,25 +55,14 @@ def load_pdf_content(file):
             content += text + "\n"
     return content.strip()
 
-# Function to handle chatbot responses
-def chat_with_content(question, lesson_content):
-    prompt = f"The following is lesson content:\n{lesson_content}\n\nUser's question: {question}\nAnswer the question based on the content provided."
-    
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    answer = response['choices'][0]['message']['content'].strip()
-    return answer
-
 # Streamlit UI
 st.image("header.png", use_column_width=True)
-st.title("Kepler College AI-Powered Lesson Assistant")
+st.title("Kepler College AI-Powered Adaptive Learning Assistant")
 
 st.markdown("""
     <div style="background-color: #f0f0f5; padding: 20px; border-radius: 10px;">
-        <h3 style="color: #2E86C1;">Welcome to Kepler College's AI-Powered Lesson Assistant</h3>
-        <p>Upload your lesson content in <strong>PDF format</strong>, or type the lesson content manually.</p>
+        <h3 style="color: #2E86C1;">Welcome to Kepler College's AI-Powered Adaptive Learning Assistant</h3>
+        <p>Upload your lesson content in <strong>PDF format</strong>, or type it manually. Assess your understanding, address weaknesses, and improve iteratively.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -66,22 +83,30 @@ if uploaded_file is not None:
 elif manual_content:
     lesson_content = manual_content
 
-# Chatbot interaction
-st.subheader("Ask a Question About the Lesson Content")
+# Adaptive assessment process
 if lesson_content:
-    user_question = st.text_input("Your question about the lesson content:")
+    st.subheader("Adaptive Learning Mode")
     
-    if user_question:
-        answer = chat_with_content(user_question, lesson_content)
-        st.write("**Answer:**")
-        st.write(answer)
+    if st.button("Start Assessment"):
+        generated_questions = generate_questions_from_content(lesson_content)
+        st.subheader("Generated Questions")
+        user_answers = []
+        for i, question in enumerate(generated_questions, 1):
+            user_answer = st.text_input(f"Question {i}: {question}", key=f"q{i}")
+            user_answers.append(user_answer)
+        
+        if st.button("Submit Answers"):
+            assessment = assess_user_answers(generated_questions, user_answers, lesson_content)
+            st.subheader("Assessment and Feedback")
+            st.write(assessment)
+            
+            # Extract weaknesses from the assessment
+            weaknesses = "Identify weaknesses based on the feedback provided."
+            targeted_content = fetch_targeted_content(weaknesses, lesson_content)
+            
+            st.subheader("Targeted Content for Improvement")
+            st.write(targeted_content)
+            
+            st.write("Reassess after reviewing the content to track improvement.")
 else:
     st.write("Please upload a PDF file or enter the lesson content manually.")
-
-# Generate test questions if content is available
-if lesson_content:
-    if st.button("Generate Test Questions"):
-        generated_questions = generate_questions_from_content(lesson_content)
-        st.subheader("Generated Test Questions")
-        for i, question in enumerate(generated_questions, 1):
-            st.write(f"Question {i}: {question}")
