@@ -1,173 +1,132 @@
 import streamlit as st
+import pandas as pd
 import openai
 import PyPDF2
+import os
 
-# Initialize OpenAI API with the secret key
+# Initialize OpenAI API
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Function to generate multiple-choice questions based on lesson content
-def generate_mc_questions(lesson_content):
-    prompt = f"""
-    Based on the following lesson content, generate 3 multiple-choice questions. 
-    For each question, provide:
-    1. The question text.
-    2. Four options (A, B, C, D).
-    3. Mark the correct answer with the format: "Correct Answer: <Option Letter>".
-    
-    Lesson Content: {lesson_content}
-    """
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    questions_raw = response['choices'][0]['message']['content'].strip().split("\n\n")
-    
-    parsed_questions = []
-    for question_raw in questions_raw:
-        lines = question_raw.strip().split("\n")
-        if len(lines) < 6:
-            st.error(f"Unexpected question format: {lines}")
-            continue
-        
-        question_text = lines[0]
-        options = lines[1:5]
-        correct_answer_line = next((line for line in lines if "Correct Answer:" in line), None)
-        if not correct_answer_line:
-            st.error(f"No correct answer found in: {lines}")
-            continue
-        
-        correct_answer = correct_answer_line.split(":")[-1].strip()
-        parsed_questions.append({
-            "question": question_text,
-            "options": options,
-            "correct": correct_answer
-        })
-    return parsed_questions
+# CSV file paths
+STUDENT_DATA_FILE = "student_progress.csv"
+CHAT_HISTORY_FILE = "chat_history.csv"
 
-# Function to generate personalized feedback
-def generate_feedback(lesson_content, question, user_answer, correct_answer):
-    feedback_prompt = f"""
-    Lesson Content: {lesson_content}
-    
-    Question: {question}
-    User's Answer: {user_answer}
-    Correct Answer: {correct_answer}
-    
-    Provide feedback for the user based on their answer. If the user's answer is incorrect, suggest specific parts of the lesson content they should review to better understand the topic.
-    """
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": feedback_prompt}]
-    )
-    feedback = response['choices'][0]['message']['content'].strip()
-    return feedback
+# Ensure CSV files exist
+if not os.path.exists(STUDENT_DATA_FILE):
+    pd.DataFrame(columns=["student_id", "content_id", "question_id", "question", "answer", "correct_answer", "feedback", "score"]).to_csv(STUDENT_DATA_FILE, index=False)
 
-# Function to load PDF content
-def load_pdf_content(file):
-    reader = PyPDF2.PdfReader(file)
-    content = ''
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            content += text + "\n"
-    return content.strip()
+if not os.path.exists(CHAT_HISTORY_FILE):
+    pd.DataFrame(columns=["student_id", "content_id", "user_question", "ai_response"]).to_csv(CHAT_HISTORY_FILE, index=False)
 
-# Function to handle chatbot responses based on the content
+# Function to save student progress
+def save_student_progress(student_id, content_id, question_id, question, answer, correct_answer, feedback, score):
+    new_data = {
+        "student_id": student_id,
+        "content_id": content_id,
+        "question_id": question_id,
+        "question": question,
+        "answer": answer,
+        "correct_answer": correct_answer,
+        "feedback": feedback,
+        "score": score,
+    }
+    df = pd.read_csv(STUDENT_DATA_FILE)
+    df = df.append(new_data, ignore_index=True)
+    df.to_csv(STUDENT_DATA_FILE, index=False)
+
+# Function to load student progress
+def load_student_progress(student_id, content_id):
+    df = pd.read_csv(STUDENT_DATA_FILE)
+    return df[(df["student_id"] == student_id) & (df["content_id"] == content_id)]
+
+# Function to save chat history
+def save_chat_history(student_id, content_id, user_question, ai_response):
+    new_data = {
+        "student_id": student_id,
+        "content_id": content_id,
+        "user_question": user_question,
+        "ai_response": ai_response,
+    }
+    df = pd.read_csv(CHAT_HISTORY_FILE)
+    df = df.append(new_data, ignore_index=True)
+    df.to_csv(CHAT_HISTORY_FILE, index=False)
+
+# Function to load chat history
+def load_chat_history(student_id, content_id):
+    df = pd.read_csv(CHAT_HISTORY_FILE)
+    return df[(df["student_id"] == student_id) & (df["content_id"] == content_id)]
+
+# Function to chat with content
 def chat_with_content(user_question, lesson_content):
     prompt = f"""
-    The following is lesson content:\n{lesson_content}
+    Lesson Content: {lesson_content}
     
     User's question: {user_question}
     
-    Please provide a detailed, clear answer based on the lesson content.
+    Provide a clear answer based on the lesson content.
     """
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}]
     )
-    answer = response['choices'][0]['message']['content'].strip()
-    return answer
+    return response['choices'][0]['message']['content'].strip()
 
 # Streamlit UI
-st.image("header.png", use_column_width=True)
-st.title("Kepler College AI-Powered Lesson Assistant")
+st.title("AI-Powered Lesson Assistant with Memory (CSV Storage)")
+st.subheader("Welcome back! Let's continue your learning journey.")
 
-st.markdown("""
-    <div style="background-color: #f0f0f5; padding: 20px; border-radius: 10px;">
-        <h3 style="color: #2E86C1;">Welcome to Kepler College's AI-Powered Lesson Assistant</h3>
-        <p>Upload your lesson content in <strong>PDF format</strong>, or type the lesson content manually.</p>
-    </div>
-    """, unsafe_allow_html=True)
+# Student login
+student_id = st.text_input("Enter your Student ID (e.g., email):")
+content_id = st.text_input("Enter Content ID (e.g., Lesson Name):")
 
-# Option 1: Upload PDF file
-st.subheader("Option 1: Upload PDF File")
-uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
-
-# Option 2: Manual text input
-st.subheader("Option 2: Paste Specific Lesson Content Here")
-manual_content = st.text_area("Paste lesson content here:")
-
-# Load content from PDF or manual input
-lesson_content = None
-if uploaded_file is not None:
-    lesson_content = load_pdf_content(uploaded_file)
-    st.subheader("PDF Content")
-    st.write(lesson_content)
-elif manual_content:
-    lesson_content = manual_content
-
-# Option for chatting with content
-if lesson_content:
-    st.subheader("Chat with the Content")
-    user_question = st.text_input("Ask a question about the lesson content:")
-
-    if user_question:
-        answer = chat_with_content(user_question, lesson_content)
-        st.write("**Answer:**")
-        st.write(answer)
-
-# Generate test questions and display them
-if lesson_content:
-    if st.button("Generate Test Questions"):
-        mc_questions = generate_mc_questions(lesson_content)
-        if mc_questions:
-            st.session_state["questions"] = mc_questions
-        else:
-            st.write("No valid questions were generated. Please revise the content.")
-
-# Display questions and capture user answers
-if "questions" in st.session_state:
-    st.subheader("Test Yourself!")
-    user_answers = []
-    for idx, question in enumerate(st.session_state["questions"]):
-        st.write(f"**Question {idx + 1}:** {question['question']}")
-        for option in question["options"]:
-            st.write(option)
-        user_answer = st.radio(
-            f"Select your answer for Question {idx + 1}:", 
-            options=["A", "B", "C", "D"], 
-            key=f"q{idx + 1}"
-        )
-        user_answers.append(user_answer)
+if student_id and content_id:
+    st.write(f"Welcome, **{student_id}**! Your progress will be saved under **{content_id}**.")
     
-    # Submit button for all questions
-    if st.button("Submit Answers"):
-        score = 0
-        st.subheader("Results and Feedback:")
-        for idx, (question, user_answer) in enumerate(zip(st.session_state["questions"], user_answers)):
-            correct_answer = question["correct"]
-            st.write(f"**Question {idx + 1}:** {question['question']}")
-            
-            if user_answer == correct_answer:
-                score += 1
-                st.write(f"✅ Correct! The correct answer is {correct_answer}.")
-            else:
-                st.write(f"❌ Incorrect. The correct answer is {correct_answer}.")
-            
-            # Provide feedback and suggested learning
-            feedback = generate_feedback(lesson_content, question["question"], user_answer, correct_answer)
-            st.write(f"**Feedback:** {feedback}")
+    # Load lesson content
+    st.subheader("Upload Lesson Content")
+    uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
+    manual_content = st.text_area("Or paste the lesson content here:")
+    
+    lesson_content = None
+    if uploaded_file:
+        reader = PyPDF2.PdfReader(uploaded_file)
+        lesson_content = "".join(page.extract_text() for page in reader.pages)
+    elif manual_content:
+        lesson_content = manual_content
+    
+    if lesson_content:
+        st.subheader("Chat with the Lesson")
+        user_question = st.text_input("Ask a question about the content:")
+        if user_question:
+            ai_response = chat_with_content(user_question, lesson_content)
+            st.write("**AI Response:**")
+            st.write(ai_response)
+            save_chat_history(student_id, content_id, user_question, ai_response)
         
-        st.write(f"**Your Score: {score}/{len(st.session_state['questions'])}**")
-else:
-    st.write("Please upload a lesson or enter content to generate questions.")
+        # Display chat history
+        if st.button("Show Previous Questions"):
+            chat_history = load_chat_history(student_id, content_id)
+            if not chat_history.empty:
+                st.write("**Chat History:**")
+                for _, row in chat_history.iterrows():
+                    st.write(f"**Q:** {row['user_question']}")
+                    st.write(f"**A:** {row['ai_response']}")
+            else:
+                st.write("No chat history found.")
+    
+        # Generate test questions
+        if st.button("Generate Test Questions"):
+            # Call the question generation function (define your MC question logic here)
+            st.write("Feature coming soon: Test yourself!")
+    
+    # Load progress
+    st.subheader("Your Progress")
+    student_progress = load_student_progress(student_id, content_id)
+    if not student_progress.empty:
+        for _, record in student_progress.iterrows():
+            st.write(f"Question: {record['question']}")
+            st.write(f"Your Answer: {record['answer']} | Correct Answer: {record['correct_answer']}")
+            st.write(f"Feedback: {record['feedback']}")
+            st.write(f"Score: {record['score']}")
+    else:
+        st.write("No progress recorded yet.")
