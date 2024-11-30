@@ -12,6 +12,7 @@ RECORDS_DIR = "student_records"
 if not os.path.exists(RECORDS_DIR):
     os.makedirs(RECORDS_DIR)
 
+
 # Function to generate multiple-choice questions based on lesson content
 def generate_mc_questions(lesson_content):
     prompt = f"""
@@ -32,17 +33,26 @@ def generate_mc_questions(lesson_content):
     parsed_questions = []
     for question_raw in questions_raw:
         lines = question_raw.strip().split("\n")
-        if len(lines) < 6:
+        
+        # Check if question structure is valid (should have at least 5 lines)
+        if len(lines) < 5:
             st.error(f"Unexpected question format: {lines}")
             continue
         
+        # Parse the question text and options
         question_text = lines[0].strip()
         options = [line.strip() for line in lines[1:5]]
-        correct_answer_line = next((line for line in lines if "Correct Answer:" in line), None)
-        if not correct_answer_line:
-            st.error(f"No correct answer found in: {lines}")
+        
+        # Find the correct answer (line starting with "Correct Answer:")
+        correct_answer = None
+        for line in lines[5:]:
+            if "Correct Answer:" in line:
+                correct_answer = line.split(":")[-1].strip().split(" ")[0]
+                break
+        
+        if not correct_answer:
+            st.error(f"Correct answer not found in: {lines}")
             continue
-        correct_answer = correct_answer_line.split(":")[-1].strip().split(" ")[0]
         
         parsed_questions.append({
             "question": question_text,
@@ -51,6 +61,7 @@ def generate_mc_questions(lesson_content):
         })
     
     return parsed_questions
+
 
 # Function to generate personalized feedback
 def generate_feedback(lesson_content, question, user_answer, correct_answer):
