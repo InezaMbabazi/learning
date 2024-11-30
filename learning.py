@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import openai
+import fitz  # PyMuPDF
 from io import StringIO
 
 # Initialize OpenAI API
@@ -116,6 +117,14 @@ def update_overall_performance(student_id, total_score, total_questions):
         })
         new_data.to_csv(overall_file_path, index=False)
 
+# Function to extract text from uploaded PDF
+def extract_text_from_pdf(uploaded_file):
+    doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+    text = ""
+    for page in doc:
+        text += page.get_text()
+    return text
+
 # Streamlit UI
 st.title("Kepler College AI-Powered Lesson Assistant")
 
@@ -166,7 +175,7 @@ manual_content = st.text_area("Paste lesson content here:")
 
 lesson_content = ""
 if uploaded_file is not None:
-    lesson_content = uploaded_file.read().decode("utf-8")
+    lesson_content = extract_text_from_pdf(uploaded_file)  # Extract text from PDF
 elif manual_content:
     lesson_content = manual_content
 
@@ -215,18 +224,9 @@ if lesson_content:
                     st.success(f"Question {idx + 1}: Correct!")
                     score += 1
                 else:
-                    st.error(f"Question {idx + 1}: Incorrect. Correct Answer: {question['correct']}")
-
-            # Save progress
+                    st.error(f"Question {idx + 1}: Incorrect!")
+            
+            total_questions = len(st.session_state["questions"])
+            update_overall_performance(student_id, score, total_questions)
             save_student_progress(student_id, progress_data)
-
-            # Update overall performance
-            update_overall_performance(student_id, score, len(st.session_state["questions"]))
-
-            mastery_score = score / len(st.session_state["questions"])
-            if mastery_score >= 0.8:
-                st.success("You have mastered this lesson!")
-            else:
-                st.warning("You need more practice. Try again.")
-else:
-    st.warning("Please upload or enter lesson content.")
+            st.success(f"Your score: {score}/{total_questions}")
