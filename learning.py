@@ -61,7 +61,7 @@ def generate_mc_questions(lesson_content):
     
     return parsed_questions
 
-# Function to generate personalized feedback
+# Function to generate personalized feedback with lesson content
 def generate_feedback(lesson_content, question, user_answer, correct_answer):
     feedback_prompt = f"""
     Lesson Content: {lesson_content}
@@ -70,7 +70,8 @@ def generate_feedback(lesson_content, question, user_answer, correct_answer):
     User's Answer: {user_answer}
     Correct Answer: {correct_answer}
     
-    Provide feedback for the user based on their answer. If the user's answer is incorrect, suggest specific parts of the lesson content they should review to better understand the topic.
+    Provide feedback for the user based on their answer. If the user's answer is incorrect, suggest specific parts of the lesson content they should review to better understand the topic. 
+    Return the suggested content in bullet points.
     """
     try:
         response = openai.ChatCompletion.create(
@@ -225,8 +226,25 @@ if lesson_content:
                     score += 1
                 else:
                     st.error(f"Question {idx + 1}: Incorrect!")
+                    st.write(f"**Suggested Content to Review:** {feedback}")
             
             total_questions = len(st.session_state["questions"])
             update_overall_performance(student_id, score, total_questions)
             save_student_progress(student_id, progress_data)
             st.success(f"Your score: {score}/{total_questions}")
+
+            # Show overall percentage after completion
+            if st.button("Show Overall Performance"):
+                overall_file_path = os.path.join(RECORDS_DIR, "overall_performance.csv")
+                if os.path.exists(overall_file_path):
+                    overall_df = pd.read_csv(overall_file_path)
+                    student_data = overall_df[overall_df['student_id'] == student_id]
+                    if not student_data.empty:
+                        total_score = student_data['Total Score'].values[0]
+                        total_questions = student_data['Total Questions'].values[0]
+                        percentage = (total_score / total_questions) * 100
+                        st.write(f"Your overall performance: {percentage:.2f}%")
+                    else:
+                        st.warning("No performance data found.")
+                else:
+                    st.warning("No performance records found.")
