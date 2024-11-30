@@ -213,20 +213,17 @@ if lesson_content:
             score = 0
             progress_data = []
             for idx, question in enumerate(st.session_state["questions"]):
-                feedback = generate_feedback(lesson_content, question["question"], user_answers[idx], question["correct"])
-                progress_data.append({
-                    "student_id": student_id,
-                    "Question": question["question"],
-                    "User Answer": user_answers[idx],
-                    "Correct Answer": question["correct"],
-                    "Feedback": feedback
-                })
-                if user_answers[idx] == question["correct"]:
-                    st.success(f"Question {idx + 1}: Correct!")
+                correct_answer = question["correct"]
+                if user_answers[idx] == correct_answer:
                     score += 1
-                else:
-                    st.error(f"Question {idx + 1}: Incorrect!")
-                    st.write(f"**Suggested Content to Review:** {feedback}")
+
+                feedback = generate_feedback(lesson_content, question['question'], user_answers[idx], correct_answer)
+                progress_data.append({
+                    'question': question['question'],
+                    'user_answer': user_answers[idx],
+                    'correct_answer': correct_answer,
+                    'feedback': feedback
+                })
             
             total_questions = len(st.session_state["questions"])
             update_overall_performance(student_id, score, total_questions)
@@ -244,6 +241,11 @@ if lesson_content:
                         total_questions = student_data['Total Questions'].values[0]
                         percentage = (total_score / total_questions) * 100
                         st.write(f"Your overall performance: {percentage:.2f}%")
+                        
+                        # Offer additional assessments if percentage is low
+                        if percentage < 50:
+                            st.write("Your score is below 50%. We recommend you take additional assessments to improve your understanding of the content.")
+                            st.button("Take More Assessments")
                     else:
                         st.warning("No performance data found.")
                 else:
