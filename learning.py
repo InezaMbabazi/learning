@@ -18,8 +18,7 @@ def load_students():
     if os.path.exists(student_file_path):
         return pd.read_csv(student_file_path)
     else:
-        st.error("Student records not found.")
-        return pd.DataFrame()
+        return pd.DataFrame(columns=["student_id", "First Name", "Last Name", "Email"])
 
 # Function to generate multiple-choice questions based on lesson content
 def generate_mc_questions(lesson_content):
@@ -136,9 +135,29 @@ if not student_id:
     st.warning("Please enter your student_id to proceed.")
     st.stop()
 
-# Verify the student_id exists in the directory
+# Check if student exists in the database
 if student_id not in students_df['student_id'].values:
-    st.error("Invalid student_id. Please check and enter a valid ID.")
+    # If not, prompt the user to register
+    st.warning("This student_id is not registered. Please provide your details to register.")
+    
+    first_name = st.text_input("Enter your first name:")
+    last_name = st.text_input("Enter your last name:")
+    email = st.text_input("Enter your email address:")
+    
+    if st.button("Register"):
+        if first_name and last_name and email:
+            # Add the student to the CSV file
+            new_student = pd.DataFrame([{
+                'student_id': student_id,
+                'First Name': first_name,
+                'Last Name': last_name,
+                'Email': email
+            }])
+            students_df = pd.concat([students_df, new_student], ignore_index=True)
+            students_df.to_csv(os.path.join(RECORDS_DIR, 'students.csv'), index=False)
+            st.success("Student successfully registered.")
+        else:
+            st.error("Please fill in all fields to register.")
     st.stop()
 
 # Upload or enter lesson content
