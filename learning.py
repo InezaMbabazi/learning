@@ -12,6 +12,7 @@ RECORDS_DIR = "student_records"
 if not os.path.exists(RECORDS_DIR):
     os.makedirs(RECORDS_DIR)
 
+
 # Function to generate multiple-choice questions based on lesson content
 def generate_mc_questions(lesson_content):
     prompt = f"""
@@ -19,7 +20,7 @@ def generate_mc_questions(lesson_content):
     For each question, provide:
     1. The question text.
     2. Four options (A, B, C, D).
-    3. Mark the correct answer with the format: "Correct Answer: <Option Letter>".
+    3. Mark the correct answer with the format: "Correct Answer: <Option Letter>". 
     
     Lesson Content: {lesson_content}
     """
@@ -60,6 +61,7 @@ def generate_mc_questions(lesson_content):
         })
     
     return parsed_questions
+
 
 # Function to generate personalized feedback
 def generate_feedback(lesson_content, question, user_answer, correct_answer):
@@ -176,11 +178,12 @@ if lesson_content:
                 st.write(f"**Question {idx + 1}:** {question['question']}")
                 for option in question["options"]:
                     st.write(option)
+                
+                # Unique key for each question based on index
                 user_answer = st.radio(f"Your answer for Question {idx + 1}:", ["A", "B", "C", "D"], key=f"q{idx + 1}")
                 user_answers.append(user_answer)
 
-            # Dynamically generate a unique key for the button
-            if st.button("Submit Answers", key="submit_answers"):
+            if st.button("Submit Answers"):
                 score = 0
                 for idx, question in enumerate(st.session_state["questions"]):
                     feedback = generate_feedback(lesson_content, question["question"], user_answers[idx], question["correct"])
@@ -209,6 +212,6 @@ if lesson_content:
                     is_mastered = True
                 else:
                     st.warning("You did not meet the mastery threshold. Please review the content and retake the test.")
-                    if st.button("Retake Test", key="retake_test"):
+                    if st.button("Retake Test"):
                         st.session_state["questions"] = generate_mc_questions(lesson_content)
                         continue
