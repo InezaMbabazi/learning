@@ -156,35 +156,49 @@ if lesson_content:
     if st.button("Generate Test Questions"):
         st.session_state["questions"] = generate_mc_questions(lesson_content)
 
-    if "questions" in st.session_state:
-        user_answers = []
-        progress_data = []
-        for idx, question in enumerate(st.session_state["questions"]):
-            st.write(f"**Question {idx + 1}:** {question['question']}")
-            for option in question["options"]:
-                st.write(option)
-            user_answer = st.radio(f"Your answer for Question {idx + 1}:", ["A", "B", "C", "D"], key=f"q{idx + 1}")
-            user_answers.append(user_answer)
+    mastery_score = 0.8  # Define mastery score (80% correct)
+    is_mastered = False
 
-        if st.button("Submit Answers"):
-            score = 0
+    while not is_mastered:
+        if "questions" in st.session_state:
+            user_answers = []
+            progress_data = []
             for idx, question in enumerate(st.session_state["questions"]):
-                feedback = generate_feedback(lesson_content, question["question"], user_answers[idx], question["correct"])
-                progress_data.append({
-                    "Student ID": student_id,
-                    "Question": question["question"],
-                    "User Answer": user_answers[idx],
-                    "Correct Answer": question["correct"],
-                    "Feedback": feedback
-                })
+                st.write(f"**Question {idx + 1}:** {question['question']}")
+                for option in question["options"]:
+                    st.write(option)
+                user_answer = st.radio(f"Your answer for Question {idx + 1}:", ["A", "B", "C", "D"], key=f"q{idx + 1}")
+                user_answers.append(user_answer)
 
-                if user_answers[idx] == question["correct"]:
-                    st.success(f"Question {idx + 1}: Correct!")
-                    score += 1
+            if st.button("Submit Answers"):
+                score = 0
+                for idx, question in enumerate(st.session_state["questions"]):
+                    feedback = generate_feedback(lesson_content, question["question"], user_answers[idx], question["correct"])
+                    progress_data.append({
+                        "Student ID": student_id,
+                        "Question": question["question"],
+                        "User Answer": user_answers[idx],
+                        "Correct Answer": question["correct"],
+                        "Feedback": feedback
+                    })
+
+                    if user_answers[idx] == question["correct"]:
+                        st.success(f"Question {idx + 1}: Correct!")
+                        score += 1
+                    else:
+                        st.error(f"Question {idx + 1}: Incorrect. Correct Answer: {question['correct']}")
+                        st.write(f"Feedback: {feedback}")
+
+                save_student_progress(student_id, progress_data)
+                update_overall_performance(student_id, score, len(st.session_state["questions"]))
+                st.write(f"**Your Score:** {score}/{len(st.session_state['questions'])}")
+                
+                # Check if mastery is achieved
+                if score / len(st.session_state["questions"]) >= mastery_score:
+                    st.success("Congratulations! You have mastered the content.")
+                    is_mastered = True
                 else:
-                    st.error(f"Question {idx + 1}: Incorrect. Correct Answer: {question['correct']}")
-                    st.write(f"Feedback: {feedback}")
-
-            save_student_progress(student_id, progress_data)
-            update_overall_performance(student_id, score, len(st.session_state["questions"]))
-            st.write(f"**Your Score:** {score}/{len(st.session_state['questions'])}")
+                    st.warning("You did not meet the mastery threshold. Please review the content and retake the test.")
+                    if st.button("Retake Test"):
+                        st.session_state["questions"] = generate_mc_questions(lesson_content)
+                        continue
