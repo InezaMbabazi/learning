@@ -13,7 +13,6 @@ if not os.path.exists(RECORDS_DIR):
     os.makedirs(RECORDS_DIR)
 
 # Function to generate multiple-choice questions based on lesson content
-# Function to generate multiple-choice questions based on lesson content
 def generate_mc_questions(lesson_content):
     prompt = f"""
     Based on the following lesson content, generate 3 multiple-choice questions. 
@@ -33,26 +32,17 @@ def generate_mc_questions(lesson_content):
     parsed_questions = []
     for question_raw in questions_raw:
         lines = question_raw.strip().split("\n")
-        
-        # Ensure that we have a question, options, and the correct answer
         if len(lines) < 6:
             st.error(f"Unexpected question format: {lines}")
             continue
         
-        # Extract question text
         question_text = lines[0].strip()
-
-        # Extract options
-        options = [line.strip() for line in lines[1:5]]  # Options are typically the next four lines
-        
-        # Extract correct answer
+        options = [line.strip() for line in lines[1:5]]
         correct_answer_line = next((line for line in lines if "Correct Answer:" in line), None)
         if not correct_answer_line:
             st.error(f"No correct answer found in: {lines}")
             continue
-        
-        # The correct answer is the option marked after "Correct Answer:"
-        correct_answer = correct_answer_line.split(":")[-1].strip().split(" ")[0]  # Get option like A, B, C, D
+        correct_answer = correct_answer_line.split(":")[-1].strip().split(" ")[0]
         
         parsed_questions.append({
             "question": question_text,
@@ -90,7 +80,7 @@ def load_pdf_content(file):
             content += text + "\n"
     return content.strip()
 
-# Function to handle chatbot responses based on the content
+# Function to handle chatbot responses
 def chat_with_content(user_question, lesson_content):
     prompt = f"""
     The following is lesson content:\n{lesson_content}
@@ -111,20 +101,16 @@ def save_student_progress(student_id, data):
     file_path = os.path.join(RECORDS_DIR, f"{student_id}_progress.csv")
     df = pd.DataFrame(data)
     if os.path.exists(file_path):
-        # Append new data to existing file
         df_existing = pd.read_csv(file_path)
         df_combined = pd.concat([df_existing, df], ignore_index=True)
         df_combined.to_csv(file_path, index=False)
     else:
-        # Save new file
         df.to_csv(file_path, index=False)
 
-# Function to update overall performance (total score)
+# Function to update overall performance
 def update_overall_performance(student_id, total_score, total_questions):
     overall_file_path = os.path.join(RECORDS_DIR, "overall_performance.csv")
-    
     if os.path.exists(overall_file_path):
-        # If file exists, update the student's performance
         overall_df = pd.read_csv(overall_file_path)
         if student_id in overall_df['Student ID'].values:
             overall_df.loc[overall_df['Student ID'] == student_id, 'Total Score'] += total_score
@@ -138,7 +124,6 @@ def update_overall_performance(student_id, total_score, total_questions):
             overall_df = pd.concat([overall_df, new_entry], ignore_index=True)
         overall_df.to_csv(overall_file_path, index=False)
     else:
-        # Create a new file with initial performance
         new_data = pd.DataFrame({
             'Student ID': [student_id],
             'Total Score': [total_score],
@@ -150,104 +135,47 @@ def update_overall_performance(student_id, total_score, total_questions):
 st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Lesson Assistant")
 
-st.markdown("""
-    <div style="background-color: #f0f0f5; padding: 20px; border-radius: 10px;">
-        <h3 style="color: #2E86C1;">Welcome to Kepler College's AI-Powered Lesson Assistant</h3>
-        <p>Upload your lesson content in <strong>PDF format</strong>, or type the lesson content manually.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-# Student ID input
 student_id = st.text_input("Enter your Student ID:", "")
 if not student_id:
     st.warning("Please enter your Student ID to proceed.")
     st.stop()
 
-# Option 1: Upload PDF file
-st.subheader("Option 1: Upload PDF File")
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
-
-# Option 2: Manual text input
-st.subheader("Option 2: Paste Specific Lesson Content Here")
 manual_content = st.text_area("Paste lesson content here:")
+lesson_content = load_pdf_content(uploaded_file) if uploaded_file else manual_content
 
-# Load content from PDF or manual input
-lesson_content = None
-if uploaded_file is not None:
-    lesson_content = load_pdf_content(uploaded_file)
-    st.subheader("PDF Content")
-    st.write(lesson_content)
-elif manual_content:
-    lesson_content = manual_content
-
-# Option for chatting with content
 if lesson_content:
     st.subheader("Chat with the Content")
     user_question = st.text_input("Ask a question about the lesson content:")
-
     if user_question:
-        answer = chat_with_content(user_question, lesson_content)
-        st.write("**Answer:**")
-        st.write(answer)
+        st.write(chat_with_content(user_question, lesson_content))
 
-# Generate test questions and display them
-if lesson_content:
     if st.button("Generate Test Questions"):
-        mc_questions = generate_mc_questions(lesson_content)
-        if mc_questions:
-            st.session_state["questions"] = mc_questions
-        else:
-            st.write("No valid questions were generated. Please revise the content.")
+        st.session_state["questions"] = generate_mc_questions(lesson_content)
 
-# Display questions and capture user answers
-if "questions" in st.session_state:
-    st.subheader("Test Yourself!")
-    user_answers = []
-    progress_data = []
-    for idx, question in enumerate(st.session_state["questions"]):
-        st.write(f"**Question {idx + 1}:** {question['question']}")
-        for option in question["options"]:
-            st.write(option)
-        user_answer = st.radio(
-            f"Select your answer for Question {idx + 1}:", 
-            options=["A", "B", "C", "D"], 
-            key=f"q{idx + 1}"
-        )
-        user_answers.append(user_answer)
-    
-    # Submit button for all questions
-    if st.button("Submit Answers"):
-        score = 0
-        st.subheader("Results and Feedback:")
-        for idx, (question, user_answer) in enumerate(zip(st.session_state["questions"], user_answers)):
-            correct_answer = question["correct"]
+    if "questions" in st.session_state:
+        user_answers = []
+        progress_data = []
+        for idx, question in enumerate(st.session_state["questions"]):
             st.write(f"**Question {idx + 1}:** {question['question']}")
-            
-            if user_answer == correct_answer:
-                score += 1
-                st.write(f"✅ Correct! The correct answer is {correct_answer}.")
-            else:
-                st.write(f"❌ Incorrect. The correct answer is {correct_answer}.")
-            
-            # Provide feedback and suggested learning
-            feedback = generate_feedback(lesson_content, question["question"], user_answer, correct_answer)
-            st.write(f"**Feedback:** {feedback}")
-            
-            # Add to progress data
-            progress_data.append({
-                "Student ID": student_id,
-                "Question": question["question"],
-                "User Answer": user_answer,
-                "Correct Answer": correct_answer,
-                "Feedback": feedback
-            })
-        
-        # Save progress
-        save_student_progress(student_id, progress_data)
-        
-        # Update overall performance
-        update_overall_performance(student_id, score, len(st.session_state["questions"]))
-        
-        # Display overall performance
-        st.write(f"**Your Score:** {score}/{len(st.session_state['questions'])}")
-        st.write("Your overall performance has been updated!")
+            for option in question["options"]:
+                st.write(option)
+            user_answer = st.radio(f"Your answer:", ["A", "B", "C", "D"], key=f"q{idx + 1}")
+            user_answers.append(user_answer)
+
+        if st.button("Submit Answers"):
+            score = 0
+            for idx, question in enumerate(st.session_state["questions"]):
+                feedback = generate_feedback(lesson_content, question["question"], user_answers[idx], question["correct"])
+                progress_data.append({
+                    "Student ID": student_id,
+                    "Question": question["question"],
+                    "User Answer": user_answers[idx],
+                    "Correct Answer": question["correct"],
+                    "Feedback": feedback
+                })
+                if user_answers[idx] == question["correct"]:
+                    score += 1
+            save_student_progress(student_id, progress_data)
+            update_overall_performance(student_id, score, len(st.session_state["questions"]))
+            st.write(f"**Score:** {score}/{len(st.session_state['questions'])}")
