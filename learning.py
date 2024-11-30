@@ -12,6 +12,16 @@ RECORDS_DIR = "student_records"
 if not os.path.exists(RECORDS_DIR):
     os.makedirs(RECORDS_DIR)
 
+# Directory CSV path
+DIRECTORY_CSV = "student_directory.csv"
+
+# Function to load the student directory
+def load_student_directory():
+    if os.path.exists(DIRECTORY_CSV):
+        return pd.read_csv(DIRECTORY_CSV)
+    else:
+        st.error("Student directory file not found.")
+        return pd.DataFrame()
 
 # Function to generate multiple-choice questions based on lesson content
 def generate_mc_questions(lesson_content):
@@ -149,11 +159,21 @@ def update_overall_performance(student_id, total_score, total_questions):
 st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Lesson Assistant")
 
+# Load student directory
+directory_df = load_student_directory()
+
+# Get student ID from user
 student_id = st.text_input("Enter your Student ID:", "")
 if not student_id:
     st.warning("Please enter your Student ID to proceed.")
     st.stop()
 
+# Verify the student ID exists
+if student_id not in directory_df['Student ID'].values:
+    st.error("Invalid Student ID. Please check and enter a valid ID.")
+    st.stop()
+
+# Proceed with lesson content
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 manual_content = st.text_area("Paste lesson content here:")
 lesson_content = load_pdf_content(uploaded_file) if uploaded_file else manual_content
@@ -200,18 +220,19 @@ if lesson_content:
                         score += 1
                     else:
                         st.error(f"Question {idx + 1}: Incorrect. Correct Answer: {question['correct']}")
-                        st.write(f"Feedback: {feedback}")
 
+                # Save progress
                 save_student_progress(student_id, progress_data)
+
+                # Update overall performance
                 update_overall_performance(student_id, score, len(st.session_state["questions"]))
-                st.write(f"**Your Score:** {score}/{len(st.session_state['questions'])}")
-                
-                # Check if mastery is achieved
-                if score / len(st.session_state["questions"]) >= mastery_score:
-                    st.success("Congratulations! You have mastered the content.")
+
+                mastery_score = score / len(st.session_state["questions"])
+                if mastery_score >= 0.8:
                     is_mastered = True
+                    st.success("You have mastered this lesson!")
                 else:
-                    st.warning("You did not meet the mastery threshold. Please review the content and retake the test.")
-                    if st.button("Retake Test"):
-                        st.session_state["questions"] = generate_mc_questions(lesson_content)
-                        continue
+                    st.warning("You need more practice. Try again.")
+
+else:
+    st.warning("Please upload or enter lesson content.")
