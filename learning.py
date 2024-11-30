@@ -1,32 +1,24 @@
 import streamlit as st
-import openai
-import PyPDF2
-import os
 import pandas as pd
-import requests
+import os
+import openai
 from io import StringIO
 
 # Initialize OpenAI API
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Directory for saving student records
+# Directory to save student records
 RECORDS_DIR = "learning"
 if not os.path.exists(RECORDS_DIR):
     os.makedirs(RECORDS_DIR)
 
-# GitHub repository raw URL for student directory CSV
-GITHUB_CSV_URL = "https://raw.githubusercontent.com/yourusername/yourrepository/main/learning/students.csv"
-
-# Function to load student directory from GitHub
-def load_student_directory_from_github():
-    try:
-        response = requests.get(GITHUB_CSV_URL)
-        response.raise_for_status()  # Check if the request was successful
-        csv_content = response.text
-        df = pd.read_csv(StringIO(csv_content))
-        return df
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching student directory from GitHub: {e}")
+# Load students from the CSV file
+def load_students():
+    student_file_path = os.path.join(RECORDS_DIR, 'students.csv')
+    if os.path.exists(student_file_path):
+        return pd.read_csv(student_file_path)
+    else:
+        st.error("Student records not found.")
         return pd.DataFrame()
 
 # Function to generate multiple-choice questions based on lesson content
@@ -50,11 +42,6 @@ def generate_mc_questions(lesson_content):
     for question_raw in questions_raw:
         lines = question_raw.strip().split("\n")
         
-        # Check if question structure is valid (should have at least 5 lines)
-        if len(lines) < 5:
-            st.error(f"Unexpected question format: {lines}")
-            continue
-        
         # Parse the question text and options
         question_text = lines[0].strip()
         options = [line.strip() for line in lines[1:5]]
@@ -66,10 +53,6 @@ def generate_mc_questions(lesson_content):
                 correct_answer = line.split(":")[-1].strip().split(" ")[0]
                 break
         
-        if not correct_answer:
-            st.error(f"Correct answer not found in: {lines}")
-            continue
-        
         parsed_questions.append({
             "question": question_text,
             "options": options,
@@ -77,7 +60,6 @@ def generate_mc_questions(lesson_content):
         })
     
     return parsed_questions
-
 
 # Function to generate personalized feedback
 def generate_feedback(lesson_content, question, user_answer, correct_answer):
@@ -99,32 +81,6 @@ def generate_feedback(lesson_content, question, user_answer, correct_answer):
     except Exception as e:
         feedback = f"An error occurred while generating feedback: {e}"
     return feedback
-
-# Function to load PDF content
-def load_pdf_content(file):
-    reader = PyPDF2.PdfReader(file)
-    content = ''
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            content += text + "\n"
-    return content.strip()
-
-# Function to handle chatbot responses
-def chat_with_content(user_question, lesson_content):
-    prompt = f"""
-    The following is lesson content:\n{lesson_content}
-    
-    User's question: {user_question}
-    
-    Please provide a detailed, clear answer based on the lesson content.
-    """
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    answer = response['choices'][0]['message']['content'].strip()
-    return answer
 
 # Function to save student progress
 def save_student_progress(student_id, data):
@@ -162,83 +118,89 @@ def update_overall_performance(student_id, total_score, total_questions):
         new_data.to_csv(overall_file_path, index=False)
 
 # Streamlit UI
-st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Lesson Assistant")
 
-# Load student directory from GitHub
-directory_df = load_student_directory_from_github()
+# Load students from the CSV file
+students_df = load_students()
 
-# Get student ID from user
-student_id = st.text_input("Enter your Student ID:", "")
+# Get student ID from the user
+student_id = st.text_input("Enter your Student ID:")
 if not student_id:
     st.warning("Please enter your Student ID to proceed.")
     st.stop()
 
 # Verify the student ID exists in the directory
-if student_id not in directory_df['Student ID'].values:
+if student_id not in students_df['Student ID'].values:
     st.error("Invalid Student ID. Please check and enter a valid ID.")
     st.stop()
 
-# Proceed with lesson content
+# Upload or enter lesson content
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 manual_content = st.text_area("Paste lesson content here:")
-lesson_content = load_pdf_content(uploaded_file) if uploaded_file else manual_content
+
+lesson_content = ""
+if uploaded_file is not None:
+    lesson_content = uploaded_file.read().decode("utf-8")
+elif manual_content:
+    lesson_content = manual_content
 
 if lesson_content:
-    st.subheader("Chat with the Content")
+    # Ask the user a question
     user_question = st.text_input("Ask a question about the lesson content:")
+    
     if user_question:
-        st.write(chat_with_content(user_question, lesson_content))
+        prompt = f"Lesson content: {lesson_content}\n\nUser's question: {user_question}\n\nProvide a clear answer."
+        response = openai.Completion.create(
+            model="text-davinci-003",
+            prompt=prompt,
+            max_tokens=150
+        )
+        st.write(response.choices[0].text.strip())
 
+    # Generate and display multiple-choice questions
     if st.button("Generate Test Questions"):
         st.session_state["questions"] = generate_mc_questions(lesson_content)
 
-    mastery_score = 0.8  # Define mastery score (80% correct)
-    is_mastered = False
+    # Answer questions
+    if "questions" in st.session_state:
+        user_answers = []
+        for idx, question in enumerate(st.session_state["questions"]):
+            st.write(f"**Question {idx + 1}:** {question['question']}")
+            for option in question["options"]:
+                st.write(option)
+            
+            # Capture user answers
+            user_answer = st.radio(f"Your answer for Question {idx + 1}:", ["A", "B", "C", "D"], key=f"q{idx + 1}")
+            user_answers.append(user_answer)
 
-    while not is_mastered:
-        if "questions" in st.session_state:
-            user_answers = []
+        if st.button("Submit Answers"):
+            score = 0
             progress_data = []
             for idx, question in enumerate(st.session_state["questions"]):
-                st.write(f"**Question {idx + 1}:** {question['question']}")
-                for option in question["options"]:
-                    st.write(option)
-                
-                # Unique key for each question based on index
-                user_answer = st.radio(f"Your answer for Question {idx + 1}:", ["A", "B", "C", "D"], key=f"q{idx + 1}")
-                user_answers.append(user_answer)
-
-            if st.button("Submit Answers"):
-                score = 0
-                for idx, question in enumerate(st.session_state["questions"]):
-                    feedback = generate_feedback(lesson_content, question["question"], user_answers[idx], question["correct"])
-                    progress_data.append({
-                        "Student ID": student_id,
-                        "Question": question["question"],
-                        "User Answer": user_answers[idx],
-                        "Correct Answer": question["correct"],
-                        "Feedback": feedback
-                    })
-
-                    if user_answers[idx] == question["correct"]:
-                        st.success(f"Question {idx + 1}: Correct!")
-                        score += 1
-                    else:
-                        st.error(f"Question {idx + 1}: Incorrect. Correct Answer: {question['correct']}")
-
-                # Save progress
-                save_student_progress(student_id, progress_data)
-
-                # Update overall performance
-                update_overall_performance(student_id, score, len(st.session_state["questions"]))
-
-                mastery_score = score / len(st.session_state["questions"])
-                if mastery_score >= 0.8:
-                    is_mastered = True
-                    st.success("You have mastered this lesson!")
+                feedback = generate_feedback(lesson_content, question["question"], user_answers[idx], question["correct"])
+                progress_data.append({
+                    "Student ID": student_id,
+                    "Question": question["question"],
+                    "User Answer": user_answers[idx],
+                    "Correct Answer": question["correct"],
+                    "Feedback": feedback
+                })
+                if user_answers[idx] == question["correct"]:
+                    st.success(f"Question {idx + 1}: Correct!")
+                    score += 1
                 else:
-                    st.warning("You need more practice. Try again.")
+                    st.error(f"Question {idx + 1}: Incorrect. Correct Answer: {question['correct']}")
 
+            # Save progress
+            save_student_progress(student_id, progress_data)
+
+            # Update overall performance
+            update_overall_performance(student_id, score, len(st.session_state["questions"]))
+
+            mastery_score = score / len(st.session_state["questions"])
+            if mastery_score >= 0.8:
+                st.success("You have mastered this lesson!")
+            else:
+                st.warning("You need more practice. Try again.")
 else:
     st.warning("Please upload or enter lesson content.")
