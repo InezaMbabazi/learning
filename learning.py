@@ -63,11 +63,14 @@ def generate_feedback(lesson_content, question, user_answer, correct_answer):
     
     Provide feedback for the user based on their answer. If the user's answer is incorrect, suggest specific parts of the lesson content they should review to better understand the topic.
     """
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": feedback_prompt}]
-    )
-    feedback = response['choices'][0]['message']['content'].strip()
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": feedback_prompt}]
+        )
+        feedback = response['choices'][0]['message']['content'].strip()
+    except Exception as e:
+        feedback = f"An error occurred while generating feedback: {e}"
     return feedback
 
 # Function to load PDF content
@@ -160,7 +163,7 @@ if lesson_content:
             st.write(f"**Question {idx + 1}:** {question['question']}")
             for option in question["options"]:
                 st.write(option)
-            user_answer = st.radio(f"Your answer:", ["A", "B", "C", "D"], key=f"q{idx + 1}")
+            user_answer = st.radio(f"Your answer for Question {idx + 1}:", ["A", "B", "C", "D"], key=f"q{idx + 1}")
             user_answers.append(user_answer)
 
         if st.button("Submit Answers"):
@@ -174,8 +177,14 @@ if lesson_content:
                     "Correct Answer": question["correct"],
                     "Feedback": feedback
                 })
+
                 if user_answers[idx] == question["correct"]:
+                    st.success(f"Question {idx + 1}: Correct!")
                     score += 1
+                else:
+                    st.error(f"Question {idx + 1}: Incorrect. Correct Answer: {question['correct']}")
+                    st.write(f"Feedback: {feedback}")
+
             save_student_progress(student_id, progress_data)
             update_overall_performance(student_id, score, len(st.session_state["questions"]))
-            st.write(f"**Score:** {score}/{len(st.session_state['questions'])}")
+            st.write(f"**Your Score:** {score}/{len(st.session_state['questions'])}")
