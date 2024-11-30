@@ -3,24 +3,30 @@ import openai
 import PyPDF2
 import os
 import pandas as pd
+import requests
+from io import StringIO
 
 # Initialize OpenAI API
 openai.api_key = st.secrets["openai"]["api_key"]
 
 # Directory for saving student records
-RECORDS_DIR = "student_records"
+RECORDS_DIR = "learning"
 if not os.path.exists(RECORDS_DIR):
     os.makedirs(RECORDS_DIR)
 
-# Directory CSV path
-DIRECTORY_CSV = "student_directory.csv"
+# GitHub repository raw URL for student directory CSV
+GITHUB_CSV_URL = "https://raw.githubusercontent.com/yourusername/yourrepository/main/learning/students.csv"
 
-# Function to load the student directory
-def load_student_directory():
-    if os.path.exists(DIRECTORY_CSV):
-        return pd.read_csv(DIRECTORY_CSV)
-    else:
-        st.error("Student directory file not found.")
+# Function to load student directory from GitHub
+def load_student_directory_from_github():
+    try:
+        response = requests.get(GITHUB_CSV_URL)
+        response.raise_for_status()  # Check if the request was successful
+        csv_content = response.text
+        df = pd.read_csv(StringIO(csv_content))
+        return df
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error fetching student directory from GitHub: {e}")
         return pd.DataFrame()
 
 # Function to generate multiple-choice questions based on lesson content
@@ -159,8 +165,8 @@ def update_overall_performance(student_id, total_score, total_questions):
 st.image("header.png", use_column_width=True)
 st.title("Kepler College AI-Powered Lesson Assistant")
 
-# Load student directory
-directory_df = load_student_directory()
+# Load student directory from GitHub
+directory_df = load_student_directory_from_github()
 
 # Get student ID from user
 student_id = st.text_input("Enter your Student ID:", "")
@@ -168,7 +174,7 @@ if not student_id:
     st.warning("Please enter your Student ID to proceed.")
     st.stop()
 
-# Verify the student ID exists
+# Verify the student ID exists in the directory
 if student_id not in directory_df['Student ID'].values:
     st.error("Invalid Student ID. Please check and enter a valid ID.")
     st.stop()
