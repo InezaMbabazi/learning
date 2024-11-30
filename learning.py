@@ -98,12 +98,12 @@ def update_overall_performance(student_id, total_score, total_questions):
     overall_file_path = os.path.join(RECORDS_DIR, "overall_performance.csv")
     if os.path.exists(overall_file_path):
         overall_df = pd.read_csv(overall_file_path)
-        if student_id in overall_df['Student ID'].values:
-            overall_df.loc[overall_df['Student ID'] == student_id, 'Total Score'] += total_score
-            overall_df.loc[overall_df['Student ID'] == student_id, 'Total Questions'] += total_questions
+        if student_id in overall_df['student_id'].values:
+            overall_df.loc[overall_df['student_id'] == student_id, 'Total Score'] += total_score
+            overall_df.loc[overall_df['student_id'] == student_id, 'Total Questions'] += total_questions
         else:
             new_entry = pd.DataFrame({
-                'Student ID': [student_id],
+                'student_id': [student_id],
                 'Total Score': [total_score],
                 'Total Questions': [total_questions]
             })
@@ -111,7 +111,7 @@ def update_overall_performance(student_id, total_score, total_questions):
         overall_df.to_csv(overall_file_path, index=False)
     else:
         new_data = pd.DataFrame({
-            'Student ID': [student_id],
+            'student_id': [student_id],
             'Total Score': [total_score],
             'Total Questions': [total_questions]
         })
@@ -123,15 +123,15 @@ st.title("Kepler College AI-Powered Lesson Assistant")
 # Load students from the CSV file
 students_df = load_students()
 
-# Get student ID from the user
-student_id = st.text_input("Enter your Student ID:")
+# Get student_id from the user
+student_id = st.text_input("Enter your student_id:")
 if not student_id:
-    st.warning("Please enter your Student ID to proceed.")
+    st.warning("Please enter your student_id to proceed.")
     st.stop()
 
-# Verify the student ID exists in the directory
-if student_id not in students_df['Student ID'].values:
-    st.error("Invalid Student ID. Please check and enter a valid ID.")
+# Verify the student_id exists in the directory
+if student_id not in students_df['student_id'].values:
+    st.error("Invalid student_id. Please check and enter a valid ID.")
     st.stop()
 
 # Upload or enter lesson content
@@ -179,7 +179,7 @@ if lesson_content:
             for idx, question in enumerate(st.session_state["questions"]):
                 feedback = generate_feedback(lesson_content, question["question"], user_answers[idx], question["correct"])
                 progress_data.append({
-                    "Student ID": student_id,
+                    "student_id": student_id,
                     "Question": question["question"],
                     "User Answer": user_answers[idx],
                     "Correct Answer": question["correct"],
