@@ -123,8 +123,15 @@ st.title("Kepler College AI-Powered Lesson Assistant")
 # Load students from the CSV file
 students_df = load_students()
 
+# Normalize column names to avoid any case or extra whitespace issues
+students_df.columns = students_df.columns.str.strip().str.lower()
+
+# Ensure student_id is treated as a string
+students_df['student_id'] = students_df['student_id'].astype(str)
+
 # Get student_id from the user
 student_id = st.text_input("Enter your student_id:")
+
 if not student_id:
     st.warning("Please enter your student_id to proceed.")
     st.stop()
