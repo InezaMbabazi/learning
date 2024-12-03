@@ -79,8 +79,21 @@ def generate_timetable(course_df, room_df, selected_days):
 
     return timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage, original_assignments
 
-# Function to display the timetable and summary
+# Function to display the timetable and summary, including room usage statistics
 def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage, original_assignments, selected_days):
+    # Calculate total room hours used per week
+    room_usage = {}
+    for day, slots in timetable.items():
+        for time_slot, courses in slots.items():
+            for course in courses:
+                room = course['Room']
+                if room not in room_usage:
+                    room_usage[room] = 0
+                room_usage[room] += 1  # Assuming each slot is 1 hour of room usage
+
+    # Calculate total room hours used
+    total_room_usage_hours = sum(room_usage.values())
+
     # Display timetable
     timetable_data = []
     for day, slots in timetable.items():
@@ -129,8 +142,10 @@ def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, 
     st.subheader("Weekly Summary")
     st.write(f"Total Course Hours (Weekly): {total_course_hours}")
     st.write(f"Total Room Hours Available (Weekly): {total_room_hours}")
+    st.write(f"Total Room Hours Used (Weekly): {total_room_usage_hours}")  # New line for room usage hours
     if room_hour_shortage > 0:
         st.write(f"Room Hour Shortage: {room_hour_shortage} hours")
+
 # Function to calculate class hours and display statistics
 def display_class_statistics(timetable):
     class_statistics = {}
