@@ -121,9 +121,9 @@ def main():
             timetable_df, room_usage, unused_rooms = generate_timetable(course_df, room_df, selected_days, room_count, hours_per_day)
             if timetable_df is not None:
                 st.write("Generated Timetable:")
-                st.dataframe(timetable_df)
-                st.write(f"Room Usage: {room_usage}")
-                st.write(f"Rooms Not in Use: {unused_rooms}")
+                st.dataframe(timetable_df)  # Display the timetable
+                st.write(f"Room Usage: {room_usage}")  # Display room usage
+                st.write(f"Rooms Not in Use: {unused_rooms}")  # Display unused rooms
 
 if __name__ == "__main__":
     main()
