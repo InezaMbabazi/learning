@@ -2,29 +2,16 @@ import pandas as pd
 import random
 import streamlit as st
 
-# Function to generate a CSV template for courses
-def generate_course_template():
-    return pd.DataFrame({
-        'cohort': [''] * 5,
-        'Course code': [''] * 5,
-        'Courses': [''] * 5,
-        'Main teacher': [''] * 5,
-        'section': [1] * 5,
-        'Sum of #students': [20] * 5,
-        'section number': [1] * 5
-    })
-
-# Function to generate a CSV template for rooms with capacity
-def generate_room_template():
-    return pd.DataFrame({
-        'Room Name': ['Room A', 'Room B', 'Room C', 'Room D', 'Room E'],
-        'Population': [30, 40, 50, 60, 70],  # Maximum room capacity
-        'Current Capacity': [0, 0, 0, 0, 0]  # Tracks how many students are currently assigned to the room
-    })
-
 # Function to load the course and room data
 def load_data(course_file, room_file):
-    return pd.read_csv(course_file), pd.read_csv(room_file)
+    course_df = pd.read_csv(course_file)
+    room_df = pd.read_csv(room_file)
+    
+    # Ensure 'Current Capacity' column exists, otherwise initialize it with 0
+    if 'Current Capacity' not in room_df.columns:
+        room_df['Current Capacity'] = 0
+    
+    return course_df, room_df
 
 # Function to generate timetable and calculate stats considering room capacity
 def generate_timetable(course_df, room_df, selected_days):
@@ -56,7 +43,7 @@ def generate_timetable(course_df, room_df, selected_days):
         for section in range(sections):
             # Find available rooms with enough capacity for the course
             available_rooms = room_df[(room_df['Population'] >= students) & 
-                                      (room_df['Current Capacity'] + students <= room_df['Population'])]['Room Name'].tolist()
+                                      (room_df['Current Capacity'] + students <= room_df['Population'])]['Room Name'].tolist()]
             if not available_rooms:
                 room_shortages.append({'Course': course, 'Teacher': teacher, 'Students': students})
                 continue
@@ -80,52 +67,10 @@ def generate_timetable(course_df, room_df, selected_days):
 
     return timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage
 
-# Function to display the timetable and summary
-def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage):
-    # Display timetable
-    timetable_data = []
-    for day, slots in timetable.items():
-        for time_slot, courses in slots.items():
-            if not courses:
-                timetable_data.append([day, time_slot, "No courses assigned"])
-            else:
-                for course in courses:
-                    timetable_data.append([day, time_slot, course['Course'], course['Teacher'], course['Room'], course['Section']])
-    timetable_df = pd.DataFrame(timetable_data, columns=['Day', 'Time Slot', 'Course', 'Teacher', 'Room', 'Section'])
-    st.subheader("Generated Timetable")
-    st.dataframe(timetable_df)
-
-    # Display teacher stats
-    teacher_stats_df = pd.DataFrame(list(teacher_stats.items()), columns=['Teacher', 'Total Weekly Hours'])
-    st.subheader("Teacher Statistics")
-    st.dataframe(teacher_stats_df)
-
-    # Display room shortages
-    if room_shortages:
-        st.subheader("Room Shortages")
-        st.dataframe(pd.DataFrame(room_shortages))
-
-    # Display hour shortages
-    if hour_shortages:
-        st.subheader("Teacher Hour Shortages")
-        st.dataframe(pd.DataFrame(hour_shortages))
-
-    # Display weekly summary
-    st.subheader("Weekly Summary")
-    st.write(f"Total Course Hours (Weekly): {total_course_hours}")
-    st.write(f"Total Room Hours Available (Weekly): {total_room_hours}")
-    if room_hour_shortage > 0:
-        st.write(f"Room Hour Shortage: {room_hour_shortage} hours")
-
-# Streamlit app
+# Main function to drive Streamlit app
 def main():
     st.title("Timetable Generator")
     
-    # Downloadable templates
-    st.subheader("Download Templates")
-    st.download_button("Download Course Template", generate_course_template().to_csv(index=False), "course_template.csv", "text/csv")
-    st.download_button("Download Room Template", generate_room_template().to_csv(index=False), "room_template.csv", "text/csv")
-
     # File upload
     st.subheader("Upload Your Data")
     course_file = st.file_uploader("Upload Course Data (CSV)", type="csv")
