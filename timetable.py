@@ -31,6 +31,11 @@ def load_data(course_file, room_file):
 
 # Function to assign courses to time slots and rooms
 def generate_timetable(course_df, room_df, selected_days):
+    # Room hours available (6 rooms * 8 hours/day * 5 days)
+    total_room_hours = 6 * 8 * len(selected_days)
+    required_course_hours = sum(course_df['section'] * 4 for idx, row in course_df.iterrows())
+    
+    # Initialize room availability and timetable
     rooms = room_df['Room Name'].tolist()
     time_slots = ['8:00 AM - 10:00 AM', '10:00 AM - 12:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM']
     
@@ -40,22 +45,19 @@ def generate_timetable(course_df, room_df, selected_days):
     hour_shortages = []  # To track courses with insufficient teaching hours
     used_rooms = set()  # To track rooms that are used
 
-    total_course_hours = 0  # Track total course hours needed
-
     for idx, row in course_df.iterrows():
         sections = row['section']  # The number of sections
         course = row['Courses']
         teacher = row['Main teacher']
         students = row['Sum of #students']
         
-        # Calculate total weekly hours for the course (4 hours per section)
-        course_hours = sections * 4
-        total_course_hours += course_hours
+        # Calculate total weekly hours for the teacher (4 hours per section)
+        teacher_weekly_hours = sections * 4
 
         # Track teacher stats (total weekly hours)
         if teacher not in teacher_stats:
             teacher_stats[teacher] = 0
-        teacher_stats[teacher] += sections * 4  # Teacher teaches 4 hours per section
+        teacher_stats[teacher] += teacher_weekly_hours
 
         # Check if the teacher has enough hours available for all their sections
         if teacher_stats[teacher] > 40:  # Assuming 40 hours is the max teaching hours per week
@@ -76,26 +78,19 @@ def generate_timetable(course_df, room_df, selected_days):
             selected_day = random.choice(selected_days)
 
             timetable[selected_day][time_slot].append({'Course': course, 'Teacher': teacher, 'Room': room, 'Section': f"Section {section+1}"})
+            
+    # Calculate shortages
+    room_shortage_hours = required_course_hours - total_room_hours
+    course_affected_by_shortage = []
     
-    # Calculate available room hours
-    num_rooms = len(used_rooms)
-    available_room_hours = num_rooms * 8 * len(selected_days)  # Room hours available per week
-
-    # Check for room hour shortages
-    if available_room_hours < total_course_hours:
-        shortage = total_course_hours - available_room_hours
-        st.warning(f"Room Hour Shortage: {shortage} hours. Some courses may not fit within the available room hours.")
-        # Display courses affected by room shortage
-        st.subheader("Courses Affected by Room Shortage")
-        st.write(room_shortages)
-
-    # Find unused rooms
+    if room_shortage_hours > 0:
+        course_affected_by_shortage = course_df[course_df['section'] * 4 > room_shortage_hours]
+    
     unused_rooms = room_df[~room_df['Room Name'].isin(used_rooms)]
-
-    return timetable, teacher_stats, room_shortages, hour_shortages, unused_rooms, available_room_hours, total_course_hours
+    return timetable, teacher_stats, room_shortages, hour_shortages, unused_rooms, room_shortage_hours, course_affected_by_shortage
 
 # Function to display timetable in a weekly format
-def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, unused_rooms, available_room_hours, total_course_hours):
+def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, unused_rooms, room_shortage_hours, course_affected_by_shortage):
     # Display timetable as a dataframe
     timetable_data = []
     
@@ -133,12 +128,13 @@ def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, 
         st.subheader("Rooms Without Classes Assigned")
         st.dataframe(unused_rooms[['Room Name', 'Population']])
 
-    # Display summary of room hour shortage if any
-    if available_room_hours < total_course_hours:
-        st.subheader("Room Hour Shortage Summary")
-        st.write(f"Available Room Hours: {available_room_hours}")
-        st.write(f"Total Course Hours Needed: {total_course_hours}")
-        st.write(f"Shortage: {total_course_hours - available_room_hours} hours")
+    # Display shortage summary
+    if room_shortage_hours > 0:
+        st.subheader("Room Hours Shortage")
+        st.write(f"Total room hours shortage: {room_shortage_hours} hours")
+        st.write("Courses affected by room shortage:")
+        if not course_affected_by_shortage.empty:
+            st.dataframe(course_affected_by_shortage[['Courses', 'section']])
 
 # Streamlit app
 def main():
@@ -179,31 +175,14 @@ def main():
     
     if course_file and room_file:
         # Load the data
-        course_df, roomThe updated code includes a room and course hour calculation mechanism, ensuring that the available room hours and course hours are compared to identify shortages. Here is a breakdown of how it works:
+        course_df, room_df = load_data(course_file, room_file)
+        
+        # Generate the timetable
+        timetable, teacher_stats, room_shortages, hour_shortages, unused_rooms, room_shortage_hours, course_affected_by_shortage = generate_timetable(course_df, room_df, selected_days)
+        
+        if timetable is not None:
+            st.write("Generated Timetable for Selected Days")
+            display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, unused_rooms, room_shortage_hours, course_affected_by_shortage)
 
-### Key Components:
-1. **Room Hours Available**: 
-   - The formula to calculate available room hours is:
-     \[
-     \text{{Room Hours Available}} = \text{{Number of Rooms}} \times \text{{Hours per Day}} \times \text{{Number of Days Selected}}
-     \]
-   - In the example, with 6 rooms, 8 hours per day, and 5 days, the available room hours per week are 240 hours.
-
-2. **Course Hours Needed**: 
-   - The formula for course hours is:
-     \[
-     \text{{Course Hours Needed}} = \text{{Number of Sections}} \times 4 \text{{ hours per section}}
-     \]
-   - For example, with 71 sections, the required course hours for a week would be 284 hours.
-
-3. **Room Shortage and Course Impact**:
-   - If the available room hours are less than the required course hours, the app will display a **shortage** and list the affected courses. It also tracks room availability based on the number of students.
-   - The logic includes ensuring that each teacher doesn't exceed 40 hours a week and that rooms with enough capacity for the student population are assigned to courses.
-
-### Features:
-- **Shortage Warning**: If the total available room hours are insufficient, the app displays a warning and a summary of the shortage.
-- **Courses Affected by Shortage**: It will display which courses cannot be assigned to rooms because of this shortage.
-- **Unused Rooms**: Any rooms not assigned to courses are listed as available.
-- **Teacher and Hour Shortage Tracking**: Teacher hours and room assignments are tracked to ensure there are no conflicts.
-
-This provides a comprehensive solution to ensure that courses are assigned appropriately based on room availability, and any shortages are identified and displayed clearly.
+if __name__ == "__main__":
+    main()
