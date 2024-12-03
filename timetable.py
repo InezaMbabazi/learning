@@ -72,29 +72,31 @@ def display_weekly_timetable(timetable, teacher_stats, room_shortages):
     days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
     time_slots = ['8:00 AM - 10:00 AM', '10:00 AM - 12:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM']
 
-    # Creating a table with columns for each day and rows for each time slot
+    # Display timetable as a dataframe
+    timetable_data = []
     for day in days_of_week:
-        st.subheader(f"{day}")
         for time_slot in time_slots:
-            st.write(f"**{time_slot}:**")
             courses_at_time = timetable[day][time_slot]
             if not courses_at_time:
-                st.write("No courses assigned")
+                timetable_data.append([day, time_slot, "No courses assigned"] * len(courses_at_time))
             else:
                 for course in courses_at_time:
-                    st.write(f"{course['Course']} ({course['Teacher']}) - Room: {course['Room']} - {course['Section']}")
-            st.write("\n")
+                    timetable_data.append([day, time_slot, course['Course'], course['Teacher'], course['Room'], course['Section']])
 
-    # Display teacher statistics
+    timetable_df = pd.DataFrame(timetable_data, columns=['Day', 'Time Slot', 'Course', 'Teacher', 'Room', 'Section'])
+    st.subheader("Weekly Timetable")
+    st.dataframe(timetable_df)
+
+    # Display teacher statistics as a dataframe
+    teacher_stats_df = pd.DataFrame(list(teacher_stats.items()), columns=['Teacher', 'Hours per week'])
     st.subheader("Teacher Statistics")
-    for teacher, hours in teacher_stats.items():
-        st.write(f"{teacher}: {hours} hours per week")
+    st.dataframe(teacher_stats_df)
 
-    # Display room shortages
+    # Display room shortages as a dataframe
     if room_shortages:
+        room_shortage_df = pd.DataFrame(room_shortages)
         st.subheader("Courses with Room Shortages")
-        for shortage in room_shortages:
-            st.write(f"Course: {shortage['Course']} (Teacher: {shortage['Teacher']}) - Students: {shortage['Students']}")
+        st.dataframe(room_shortage_df)
 
 # Streamlit app
 def main():
