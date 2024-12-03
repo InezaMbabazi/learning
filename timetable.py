@@ -88,8 +88,8 @@ def display_timetable_and_summary(timetable, teacher_stats, room_shortages, hour
     st.subheader("Generated Timetable")
     st.dataframe(timetable_df)
 
-    teacher_stats_df = pd.DataFrame(list(teacher_stats.items()), columns=['Teacher', 'Total Hours per Week'])
-    st.subheader("Teacher Statistics")
+    teacher_stats_df = pd.DataFrame(list(teacher_stats.items()), columns=['Teacher', 'Total Weekly Hours'])
+    st.subheader("Teacher Weekly Statistics")
     st.dataframe(teacher_stats_df)
 
     if room_shortages:
@@ -108,22 +108,23 @@ def display_timetable_and_summary(timetable, teacher_stats, room_shortages, hour
 
     if room_hour_shortage > 0:
         st.subheader("Room Hour Shortage")
-        st.write(f"Total Room Hours Shortage: {room_hour_shortage} hours")
+        st.write(f"Total Room Hours Shortage (Weekly): {room_hour_shortage} hours")
 
+    # Weekly Summary
     unscheduled_courses = len(room_shortages)
     overloaded_teachers = [t['Teacher'] for t in hour_shortages]
     unused_rooms_count = len(unused_rooms)
 
-    st.subheader("Summary of Changes")
+    st.subheader("Weekly Summary")
     st.write(f"**Selected Days:** {', '.join(selected_days)}")
-    st.write(f"**Total Courses Scheduled:** {total_courses - unscheduled_courses}")
-    st.write(f"**Unscheduled Courses:** {unscheduled_courses}")
-    st.write(f"**Teachers Overloaded:** {len(overloaded_teachers)}")
-    st.write(f"**Unused Rooms:** {unused_rooms_count}")
+    st.write(f"**Total Weekly Courses Scheduled:** {total_courses - unscheduled_courses}")
+    st.write(f"**Unscheduled Weekly Courses:** {unscheduled_courses}")
+    st.write(f"**Teachers Overloaded Weekly:** {len(overloaded_teachers)}")
+    st.write(f"**Unused Rooms Weekly:** {unused_rooms_count}")
 
 # Streamlit app
 def main():
-    st.title("Course Timetable Generator")
+    st.title("Weekly Course Timetable Generator")
 
     st.subheader("Download Templates")
     course_template = generate_course_template()
