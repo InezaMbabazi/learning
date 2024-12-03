@@ -40,16 +40,22 @@ def generate_timetable(course_df, room_df):
     teacher_stats = {}  # To track teacher hours
     room_shortages = []  # To track courses with room shortages
     used_rooms = set()  # To track rooms that are used
-    total_section_hours = 0  # Total section hours per week
-    total_room_hours = {}  # Total room hours per week
 
     for idx, row in course_df.iterrows():
         sections = row['section']  # The number of sections
+        course = row['Courses']
+        teacher = row['Main teacher']
+        students = row['Sum of #students']
+        
+        # Calculate total weekly hours for the teacher (4 hours per section)
+        teacher_weekly_hours = sections * 4
+
+        # Track teacher stats (total weekly hours)
+        if teacher not in teacher_stats:
+            teacher_stats[teacher] = 0
+        teacher_stats[teacher] += teacher_weekly_hours
+
         for section in range(sections):
-            teacher = row['Main teacher']
-            course = row['Courses']
-            students = row['Sum of #students']
-            
             # Room assignment: Choose a room with enough capacity
             available_rooms = room_df[room_df['Population'] >= students]['Room Name'].tolist()
             if not available_rooms:
@@ -59,31 +65,18 @@ def generate_timetable(course_df, room_df):
             used_rooms.add(room)  # Mark this room as used
 
             # Time slot assignment (ensure no conflicts for the same teacher)
-            time_slot = random.choice(time_slots)
             day = random.choice(days_of_week)  # Randomly assign a day
+            time_slot = random.choice(time_slots)
 
             timetable[day][time_slot].append({'Course': course, 'Teacher': teacher, 'Room': room, 'Section': f"Section {section+1}"})
             
-            # Update teacher statistics
-            if teacher not in teacher_stats:
-                teacher_stats[teacher] = 0
-            teacher_stats[teacher] += 2  # Each time slot is 2 hours
-            
-            # Calculate section hours
-            total_section_hours += 2  # Each section contributes 2 hours per week
-
-            # Update room hours
-            if room not in total_room_hours:
-                total_room_hours[room] = 0
-            total_room_hours[room] += 2  # Each time slot is 2 hours per use
-
     # Find unused rooms
     unused_rooms = room_df[~room_df['Room Name'].isin(used_rooms)]
 
-    return timetable, teacher_stats, room_shortages, unused_rooms, total_section_hours, total_room_hours
+    return timetable, teacher_stats, room_shortages, unused_rooms
 
 # Function to display timetable in a weekly format
-def display_weekly_timetable(timetable, teacher_stats, room_shortages, unused_rooms, total_section_hours, total_room_hours):
+def display_weekly_timetable(timetable, teacher_stats, room_shortages, unused_rooms):
     days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
     time_slots = ['8:00 AM - 10:00 AM', '10:00 AM - 12:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM']
 
@@ -103,7 +96,7 @@ def display_weekly_timetable(timetable, teacher_stats, room_shortages, unused_ro
     st.dataframe(timetable_df)
 
     # Display teacher statistics as a dataframe
-    teacher_stats_df = pd.DataFrame(list(teacher_stats.items()), columns=['Teacher', 'Hours per week'])
+    teacher_stats_df = pd.DataFrame(list(teacher_stats.items()), columns=['Teacher', 'Total Hours per Week'])
     st.subheader("Teacher Statistics")
     st.dataframe(teacher_stats_df)
 
@@ -117,15 +110,6 @@ def display_weekly_timetable(timetable, teacher_stats, room_shortages, unused_ro
     if not unused_rooms.empty:
         st.subheader("Rooms Without Classes Assigned")
         st.dataframe(unused_rooms[['Room Name', 'Population']])
-
-    # Display section hours and room hours statistics
-    st.subheader("Timetable Statistics")
-    st.write(f"Total Section Hours per Week: {total_section_hours} hours")
-    
-    room_hours_data = [{'Room': room, 'Total Hours': hours} for room, hours in total_room_hours.items()]
-    room_hours_df = pd.DataFrame(room_hours_data)
-    st.write("Total Room Hours per Week:")
-    st.dataframe(room_hours_df)
 
 # Streamlit app
 def main():
@@ -165,11 +149,11 @@ def main():
         course_df, room_df = load_data(course_file, room_file)
         
         # Generate the timetable
-        timetable, teacher_stats, room_shortages, unused_rooms, total_section_hours, total_room_hours = generate_timetable(course_df, room_df)
+        timetable, teacher_stats, room_shortages, unused_rooms = generate_timetable(course_df, room_df)
         
         if timetable is not None:
             st.write("Generated Weekly Timetable:")
-            display_weekly_timetable(timetable, teacher_stats, room_shortages, unused_rooms, total_section_hours, total_room_hours)
+            display_weekly_timetable(timetable, teacher_stats, room_shortages, unused_rooms)
 
 if __name__ == "__main__":
     main()
