@@ -54,7 +54,7 @@ def generate_timetable(course_df, room_df, selected_days, room_count, hours_per_
     rooms = room_df['Room Name'].tolist()
     time_slots = ['8:00 AM - 10:00 AM', '10:00 AM - 12:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM']
     
-    timetable = []
+    timetable = {day: {time_slot: [] for time_slot in time_slots} for day in selected_days}  # Initialize empty timetable structure
     room_usage = {room: 0 for room in rooms}  # Track room usage
     for idx, row in course_df.iterrows():
         sections = row['section']  # The number of sections
@@ -73,15 +73,15 @@ def generate_timetable(course_df, room_df, selected_days, room_count, hours_per_
             # Time slot assignment (ensure no conflicts for the same teacher)
             time_slot = random.choice(time_slots)
             
-            timetable.append([course, teacher, time_slot, room, f"Section {section+1}"])
+            # Assign the course to a specific day and time slot
+            day = random.choice(selected_days)
+            timetable[day][time_slot].append([course, teacher, room, f"Section {section+1}"])
             room_usage[room] += 1  # Increment the usage count for the assigned room
-    
-    timetable_df = pd.DataFrame(timetable, columns=['Course', 'Teacher', 'Time Slot', 'Room', 'Section'])
     
     # Rooms not in use
     unused_rooms = [room for room, usage in room_usage.items() if usage == 0]
     
-    return timetable_df, room_usage, unused_rooms
+    return timetable, room_usage, unused_rooms
 
 # Streamlit app
 def main():
@@ -118,10 +118,18 @@ def main():
         
         # Generate the timetable if feasible
         if schedule_feasibility == "Sufficient hours available to schedule all sections.":
-            timetable_df, room_usage, unused_rooms = generate_timetable(course_df, room_df, selected_days, room_count, hours_per_day)
-            if timetable_df is not None:
-                st.write("Generated Timetable:")
-                st.dataframe(timetable_df)  # Display the timetable
+            timetable, room_usage, unused_rooms = generate_timetable(course_df, room_df, selected_days, room_count, hours_per_day)
+            if timetable is not None:
+                st.write("Generated Timetable (Weekly Format):")
+                
+                # Display timetable in a weekly format
+                for day, day_schedule in timetable.items():
+                    st.subheader(f"{day}")
+                    for time_slot, courses in day_schedule.items():
+                        st.write(f"{time_slot}:")
+                        for course in courses:
+                            st.write(f"  {course[0]} - {course[1]} - Room: {course[2]} - {course[3]}")
+                
                 st.write(f"Room Usage: {room_usage}")  # Display room usage
                 st.write(f"Rooms Not in Use: {unused_rooms}")  # Display unused rooms
 
