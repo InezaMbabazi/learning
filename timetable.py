@@ -29,9 +29,6 @@ def load_data(course_file, room_file):
 def generate_timetable(course_df, room_df, selected_days):
     rooms = room_df['Room Name'].tolist()
     time_slots = ['8:00 AM - 10:00 AM', '10:00 AM - 12:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM']
-    
-    # Tracking rooms in use per time slot and day
-    rooms_in_use = {day: {time: [] for time in time_slots} for day in selected_days}
 
     timetable = {day: {time: [] for time in time_slots} for day in selected_days}
     teacher_stats = {}  # Total hours per teacher
@@ -56,8 +53,8 @@ def generate_timetable(course_df, room_df, selected_days):
             hour_shortages.append({'Teacher': teacher, 'Required Hours': teacher_stats[teacher]})
 
         for section in range(sections):
-            # Find available rooms for the course that are not in use
-            available_rooms = [room for room in room_df[room_df['Population'] >= students]['Room Name'].tolist() if room not in used_rooms]
+            # Find available rooms for the course
+            available_rooms = room_df[room_df['Population'] >= students]['Room Name'].tolist()
             if not available_rooms:
                 room_shortages.append({'Course': course, 'Teacher': teacher, 'Students': students})
                 continue
@@ -67,12 +64,6 @@ def generate_timetable(course_df, room_df, selected_days):
             # Assign time slot and day
             time_slot = random.choice(time_slots)
             selected_day = random.choice(selected_days)
-
-            # Ensure the room is not in use at the selected time slot
-            while room in rooms_in_use[selected_day][time_slot]:
-                room = random.choice(available_rooms)
-
-            rooms_in_use[selected_day][time_slot].append(room)
             timetable[selected_day][time_slot].append({'Course': course, 'Teacher': teacher, 'Room': room, 'Section': f"Section {section+1}"})
 
     # Calculate room hours only for used rooms
