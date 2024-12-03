@@ -417,4 +417,21 @@ def main():
             st.subheader("Affected Courses")
             st.dataframe(pd.DataFrame(shortage_details['Course Sections Affected']))
         
-   
+        # Generate the timetable
+The provided code integrates room capacity and student population for a timetable generation system. Here's an overview of the key functionality:
+
+1. **CSV Templates**: It includes functions for generating CSV templates for courses and rooms, which can be downloaded for data entry. The course template includes columns like cohort, course code, teacher, and the number of students per section, while the room template includes room names and capacities.
+
+2. **Data Loading**: Users can upload their own course and room data. The app supports CSV file uploads for courses and room configurations.
+
+3. **Room Hour Calculation**: The app calculates the required room hours based on the number of students and the available room capacity. It checks for room shortages by comparing the total available room hours (based on selected days and rooms) with the total hours required for courses.
+
+4. **Timetable Generation**: The app generates a timetable by assigning courses to available rooms and time slots, ensuring that room capacities and teacher schedules are respected. The timetable is displayed in a weekly format, showing the courses assigned to specific rooms and time slots.
+
+5. **Shortage Detection**: If there are room shortages or insufficient hours for teachers, the app flags affected courses and provides details about the shortage. It also tracks unused rooms that were not assigned any courses.
+
+6. **Teacher Statistics**: The app tracks and displays the total weekly teaching hours per teacher, ensuring that no teacher exceeds the maximum limit (e.g., 40 hours per week).
+
+7. **Streamlit Interface**: The app uses Streamlit for the interface, allowing users to interact with the system via checkboxes, file uploaders, and data displays. Users can select which days to schedule courses for and view real-time feedback on room and teacher availability.
+
+This solution ensures that room assignments, course schedules, and teacher availability are managed efficiently, highlighting any conflicts or shortages in the system.
