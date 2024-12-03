@@ -43,7 +43,7 @@ def generate_timetable(course_df, room_df, selected_days):
         for section in range(sections):
             # Find available rooms with enough capacity for the course
             available_rooms = room_df[(room_df['Population'] >= students) & 
-                                      (room_df['Current Capacity'] + students <= room_df['Population'])]['Room Name'].tolist()]
+                                      (room_df['Current Capacity'] + students <= room_df['Population'])]['Room Name'].tolist()
             if not available_rooms:
                 room_shortages.append({'Course': course, 'Teacher': teacher, 'Students': students})
                 continue
