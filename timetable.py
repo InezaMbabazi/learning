@@ -101,9 +101,10 @@ def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, 
         affected_courses = []
         
         # Calculate affected hours and courses
-        for _, (course, teacher_name, section) in original_assignments.items():
+        for key, (day, time_slot) in original_assignments.items():
+            course, teacher_name, section = key  # Unpack key
             if teacher_name == teacher:
-                new_day, new_time_slot = original_assignments[(course, teacher_name, section)]
+                new_day, new_time_slot = (day, time_slot)
                 if new_day not in selected_days:  # Day change detected
                     affected_hours += 4  # Each section is 4 hours
                     affected_courses.append(course)
@@ -130,6 +131,7 @@ def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, 
     st.write(f"Total Room Hours Available (Weekly): {total_room_hours}")
     if room_hour_shortage > 0:
         st.write(f"Room Hour Shortage: {room_hour_shortage} hours")
+
 
 # Streamlit app
 def main():
