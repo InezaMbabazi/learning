@@ -9,11 +9,8 @@ def load_data(course_file, room_file):
     return course_df, room_df
 
 # Function to calculate available hours based on selected days
-def calculate_available_hours(selected_days):
-    time_slots_per_day = 4  # 4 time slots per day, each 2 hours
-    hours_per_slot = 2  # each time slot is 2 hours
-    total_available_hours = len(selected_days) * time_slots_per_day * hours_per_slot
-    return total_available_hours
+def calculate_available_hours(selected_days, room_count, hours_per_day):
+    return len(selected_days) * room_count * hours_per_day
 
 # Function to calculate the required teaching hours for all sections
 def calculate_required_hours(course_df):
@@ -24,8 +21,8 @@ def calculate_required_hours(course_df):
     return total_required_hours
 
 # Main logic to check if available hours can accommodate required hours
-def check_schedule_feasibility(course_df, selected_days):
-    available_hours = calculate_available_hours(selected_days)
+def check_schedule_feasibility(course_df, selected_days, room_count, hours_per_day):
+    available_hours = calculate_available_hours(selected_days, room_count, hours_per_day)
     required_hours = calculate_required_hours(course_df)
     
     if available_hours < required_hours:
@@ -45,9 +42,9 @@ def check_room_availability(course_df, room_df):
     return rooms_needed
 
 # Function to assign courses to time slots and rooms
-def generate_timetable(course_df, room_df, selected_days):
+def generate_timetable(course_df, room_df, selected_days, room_count, hours_per_day):
     # Calculate available hours
-    available_hours = calculate_available_hours(selected_days)
+    available_hours = calculate_available_hours(selected_days, room_count, hours_per_day)
     required_hours = calculate_required_hours(course_df)
     
     if available_hours < required_hours:
@@ -92,12 +89,16 @@ def main():
     days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
     selected_days = st.multiselect("Select teaching days:", days_of_week, default=days_of_week)
     
+    # Room configuration
+    room_count = 6  # Number of rooms
+    hours_per_day = 8  # Each room is available for 8 hours a day
+    
     if course_file and room_file:
         # Load the data
         course_df, room_df = load_data(course_file, room_file)
         
         # Show room and teaching hour information
-        available_hours = calculate_available_hours(selected_days)
+        available_hours = calculate_available_hours(selected_days, room_count, hours_per_day)
         required_hours = calculate_required_hours(course_df)
         room_check = check_room_availability(course_df, room_df)
         
@@ -106,12 +107,12 @@ def main():
         st.write(f"Rooms Needed: {room_check}")
         
         # Check if the schedule is feasible
-        schedule_feasibility = check_schedule_feasibility(course_df, selected_days)
+        schedule_feasibility = check_schedule_feasibility(course_df, selected_days, room_count, hours_per_day)
         st.write(schedule_feasibility)
         
         # Generate the timetable if feasible
         if schedule_feasibility == "Sufficient hours available to schedule all sections.":
-            timetable_df = generate_timetable(course_df, room_df, selected_days)
+            timetable_df = generate_timetable(course_df, room_df, selected_days, room_count, hours_per_day)
             if timetable_df is not None:
                 st.write("Generated Timetable:")
                 st.dataframe(timetable_df)
