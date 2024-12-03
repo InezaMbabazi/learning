@@ -34,8 +34,12 @@ def load_data(course_file, room_file):
 def generate_timetable(course_df, room_df):
     rooms = room_df['Room Name'].tolist()
     time_slots = ['8:00 AM - 10:00 AM', '10:00 AM - 12:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM']
-    
-    timetable = []
+    days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+
+    timetable = {day: {time: [] for time in time_slots} for day in days_of_week}
+    teacher_stats = {}  # To track teacher hours
+    room_shortages = []  # To track courses with room shortages
+
     for idx, row in course_df.iterrows():
         sections = row['section']  # The number of sections
         for section in range(sections):
@@ -46,17 +50,51 @@ def generate_timetable(course_df, room_df):
             # Room assignment: Choose a room with enough capacity
             available_rooms = room_df[room_df['Population'] >= students]['Room Name'].tolist()
             if not available_rooms:
-                st.error(f"No room available for course {course} with {students} students")
-                return None
+                room_shortages.append({'Course': course, 'Teacher': teacher, 'Students': students})
+                continue
             room = random.choice(available_rooms)  # Randomly choose a room with enough capacity
 
             # Time slot assignment (ensure no conflicts for the same teacher)
             time_slot = random.choice(time_slots)
+            day = random.choice(days_of_week)  # Randomly assign a day
+
+            timetable[day][time_slot].append({'Course': course, 'Teacher': teacher, 'Room': room, 'Section': f"Section {section+1}"})
             
-            timetable.append([course, teacher, time_slot, room, f"Section {section+1}"])
-    
-    timetable_df = pd.DataFrame(timetable, columns=['Course', 'Teacher', 'Time Slot', 'Room', 'Section'])
-    return timetable_df
+            # Update teacher statistics
+            if teacher not in teacher_stats:
+                teacher_stats[teacher] = 0
+            teacher_stats[teacher] += 2  # Each time slot is 2 hours
+
+    return timetable, teacher_stats, room_shortages
+
+# Function to display timetable in a weekly format
+def display_weekly_timetable(timetable, teacher_stats, room_shortages):
+    days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+    time_slots = ['8:00 AM - 10:00 AM', '10:00 AM - 12:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM']
+
+    # Creating a table with columns for each day and rows for each time slot
+    for day in days_of_week:
+        st.subheader(f"{day}")
+        for time_slot in time_slots:
+            st.write(f"**{time_slot}:**")
+            courses_at_time = timetable[day][time_slot]
+            if not courses_at_time:
+                st.write("No courses assigned")
+            else:
+                for course in courses_at_time:
+                    st.write(f"{course['Course']} ({course['Teacher']}) - Room: {course['Room']} - {course['Section']}")
+            st.write("\n")
+
+    # Display teacher statistics
+    st.subheader("Teacher Statistics")
+    for teacher, hours in teacher_stats.items():
+        st.write(f"{teacher}: {hours} hours per week")
+
+    # Display room shortages
+    if room_shortages:
+        st.subheader("Courses with Room Shortages")
+        for shortage in room_shortages:
+            st.write(f"Course: {shortage['Course']} (Teacher: {shortage['Teacher']}) - Students: {shortage['Students']}")
 
 # Streamlit app
 def main():
@@ -96,11 +134,11 @@ def main():
         course_df, room_df = load_data(course_file, room_file)
         
         # Generate the timetable
-        timetable_df = generate_timetable(course_df, room_df)
+        timetable, teacher_stats, room_shortages = generate_timetable(course_df, room_df)
         
-        if timetable_df is not None:
-            st.write("Generated Timetable:")
-            st.dataframe(timetable_df)
+        if timetable is not None:
+            st.write("Generated Weekly Timetable:")
+            display_weekly_timetable(timetable, teacher_stats, room_shortages)
 
 if __name__ == "__main__":
     main()
