@@ -73,7 +73,6 @@ def generate_timetable(course_df, room_df, selected_days):
     unused_rooms = room_df[~room_df['Room Name'].isin(used_rooms)]
     return timetable, teacher_stats, room_shortages, hour_shortages, unused_rooms, room_hour_shortage
 
-
 # Function to display timetable and weekly summary
 def display_timetable_and_summary(timetable, teacher_stats, room_shortages, hour_shortages, unused_rooms, room_hour_shortage, selected_days, total_courses, course_df, room_df):
     timetable_data = []
@@ -129,9 +128,10 @@ def display_timetable_and_summary(timetable, teacher_stats, room_shortages, hour
     st.write(f"**Total Course Hours Weekly:** {total_course_hours_weekly} hours")
     st.write(f"**Total Room Hours Weekly:** {total_room_hours_weekly} hours")
 
+
 # Streamlit app
 def main():
-    st.title("Weekly Course Timetable Generator")
+    st.title("Course Timetable Generator")
 
     st.subheader("Download Templates")
     course_template = generate_course_template()
