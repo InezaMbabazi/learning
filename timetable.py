@@ -74,15 +74,6 @@ def generate_timetable(course_df, room_df, selected_days):
 
     return timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage, used_rooms
 
-# Function to display rooms not in use
-def display_unused_rooms(room_df, used_rooms):
-    unused_rooms = set(room_df['Room Name']) - used_rooms
-    if unused_rooms:
-        st.subheader("Rooms Not in Use")
-        st.dataframe(pd.DataFrame({'Room Name': list(unused_rooms)}))
-    else:
-        st.write("All rooms are in use.")
-
 # Function to display the timetable and summary
 def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage):
     # Display timetable
@@ -120,6 +111,15 @@ def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, 
     if room_hour_shortage > 0:
         st.write(f"Room Hour Shortage: {room_hour_shortage} hours")
 
+# Function to display rooms not in use along with their capacities
+def display_unused_rooms_with_capacity(room_df, used_rooms):
+    unused_rooms = room_df[~room_df['Room Name'].isin(used_rooms)]
+    if not unused_rooms.empty:
+        st.subheader("Rooms Not in Use")
+        st.dataframe(unused_rooms[['Room Name', 'Population']].rename(columns={'Population': 'Capacity'}))
+    else:
+        st.write("All rooms are in use.")
+
 # Streamlit app
 def main():
     st.title("Timetable Generator")
@@ -148,8 +148,8 @@ def main():
         # Display timetable and summary
         display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage)
 
-        # Display rooms not in use
-        display_unused_rooms(room_df, used_rooms)
+        # Display rooms not in use with their capacities
+        display_unused_rooms_with_capacity(room_df, used_rooms)
 
 if __name__ == "__main__":
     main()
