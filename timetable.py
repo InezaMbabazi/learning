@@ -72,7 +72,16 @@ def generate_timetable(course_df, room_df, selected_days):
     # Calculate room hour shortage
     room_hour_shortage = max(0, total_course_hours - total_room_hours)
 
-    return timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage
+    return timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage, used_rooms
+
+# Function to display rooms not in use
+def display_unused_rooms(room_df, used_rooms):
+    unused_rooms = set(room_df['Room Name']) - used_rooms
+    if unused_rooms:
+        st.subheader("Rooms Not in Use")
+        st.dataframe(pd.DataFrame({'Room Name': list(unused_rooms)}))
+    else:
+        st.write("All rooms are in use.")
 
 # Function to display the timetable and summary
 def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage):
@@ -134,10 +143,13 @@ def main():
         course_df, room_df = load_data(course_file, room_file)
 
         # Generate timetable and stats
-        timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage = generate_timetable(course_df, room_df, selected_days)
+        timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage, used_rooms = generate_timetable(course_df, room_df, selected_days)
 
         # Display timetable and summary
         display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage)
+
+        # Display rooms not in use
+        display_unused_rooms(room_df, used_rooms)
 
 if __name__ == "__main__":
     main()
