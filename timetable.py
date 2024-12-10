@@ -25,7 +25,6 @@ def generate_room_template():
 def load_data(course_file, room_file):
     return pd.read_csv(course_file), pd.read_csv(room_file)
 
-# Function to generate timetable and calculate stats
 def generate_timetable(course_df, room_df, selected_days):
     rooms = room_df['Room Name'].tolist()
     time_slots = ['8:00 AM - 10:00 AM', '10:00 AM - 12:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM']
@@ -40,7 +39,15 @@ def generate_timetable(course_df, room_df, selected_days):
 
     total_course_hours = 0
 
+    # Debugging step to check column names
+    print("Course DataFrame Columns: ", course_df.columns)
+
     for _, row in course_df.iterrows():
+        # Ensure 'section' exists
+        if 'section' not in row:
+            print("Missing 'section' column in the course data")
+            continue
+
         sections = row['section']
         course = row['Courses']
         teacher = row['Main teacher']
@@ -79,6 +86,7 @@ def generate_timetable(course_df, room_df, selected_days):
     room_hour_shortage = max(0, total_course_hours - total_room_hours)
 
     return timetable, teacher_stats, room_shortages, unassignable_courses, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage, used_rooms, room_usage_hours
+
 
 # Function to display the timetable and summary
 def display_timetable(timetable, teacher_stats, room_shortages, unassignable_courses, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage):
