@@ -29,7 +29,7 @@ def load_data(course_file, room_file):
 def generate_timetable(course_df, room_df, selected_days):
     rooms = room_df['Room Name'].tolist()
     time_slots = ['8:00 AM - 10:00 AM', '10:00 AM - 12:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM']
-
+    
     timetable = {day: {time: [] for time in time_slots} for day in selected_days}
     teacher_stats = {}
     room_shortages = []
@@ -45,9 +45,10 @@ def generate_timetable(course_df, room_df, selected_days):
         teacher = row['Main teacher']
         students = row['Sum of #students']
 
-        course_hours = sections * 4
+        course_hours = sections * 4  # Each section takes 4 hours
         total_course_hours += course_hours
 
+        # Track teacher's total weekly hours
         teacher_stats[teacher] = teacher_stats.get(teacher, 0) + course_hours
         if teacher_stats[teacher] > 40:
             hour_shortages.append({'Teacher': teacher, 'Required Hours': teacher_stats[teacher]})
@@ -67,7 +68,7 @@ def generate_timetable(course_df, room_df, selected_days):
             selected_day = random.choice(selected_days)
             timetable[selected_day][time_slot].append({'Course': course, 'Teacher': teacher, 'Room': room, 'Section': f"Section {section+1}"})
 
-    total_room_hours = len(used_rooms) * len(selected_days) * len(time_slots) * 2
+    total_room_hours = len(used_rooms) * len(selected_days) * len(time_slots) * 2  # Total available room hours in a week
     room_hour_shortage = max(0, total_course_hours - total_room_hours)
 
     return timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage, used_rooms, room_usage_hours
