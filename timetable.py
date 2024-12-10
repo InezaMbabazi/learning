@@ -27,14 +27,15 @@ def load_data(course_file, room_file):
 
 # Function to generate timetable and calculate stats
 def generate_timetable(course_df, room_df, selected_days):
-    rooms = room_df['Room Name'].tolist()
+    # Sort rooms by capacity (ascending order) for optimal allocation
+    room_df = room_df.sort_values(by='Population')
     time_slots = ['8:00 AM - 10:00 AM', '10:00 AM - 12:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM']
     timetable = {day: {time: [] for time in time_slots} for day in selected_days}
 
     teacher_stats = {}
     room_shortages = []
     used_rooms = set()
-    room_usage_hours = {room: 0 for room in rooms}  # Track room usage in hours
+    room_usage_hours = {room: 0 for room in room_df['Room Name']}  # Track room usage in hours
     unscheduled_hours = []
 
     for _, row in course_df.iterrows():
@@ -48,16 +49,19 @@ def generate_timetable(course_df, room_df, selected_days):
         for section in range(sections):
             for day in selected_days:
                 for time_slot in time_slots:
-                    # Filter rooms based on capacity
-                    available_rooms = room_df[room_df['Population'] >= students]['Room Name'].tolist()
-                    if not available_rooms:
+                    # Filter rooms that can accommodate the number of students
+                    suitable_rooms = room_df[room_df['Population'] >= students]
+                    
+                    if suitable_rooms.empty:
+                        # No room available for this number of students
                         room_shortages.append({'Course': course, 'Teacher': teacher, 'Students': students})
                         continue
 
                     if remaining_hours <= 0:
                         break
 
-                    room = random.choice(available_rooms)
+                    # Select the smallest suitable room
+                    room = suitable_rooms.iloc[0]['Room Name']
                     used_rooms.add(room)
 
                     # Assign course to time slot
@@ -111,7 +115,7 @@ def display_unscheduled_hours(unscheduled_hours):
 
 # Streamlit app
 def main():
-    st.title("Timetable Generator with Room Capacity Check")
+    st.title("Timetable Generator with Room Population Check")
 
     st.subheader("Download Templates")
     st.download_button("Download Course Template", generate_course_template().to_csv(index=False), "course_template.csv", "text/csv")
