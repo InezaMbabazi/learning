@@ -35,7 +35,7 @@ def generate_timetable(course_df, room_df, selected_days):
     room_shortages = []
     hour_shortages = []
     used_rooms = set()
-    room_usage_hours = {room: 0 for room in rooms}  # Track room usage in hours
+    room_usage_hours = {room: {'sections': [], 'total_hours': 0} for room in rooms}  # Track room usage and assigned hours
 
     total_course_hours = 0
 
@@ -62,7 +62,8 @@ def generate_timetable(course_df, room_df, selected_days):
             used_rooms.add(room)
 
             # Increment room usage hours (each slot = 2 hours)
-            room_usage_hours[room] += 2
+            room_usage_hours[room]['sections'].append({'Course': course, 'Section': f"Section {section+1}", 'Hours': 2})
+            room_usage_hours[room]['total_hours'] += 2
 
             time_slot = random.choice(time_slots)
             selected_day = random.choice(selected_days)
@@ -105,16 +106,14 @@ def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, 
     if room_hour_shortage > 0:
         st.write(f"Room Hour Shortage: {room_hour_shortage} hours")
 
-# Function to display unused rooms with their capacities
-def display_unused_rooms_with_capacity(room_df, used_rooms):
-    unused_rooms = room_df[~room_df['Room Name'].isin(used_rooms)]
-    st.subheader("Rooms Not in Use")
-    st.dataframe(unused_rooms)
-
-# Function to display room usage statistics
+# Function to display room usage statistics for each room (sections and hours)
 def display_room_usage_statistics(room_usage_hours):
     st.subheader("Room Usage Statistics (Weekly)")
-    room_usage_df = pd.DataFrame(list(room_usage_hours.items()), columns=['Room', 'Total Hours Used'])
+    room_usage_data = []
+    for room, data in room_usage_hours.items():
+        for section in data['sections']:
+            room_usage_data.append([room, section['Course'], section['Section'], section['Hours']])
+    room_usage_df = pd.DataFrame(room_usage_data, columns=['Room', 'Course', 'Section', 'Hours Assigned'])
     st.dataframe(room_usage_df)
 
 # Streamlit app
@@ -137,7 +136,6 @@ def main():
         timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage, used_rooms, room_usage_hours = generate_timetable(course_df, room_df, selected_days)
 
         display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage)
-        display_unused_rooms_with_capacity(room_df, used_rooms)
         display_room_usage_statistics(room_usage_hours)
 
 if __name__ == "__main__":
