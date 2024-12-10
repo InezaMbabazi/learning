@@ -31,7 +31,6 @@ def generate_timetable(course_df, room_df, selected_days):
     time_slots = ['8:00 AM - 10:00 AM', '10:00 AM - 12:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM']
 
     timetable = {day: {time: [] for time in time_slots} for day in selected_days}
-    cohort_timetable = {}  # New dictionary to track courses by cohort
     teacher_stats = {}
     room_shortages = []
     hour_shortages = []
@@ -44,7 +43,6 @@ def generate_timetable(course_df, room_df, selected_days):
         sections = row['section']
         course = row['Courses']
         teacher = row['Main teacher']
-        cohort = row['cohort']
         students = row['Sum of #students']
 
         course_hours = sections * 4
@@ -53,10 +51,6 @@ def generate_timetable(course_df, room_df, selected_days):
         teacher_stats[teacher] = teacher_stats.get(teacher, 0) + course_hours
         if teacher_stats[teacher] > 40:
             hour_shortages.append({'Teacher': teacher, 'Required Hours': teacher_stats[teacher]})
-
-        # Group courses by cohort
-        if cohort not in cohort_timetable:
-            cohort_timetable[cohort] = {day: {time: [] for time in time_slots} for day in selected_days}
 
         for section in range(sections):
             available_rooms = room_df[room_df['Population'] >= students]['Room Name'].tolist()
@@ -72,30 +66,27 @@ def generate_timetable(course_df, room_df, selected_days):
 
             time_slot = random.choice(time_slots)
             selected_day = random.choice(selected_days)
-            cohort_timetable[cohort][selected_day][time_slot].append({'Course': course, 'Teacher': teacher, 'Room': room, 'Section': f"Section {section + 1}"})
+            timetable[selected_day][time_slot].append({'Course': course, 'Teacher': teacher, 'Room': room, 'Section': f"Section {section + 1}"})
 
     total_room_hours = len(used_rooms) * len(selected_days) * len(time_slots) * 2
     room_hour_shortage = max(0, total_course_hours - total_room_hours)
 
-    return cohort_timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage, used_rooms, room_usage_hours
+    return timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage, used_rooms, room_usage_hours
 
 # Function to display the timetable and summary
-def display_timetable(cos, cohort_timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage):
-    # Show the timetable grouped by cohort
-    for cohort, timetable in cohort_timetable.items():
-        st.subheader(f"Timetable for Cohort: {cohort}")
-        timetable_data = []
-        for day, slots in timetable.items():
-            for time_slot, courses in slots.items():
-                if not courses:
-                    timetable_data.append([day, time_slot, "No courses assigned"])
-                else:
-                    for course in courses:
-                        timetable_data.append([day, time_slot, course['Course'], course['Teacher'], course['Room'], course['Section']])
-        timetable_df = pd.DataFrame(timetable_data, columns=['Day', 'Time Slot', 'Course', 'Teacher', 'Room', 'Section'])
-        st.dataframe(timetable_df)
+def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage):
+    timetable_data = []
+    for day, slots in timetable.items():
+        for time_slot, courses in slots.items():
+            if not courses:
+                timetable_data.append([day, time_slot, "No courses assigned"])
+            else:
+                for course in courses:
+                    timetable_data.append([day, time_slot, course['Course'], course['Teacher'], course['Room'], course['Section']])
+    timetable_df = pd.DataFrame(timetable_data, columns=['Day', 'Time Slot', 'Course', 'Teacher', 'Room', 'Section'])
+    st.subheader("Generated Timetable")
+    st.dataframe(timetable_df)
 
-    # Display teacher statistics
     teacher_stats_df = pd.DataFrame(list(teacher_stats.items()), columns=['Teacher', 'Total Weekly Hours'])
     st.subheader("Teacher Statistics")
     st.dataframe(teacher_stats_df)
@@ -120,6 +111,7 @@ def display_unused_rooms_with_capacity(room_df, used_rooms):
     st.subheader("Rooms Not in Use")
     st.dataframe(unused_rooms)
 
+# Function to display room usage statistics with time slots and hours
 def display_room_usage_statistics(room_usage_hours, timetable):
     st.subheader("Room Usage Statistics (Weekly)")
     room_usage_data = []
@@ -136,14 +128,8 @@ def display_room_usage_statistics(room_usage_hours, timetable):
             for day, slots in timetable.items():
                 for time_slot, courses in slots.items():
                     for course in courses:
-                        # Print the course structure for debugging
-                        st.write(f"Debug: Course structure: {course}")
-                        
-                        if isinstance(course, dict) and 'Course' in course and 'Section' in course and 'Room' in course:
-                            if course['Course'] == course_name and course['Section'] == section_name and course['Room'] == room:
-                                room_usage_data.append([room, course_name, section_name, time_slot, hours_assigned])
-                        else:
-                            st.write(f"Error: Unexpected course format for {course}")
+                        if course['Course'] == course_name and course['Section'] == section_name and course['Room'] == room:
+                            room_usage_data.append([room, course_name, section_name, time_slot, hours_assigned])
     
     # Create the DataFrame to display room usage with time slots
     room_usage_df = pd.DataFrame(room_usage_data, columns=['Room', 'Course', 'Section', 'Time Slot', 'Hours Assigned'])
@@ -166,11 +152,11 @@ def main():
 
     if course_file and room_file:
         course_df, room_df = load_data(course_file, room_file)
-        cohort_timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage, used_rooms, room_usage_hours = generate_timetable(course_df, room_df, selected_days)
+        timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage, used_rooms, room_usage_hours = generate_timetable(course_df, room_df, selected_days)
 
-        display_timetable(course_df, cohort_timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage)
+        display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage)
         display_unused_rooms_with_capacity(room_df, used_rooms)
-        display_room_usage_statistics(room_usage_hours, cohort_timetable)
+        display_room_usage_statistics(room_usage_hours, timetable)
 
 if __name__ == "__main__":
     main()
