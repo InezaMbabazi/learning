@@ -29,19 +29,12 @@ def load_data(course_file, room_file):
 def generate_timetable(course_df, room_df, selected_days):
     rooms = room_df['Room Name'].tolist()
     time_slots = ['8:00 AM - 10:00 AM', '10:00 AM - 12:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM']
-    total_time_slots = len(selected_days) * len(time_slots)
-    total_available_hours = total_time_slots * len(rooms) * 2  # Each time slot = 2 hours
-
     timetable = {day: {time: [] for time in time_slots} for day in selected_days}
+
     teacher_stats = {}
     room_shortages = []
-    hour_shortages = []
     used_rooms = set()
     room_usage_hours = {room: 0 for room in rooms}  # Track room usage in hours
-
-    total_course_hours = 0
-
-    # Track hours to be scheduled per course
     unscheduled_hours = []
 
     for _, row in course_df.iterrows():
@@ -49,18 +42,13 @@ def generate_timetable(course_df, room_df, selected_days):
         course = row['Courses']
         teacher = row['Main teacher']
         students = row['Sum of #students']
-
-        course_hours = sections * 4
-        total_course_hours += course_hours
-
-        teacher_stats[teacher] = teacher_stats.get(teacher, 0) + course_hours
-        if teacher_stats[teacher] > 40:
-            hour_shortages.append({'Teacher': teacher, 'Required Hours': teacher_stats[teacher]})
-
+        course_hours = sections * 4  # Each section requires 4 hours weekly
         remaining_hours = course_hours
+
         for section in range(sections):
             for day in selected_days:
                 for time_slot in time_slots:
+                    # Filter rooms based on capacity
                     available_rooms = room_df[room_df['Population'] >= students]['Room Name'].tolist()
                     if not available_rooms:
                         room_shortages.append({'Course': course, 'Teacher': teacher, 'Students': students})
@@ -80,24 +68,10 @@ def generate_timetable(course_df, room_df, selected_days):
         if remaining_hours > 0:
             unscheduled_hours.append({'Course': course, 'Teacher': teacher, 'Remaining Hours': remaining_hours})
 
-    total_room_hours = len(used_rooms) * len(selected_days) * len(time_slots) * 2
-    room_hour_shortage = max(0, total_course_hours - total_available_hours)
-
-    return (
-        timetable,
-        teacher_stats,
-        room_shortages,
-        hour_shortages,
-        total_course_hours,
-        total_room_hours,
-        room_hour_shortage,
-        used_rooms,
-        room_usage_hours,
-        unscheduled_hours
-    )
+    return timetable, teacher_stats, room_shortages, used_rooms, room_usage_hours, unscheduled_hours
 
 # Function to display the timetable and summary
-def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage):
+def display_timetable(timetable):
     timetable_data = []
     for day, slots in timetable.items():
         for time_slot, courses in slots.items():
@@ -110,23 +84,11 @@ def display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, 
     st.subheader("Generated Timetable")
     st.dataframe(timetable_df)
 
-    teacher_stats_df = pd.DataFrame(list(teacher_stats.items()), columns=['Teacher', 'Total Weekly Hours'])
-    st.subheader("Teacher Statistics")
-    st.dataframe(teacher_stats_df)
-
+# Function to display room shortages
+def display_room_shortages(room_shortages):
     if room_shortages:
         st.subheader("Room Shortages")
         st.dataframe(pd.DataFrame(room_shortages))
-
-    if hour_shortages:
-        st.subheader("Teacher Hour Shortages")
-        st.dataframe(pd.DataFrame(hour_shortages))
-
-    st.subheader("Weekly Summary")
-    st.write(f"Total Course Hours (Weekly): {total_course_hours}")
-    st.write(f"Total Room Hours Available (Weekly): {total_room_hours}")
-    if room_hour_shortage > 0:
-        st.write(f"Room Hour Shortage: {room_hour_shortage} hours")
 
 # Function to display unused rooms with their capacities
 def display_unused_rooms_with_capacity(room_df, used_rooms):
@@ -149,7 +111,7 @@ def display_unscheduled_hours(unscheduled_hours):
 
 # Streamlit app
 def main():
-    st.title("Enhanced Timetable Generator")
+    st.title("Timetable Generator with Room Capacity Check")
 
     st.subheader("Download Templates")
     st.download_button("Download Course Template", generate_course_template().to_csv(index=False), "course_template.csv", "text/csv")
@@ -164,9 +126,10 @@ def main():
 
     if course_file and room_file:
         course_df, room_df = load_data(course_file, room_file)
-        timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage, used_rooms, room_usage_hours, unscheduled_hours = generate_timetable(course_df, room_df, selected_days)
+        timetable, teacher_stats, room_shortages, used_rooms, room_usage_hours, unscheduled_hours = generate_timetable(course_df, room_df, selected_days)
 
-        display_timetable(timetable, teacher_stats, room_shortages, hour_shortages, total_course_hours, total_room_hours, room_hour_shortage)
+        display_timetable(timetable)
+        display_room_shortages(room_shortages)
         display_unused_rooms_with_capacity(room_df, used_rooms)
         display_room_usage_statistics(room_usage_hours)
         display_unscheduled_hours(unscheduled_hours)
