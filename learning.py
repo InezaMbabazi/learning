@@ -69,8 +69,23 @@ def extract_text_from_pdf(uploaded_file):
         text += page.get_text()
     return text
 
+# Chatbot function
+def chatbot_interaction(lesson_content, student_question):
+    prompt = f"""
+    You are an interactive learning assistant. Based on the following lesson content, answer the student's question clearly and concisely.
+
+    Lesson Content: {lesson_content}
+
+    Student's Question: {student_question}
+    """
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response['choices'][0]['message']['content'].strip()
+
 # Streamlit UI
-st.title("Interactive Learning Assistant")
+st.title("Interactive Learning Assistant with Chatbot")
 
 # Get student_id from the user
 student_id = st.text_input("Enter your student_id:")
@@ -124,3 +139,11 @@ if lesson_content:
             st.success(f"Your score: {score}/{len(st.session_state['questions'])}")
             for fb in feedback:
                 st.write(fb)
+
+    # Chatbot interaction
+    st.subheader("Chatbot Interaction")
+    student_question = st.text_input("Ask the chatbot a question:")
+    if student_question:
+        chatbot_response = chatbot_interaction(lesson_content, student_question)
+        st.write("**Chatbot Response:**")
+        st.write(chatbot_response)
