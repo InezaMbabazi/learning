@@ -120,7 +120,6 @@ def display_unused_rooms_with_capacity(room_df, used_rooms):
     st.subheader("Rooms Not in Use")
     st.dataframe(unused_rooms)
 
-# Function to display room usage statistics with time slots and hours
 def display_room_usage_statistics(room_usage_hours, timetable):
     st.subheader("Room Usage Statistics (Weekly)")
     room_usage_data = []
@@ -137,8 +136,14 @@ def display_room_usage_statistics(room_usage_hours, timetable):
             for day, slots in timetable.items():
                 for time_slot, courses in slots.items():
                     for course in courses:
-                        if course['Course'] == course_name and course['Section'] == section_name and course['Room'] == room:
-                            room_usage_data.append([room, course_name, section_name, time_slot, hours_assigned])
+                        # Print the course structure for debugging
+                        st.write(f"Debug: Course structure: {course}")
+                        
+                        if isinstance(course, dict) and 'Course' in course and 'Section' in course and 'Room' in course:
+                            if course['Course'] == course_name and course['Section'] == section_name and course['Room'] == room:
+                                room_usage_data.append([room, course_name, section_name, time_slot, hours_assigned])
+                        else:
+                            st.write(f"Error: Unexpected course format for {course}")
     
     # Create the DataFrame to display room usage with time slots
     room_usage_df = pd.DataFrame(room_usage_data, columns=['Room', 'Course', 'Section', 'Time Slot', 'Hours Assigned'])
