@@ -56,7 +56,7 @@ def main():
             student_data = pd.read_csv(student_file)
 
             # Check if required columns exist
-            required_columns = ['Course Code', 'Term']
+            required_columns = ['Module Code', 'Term']
             for col in required_columns:
                 if col not in teacher_data.columns:
                     st.error(f"Column '{col}' is missing in the Teacher Module Template.")
