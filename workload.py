@@ -11,7 +11,7 @@ def calculate_hours(credits):
         return 10  # 6 teaching + 4 office hours
     return 0
 
-# Function to calculate annual workload
+# Function to calculate workload and assign teachers
 def calculate_workload(student_data, teacher_data):
     teacher_workload = {}
     assignments = []
@@ -20,59 +20,66 @@ def calculate_workload(student_data, teacher_data):
     for _, row in teacher_data.iterrows():
         teacher_workload[row['Teacher Name']] = 0
 
-    # Assign teachers and calculate workload
+    # Assign teachers
     for _, row in student_data.iterrows():
         module_code = row['Module Code']
-        total_hours = row['Weekly Hours'] * row['Sections'] * 15  # Annual hours (15 weeks assumed)
+        weekly_hours = row['Weekly Hours']
+        sections = row['Sections']
+
+        # Find teachers already assigned to this module
         module_teachers = teacher_data[teacher_data['Module Code'] == module_code]
 
-        # Main teacher is required
-        main_teachers = module_teachers[module_teachers['Teacher Status'] == 'Main']
+        for sec in range(1, sections + 1):
+            assigned = False
 
-        if not main_teachers.empty:
-            main_teacher = main_teachers.iloc[0]['Teacher Name']
-            teacher_workload[main_teacher] += total_hours
-            assignments.append({
-                'Teacher': main_teacher,
-                'Module Code': module_code,
-                'Module Name': row['Module Name'],
-                'Sections': row['Sections'],
-                'Total Annual Hours': total_hours,
-                'Status': 'Main'
-            })
-        else:
-            # If no main teacher is found
-            assignments.append({
-                'Teacher': 'Unassigned (No Main Teacher)',
-                'Module Code': module_code,
-                'Module Name': row['Module Name'],
-                'Sections': row['Sections'],
-                'Total Annual Hours': total_hours,
-                'Status': 'Unassigned'
-            })
+            # Prefer main teachers for the module
+            for _, teacher_row in module_teachers.iterrows():
+                teacher_name = teacher_row['Teacher Name']
+                if teacher_workload[teacher_name] + weekly_hours <= 12:
+                    teacher_workload[teacher_name] += weekly_hours
+                    assignments.append({
+                        'Teacher': teacher_name,
+                        'Module Code': module_code,
+                        'Module Name': row['Module Name'],
+                        'Section': sec,
+                        'Weekly Hours': weekly_hours
+                    })
+                    assigned = True
+                    break
 
-        # Assign assistant teachers (if any)
-        assistant_teachers = module_teachers[module_teachers['Teacher Status'] == 'Assistant']
-        for _, assistant in assistant_teachers.iterrows():
-            assistant_teacher = assistant['Teacher Name']
-            teacher_workload[assistant_teacher] += total_hours * 0.5  # Assistants get 50% workload
-            assignments.append({
-                'Teacher': assistant_teacher,
-                'Module Code': module_code,
-                'Module Name': row['Module Name'],
-                'Sections': row['Sections'],
-                'Total Annual Hours': total_hours * 0.5,
-                'Status': 'Assistant'
-            })
+            # If no assigned teacher is available, assign anyone with capacity
+            if not assigned:
+                for teacher_name in teacher_workload:
+                    if teacher_workload[teacher_name] + weekly_hours <= 12:
+                        teacher_workload[teacher_name] += weekly_hours
+                        assignments.append({
+                            'Teacher': teacher_name,
+                            'Module Code': module_code,
+                            'Module Name': row['Module Name'],
+                            'Section': sec,
+                            'Weekly Hours': weekly_hours
+                        })
+                        assigned = True
+                        break
 
-    workload_summary = pd.DataFrame(teacher_workload.items(), columns=['Teacher', 'Total Annual Hours'])
+            # If no teacher has capacity
+            if not assigned:
+                assignments.append({
+                    'Teacher': 'Unassigned',
+                    'Module Code': module_code,
+                    'Module Name': row['Module Name'],
+                    'Section': sec,
+                    'Weekly Hours': weekly_hours
+                })
+
+    workload_summary = pd.DataFrame(teacher_workload.items(), columns=['Teacher', 'Total Hours'])
     assignments_df = pd.DataFrame(assignments)
     return assignments_df, workload_summary
 
 # Streamlit App
 def main():
-    st.title("Teacher Annual Workload Management System 📊")
-    st.write("Upload student and teacher data to calculate annual workload.")
+    st.title("Teacher Workload Management System 📊")
+    st.write("Upload student and teacher data to calculate workload.")
 
     # File uploaders
     student_file = st.file_uploader("Upload Student Module Data (CSV)", type=["csv"])
@@ -98,14 +105,14 @@ def main():
         st.subheader("Teacher Assignments:")
         st.write(assignments)
 
-        st.subheader("Annual Workload Summary:")
+        st.subheader("Workload Summary:")
         st.write(workload_summary)
 
-        # Highlight unassigned modules
-        unassigned_modules = assignments[assignments['Teacher'] == 'Unassigned (No Main Teacher)']
-        if not unassigned_modules.empty:
-            st.warning("Some modules could not be assigned due to missing main teachers:")
-            st.write(unassigned_modules)
+        # Highlight unassigned sections
+        unassigned_sections = assignments[assignments['Teacher'] == 'Unassigned']
+        if not unassigned_sections.empty:
+            st.warning("Some sections could not be assigned due to workload constraints:")
+            st.write(unassigned_sections)
 
 if __name__ == "__main__":
     main()
