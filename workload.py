@@ -16,7 +16,7 @@ def calculate_workload(course_data, teacher_modules, student_db):
     student_count = student_db.groupby(['Module Code', 'Module Name']).size().reset_index(name='Number of Students')
     merged_data = pd.merge(merged_data, student_count, on=['Module Code', 'Module Name'], how='inner')
     
-    # Ensure that the 'Term' column from course_data or student_db is included
+    # Add the 'Term' column from course_data or student_db after the merge
     if 'Term' in course_data.columns:
         merged_data['Term'] = course_data['Term']
     elif 'Term' in student_db.columns:
