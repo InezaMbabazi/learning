@@ -70,10 +70,9 @@ def calculate_workload(course_data, teacher_modules, student_db):
 
     return final_output
 
-# Function to create and return a downloadable template
-def generate_template():
-    # Creating a basic template with 'Term' column
-    template_data = {
+# Function to create and return a downloadable template for Teacher Module
+def generate_teacher_template():
+    teacher_template_data = {
         'Teacher Name': [''] * 5,
         'Module Code': [''] * 5,
         'Module Name': [''] * 5,
@@ -81,9 +80,33 @@ def generate_template():
         'Term': ['Term 1', 'Term 2', 'Term 3', 'Term 1', 'Term 2'],
         'Credit': [10, 15, 20, 15, 10],
     }
-    
-    template_df = pd.DataFrame(template_data)
-    return template_df
+    teacher_template_df = pd.DataFrame(teacher_template_data)
+    return teacher_template_df
+
+# Function to create and return a downloadable template for Course Structure
+def generate_course_template():
+    course_template_data = {
+        'Module Code': [''] * 5,
+        'Module Name': [''] * 5,
+        'Credit': [10, 15, 20, 15, 10],
+        'Term': ['Term 1', 'Term 2', 'Term 3', 'Term 1', 'Term 2'],
+    }
+    course_template_df = pd.DataFrame(course_template_data)
+    return course_template_df
+
+# Function to create and return a downloadable template for Student Database
+def generate_student_template():
+    student_template_data = {
+        'Student Number': [''] * 5,
+        'Module Code': [''] * 5,
+        'Module Name': [''] * 5,
+        'Term': ['Term 1', 'Term 2', 'Term 3', 'Term 1', 'Term 2'],
+        'Section': ['A', 'B', 'C', 'A', 'B'],
+        'Year': ['2024', '2024', '2024', '2024', '2024'],
+        'Program': ['Program 1', 'Program 2', 'Program 1', 'Program 2', 'Program 1'],
+    }
+    student_template_df = pd.DataFrame(student_template_data)
+    return student_template_df
 
 # Streamlit UI
 st.title('Workload Calculation for Teachers')
@@ -93,17 +116,41 @@ teacher_file = st.file_uploader("Upload Teacher Modules CSV", type=["csv"])
 course_file = st.file_uploader("Upload Course Structure CSV", type=["csv"])
 student_file = st.file_uploader("Upload Student Database CSV", type=["csv"])
 
-# Add Download Template Button
-if st.button('Download Template'):
-    template_df = generate_template()
-    # Convert the template to CSV
-    csv_template = template_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Teacher Module Template",
-        data=csv_template,
-        file_name="teacher_module_template.csv",
-        mime="text/csv"
-    )
+# Add Download Template Buttons for all 3 templates
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button('Download Teacher Template'):
+        teacher_template_df = generate_teacher_template()
+        # Convert the teacher template to CSV
+        csv_teacher_template = teacher_template_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Download Teacher Module Template",
+            data=csv_teacher_template,
+            file_name="teacher_module_template.csv",
+            mime="text/csv"
+        )
+with col2:
+    if st.button('Download Course Template'):
+        course_template_df = generate_course_template()
+        # Convert the course template to CSV
+        csv_course_template = course_template_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Download Course Structure Template",
+            data=csv_course_template,
+            file_name="course_structure_template.csv",
+            mime="text/csv"
+        )
+with col3:
+    if st.button('Download Student Template'):
+        student_template_df = generate_student_template()
+        # Convert the student template to CSV
+        csv_student_template = student_template_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Download Student Database Template",
+            data=csv_student_template,
+            file_name="student_database_template.csv",
+            mime="text/csv"
+        )
 
 # Process files if uploaded
 if teacher_file is not None and course_file is not None and student_file is not None:
@@ -128,4 +175,3 @@ if teacher_file is not None and course_file is not None and student_file is not 
 
 else:
     st.warning("Please upload all three CSV files to proceed.")
-
