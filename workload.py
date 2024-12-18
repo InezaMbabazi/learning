@@ -66,12 +66,13 @@ def calculate_workload(course_data, teacher_modules, student_db):
     # Merge the student count into the merged_data DataFrame
     merged_data = pd.merge(merged_data, student_count, on=['Module Code', 'Module Name'], how='inner')
 
-    # Placeholder calculation for teaching, office, grading hours
+    # Calculate the number of hours based on the credit value
     merged_data['Teaching Hours'] = merged_data['Credit'].apply(lambda x: 4 if x == 10 else (4 if x == 15 else 6))
     merged_data['Office Hours'] = merged_data['Credit'].apply(lambda x: 1 if x == 10 else (2 if x == 15 else 2))
-    merged_data['Grading Hours'] = merged_data['Number of Students'] * merged_data['Credit'].apply(lambda x: 0.083 if x == 10 else (0.083 if x == 15 else 0.117))
+    merged_data['Grading Hours'] = merged_data['Number of Students'] * merged_data['Credit'].apply(
+        lambda x: 0.083 if x == 10 else (0.083 if x == 15 else 0.117))
 
-    # Additional responsibilities (research, meetings, curriculum development)
+    # Add placeholders for other responsibilities (adjust as needed)
     merged_data['Research Hours'] = 3  # Placeholder value
     merged_data['Meetings Hours'] = 3  # Placeholder value
     merged_data['Curriculum Development Hours'] = 3  # Placeholder value
@@ -91,14 +92,36 @@ def calculate_workload(course_data, teacher_modules, student_db):
     # Assuming 12 weeks per term
     merged_data['Total Term Workload'] = merged_data['Total Weekly Hours'] * 12
 
-    # Select the relevant columns for the final output
-    final_output = merged_data[['Teacher Name', 'Module Code', 'Module Name', 'Section', 'Number of Students',
-                                'Teaching Hours', 'Office Hours', 'Grading Hours',
-                                'Research Hours', 'Meetings Hours', 'Curriculum Development Hours',
-                                'Other Responsibilities Hours', 'Total Weekly Hours', 'Total Term Workload']]
+    # Print the columns of merged_data to inspect them
+    print("Columns in merged_data:", merged_data.columns)
+
+    # Adjust the columns in final_output if necessary based on available columns
+    required_columns = ['Teacher Name', 'Module Code', 'Module Name', 'Section', 'Number of Students',
+                        'Teaching Hours', 'Office Hours', 'Grading Hours',
+                        'Research Hours', 'Meetings Hours', 'Curriculum Development Hours',
+                        'Other Responsibilities Hours', 'Total Weekly Hours', 'Total Term Workload']
+
+    # Check if the required columns exist in merged_data
+    missing_columns = [col for col in required_columns if col not in merged_data.columns]
+    if missing_columns:
+        print(f"Missing columns: {missing_columns}")
+    
+    # Select the available columns
+    final_output = merged_data[[col for col in required_columns if col in merged_data.columns]]
 
     return final_output
 
+# Example usage:
+# Assuming course_data, teacher_modules, and student_db are your input DataFrames
+# course_data = pd.read_csv('course_structure.csv')
+# teacher_modules = pd.read_csv('teacher_modules.csv')
+# student_db = pd.read_csv('student_db.csv')
+
+# Calculate workload
+# final_output = calculate_workload(course_data, teacher_modules, student_db)
+
+# Print the final output (or return it in your application)
+# print(final_output)
 # Streamlit UI
 st.title('Workload Calculation for Teachers')
 
