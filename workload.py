@@ -28,15 +28,16 @@ def generate_template():
         'Number of Students': [30, 25, 35]
     })
     
-    # Create in-memory buffers for the dataframes
-    course_buffer = io.StringIO()
-    teacher_buffer = io.StringIO()
-    student_buffer = io.StringIO()
+    # Convert DataFrames to CSV strings and then to bytes
+    course_buffer = io.BytesIO()
+    teacher_buffer = io.BytesIO()
+    student_buffer = io.BytesIO()
     
     course_template.to_csv(course_buffer, index=False)
     teacher_template.to_csv(teacher_buffer, index=False)
     student_template.to_csv(student_buffer, index=False)
     
+    # Ensure the buffers are set to the beginning so they can be read
     course_buffer.seek(0)
     teacher_buffer.seek(0)
     student_buffer.seek(0)
