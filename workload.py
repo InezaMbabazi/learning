@@ -1,95 +1,111 @@
-import streamlit as st
 import pandas as pd
+import streamlit as st
 
-# Define workload calculation rules
-def calculate_workload(course_structure, student_database, teacher_module):
-    # Merge the data for complete information
-    merged_data = pd.merge(teacher_module, course_structure, on="Module Code")
-    merged_data = pd.merge(merged_data, student_database, on="Module Code")
-
-    # Workload calculation logic
-    def compute_hours(row):
-        teaching_hours = 0
-        office_hours = 0
-        grading_hours = 0
-
-        if row["Credit"] == 10:
-            teaching_hours = 4
-            office_hours = 1
-            grading_hours = 0.083 * row["Student Number"]
-        elif row["Credit"] == 15:
-            teaching_hours = 4
-            office_hours = 2
-            grading_hours = 0.083 * row["Student Number"]
-        elif row["Credit"] == 20:
-            teaching_hours = 6
-            office_hours = 2
-            grading_hours = 0.117 * row["Student Number"]
-
-        return teaching_hours + office_hours + grading_hours
-
-    # Apply workload calculation
-    merged_data["Total Workload"] = merged_data.apply(compute_hours, axis=1)
-    return merged_data
-
-# Group workload by teacher and term, aggregating modules and total workload
-def calculate_trimester_workload(workload_data):
-    grouped_data = (
-        workload_data.groupby(["Teacher Name", "Term_x"])
-        .agg(
-            Modules=("Module Name_x", ", ".join),
-            Total_Workload=("Total Workload", "sum"),
-        )
-        .reset_index()
-    )
-    return grouped_data
-
-# Pivot table to display one row per teacher with trimesters as columns
-def pivot_workload_by_teacher(trimester_workload):
-    pivoted_data = trimester_workload.pivot(
-        index="Teacher Name", columns="Term_x", values=["Modules", "Total_Workload"]
-    )
-    pivoted_data.columns = [
-        f"{col[1]} - {col[0]}" for col in pivoted_data.columns.to_flat_index()
-    ]
-    pivoted_data.reset_index(inplace=True)
-    return pivoted_data
-
-# Streamlit app
-st.title("Teacher Workload Calculator")
-
-# File upload
-st.sidebar.header("Upload Files")
-student_file = st.sidebar.file_uploader("Upload Student Database", type=["csv"])
-teacher_file = st.sidebar.file_uploader("Upload Teacher Module Database", type=["csv"])
-course_file = st.sidebar.file_uploader("Upload Course Structure", type=["csv"])
-
-if student_file and teacher_file and course_file:
-    # Load data
-    student_database = pd.read_csv(student_file)
-    teacher_module = pd.read_csv(teacher_file)
-    course_structure = pd.read_csv(course_file)
-
-    # Display uploaded data
-    st.subheader("Uploaded Data")
-    st.write("**Student Database:**")
-    st.dataframe(student_database)
-    st.write("**Teacher Module Database:**")
-    st.dataframe(teacher_module)
-    st.write("**Course Structure:**")
-    st.dataframe(course_structure)
-
-    # Calculate workload
-    workload_data = calculate_workload(course_structure, student_database, teacher_module)
-    trimester_workload = calculate_trimester_workload(workload_data)
-    pivoted_workload = pivot_workload_by_teacher(trimester_workload)
-
-    # Display results
-    st.subheader("Calculated Workload")
-    st.dataframe(pivoted_workload)
+# Define workload calculation functions
+def calculate_workload(row, students):
+    credits = row['Credits']
+    if credits == 10:
+        teaching_hours = 4
+        office_hours = 1
+        grading_hours = 0.083 * students
+    elif credits == 15:
+        teaching_hours = 4
+        office_hours = 2
+        grading_hours = 0.083 * students
+    elif credits == 20:
+        teaching_hours = 6
+        office_hours = 2
+        grading_hours = 0.117 * students
+    else:
+        teaching_hours = office_hours = grading_hours = 0  # Undefined credit hours
     
-    # Option to download results
-    csv = pivoted_workload.to_csv(index=False)
-    st.download_button(label="Download Workload Data as CSV", data=csv, file_name="workload_data.csv", mime="text/csv")
-else:
-    st.write("Please upload all required files to proceed.")
+    return teaching_hours, office_hours, grading_hours
+
+# Generate templates for download
+def generate_template(template_type):
+    if template_type == "student":
+        data = {
+            'Module Code': ['MOD101', 'MOD102'],
+            'Student Number': [30, 25]
+        }
+    elif template_type == "teacher":
+        data = {
+            'Module Code': ['MOD101', 'MOD102'],
+            'Teacher Name': ['John Doe', 'Jane Smith'],
+            'Credits': [10, 15],
+            'Term': ['TERM 1', 'TERM 2']
+        }
+    return pd.DataFrame(data)
+
+# Streamlit application
+def main():
+    st.title("Teacher Workload Calculator")
+
+    # Provide template downloads
+    st.subheader("Download Templates")
+    student_template = generate_template("student")
+    teacher_template = generate_template("teacher")
+
+    student_csv = student_template.to_csv(index=False).encode('utf-8')
+    teacher_csv = teacher_template.to_csv(index=False).encode('utf-8')
+
+    st.download_button(
+        label="Download Student Database Template",
+        data=student_csv,
+        file_name='student_template.csv',
+        mime='text/csv'
+    )
+
+    st.download_button(
+        label="Download Teacher Module Template",
+        data=teacher_csv,
+        file_name='teacher_template.csv',
+        mime='text/csv'
+    )
+
+    # Upload CSV files
+    student_file = st.file_uploader("Upload Student Database CSV", type="csv")
+    teacher_file = st.file_uploader("Upload Teacher Module CSV", type="csv")
+
+    if student_file and teacher_file:
+        # Read the CSV files
+        student_data = pd.read_csv(student_file)
+        teacher_data = pd.read_csv(teacher_file)
+
+        # Merge the data for calculations
+        merged_data = pd.merge(student_data, teacher_data, on='Module Code', how='inner')
+
+        # Add calculated workload columns
+        merged_data['Teaching Hours'], merged_data['Office Hours'], merged_data['Grading Hours'] = zip(
+            *merged_data.apply(lambda x: calculate_workload(x, x['Student Number']), axis=1)
+        )
+
+        # Add total weekly workload per module
+        merged_data['Total Weekly Hours'] = merged_data['Teaching Hours'] + merged_data['Office Hours'] + merged_data['Grading Hours']
+
+        # Aggregate by Term and Teacher Name
+        aggregated_data = merged_data.groupby(['Teacher Name', 'Term']).agg({
+            'Teaching Hours': 'sum',
+            'Office Hours': 'sum',
+            'Grading Hours': 'sum',
+            'Total Weekly Hours': 'sum'
+        }).reset_index()
+
+        # Display data
+        st.subheader("Merged and Calculated Data")
+        st.dataframe(merged_data)
+
+        st.subheader("Aggregated Workload Data by Term")
+        st.dataframe(aggregated_data)
+
+        # Downloadable aggregated data
+        csv = aggregated_data.to_csv(index=False)
+        st.download_button(
+            label="Download Aggregated Data as CSV",
+            data=csv,
+            file_name='aggregated_workload.csv',
+            mime='text/csv'
+        )
+
+if __name__ == "__main__":
+    main()
