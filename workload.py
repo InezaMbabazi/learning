@@ -37,40 +37,49 @@ def generate_template(template_type):
         }
     return pd.DataFrame(data)
 
-# Enforce maximum 12 teaching hours per week and reassign excess
-def enforce_teaching_limit_and_reassign(merged_data):
+# Divide students into sections and assign to teachers
+def assign_sections_and_calculate_workload(merged_data, max_students_per_section=30):
+    section_data = []
     teacher_workloads = {}
 
-    # Process each row
     for index, row in merged_data.iterrows():
-        teacher = row['Teacher Name']
         module = row['Module Code']
         term = row['Term']
-        teaching_hours = row['Teaching Hours']
+        total_students = row['Student Number']
+        credits = row['Credits']
+        
+        teaching_hours, office_hours, grading_hours = calculate_workload(row, max_students_per_section)
 
-        # Initialize teacher workload if not already present
-        if teacher not in teacher_workloads:
-            teacher_workloads[teacher] = 0
+        num_sections = -(-total_students // max_students_per_section)  # Ceiling division
+        available_teachers = merged_data[(merged_data['Module Code'] == module)]['Teacher Name'].unique()
 
-        # Check if adding this module exceeds 12 hours
-        if teacher_workloads[teacher] + teaching_hours > 12:
-            # Find another teacher for the same module
-            available_teacher = merged_data[
-                (merged_data['Module Code'] == module) & 
-                (merged_data['Teacher Name'] != teacher) & 
-                (merged_data['Teacher Name'].map(teacher_workloads.get).fillna(0) + teaching_hours <= 12)
-            ]
+        for section in range(1, num_sections + 1):
+            assigned_teacher = None
+            for teacher in available_teachers:
+                current_workload = teacher_workloads.get((teacher, term), 0)
+                if current_workload + teaching_hours <= 12:
+                    assigned_teacher = teacher
+                    break
 
-            if not available_teacher.empty:
-                new_teacher = available_teacher.iloc[0]['Teacher Name']
-                merged_data.at[index, 'Teacher Name'] = new_teacher
-                teacher_workloads[new_teacher] = teacher_workloads.get(new_teacher, 0) + teaching_hours
+            if assigned_teacher:
+                teacher_workloads[(assigned_teacher, term)] = teacher_workloads.get((assigned_teacher, term), 0) + teaching_hours
             else:
-                merged_data.at[index, 'Teacher Name'] = 'Unassigned (Manual Reassignment Needed)'
-        else:
-            teacher_workloads[teacher] += teaching_hours
+                assigned_teacher = 'Unassigned (Manual Reassignment Needed)'
 
-    return merged_data
+            section_data.append({
+                'Module Code': module,
+                'Term': term,
+                'Section': section,
+                'Teacher Name': assigned_teacher,
+                'Teaching Hours': teaching_hours,
+                'Office Hours': office_hours,
+                'Grading Hours': grading_hours,
+                'Total Students': min(max_students_per_section, total_students),
+            })
+
+            total_students -= max_students_per_section
+
+    return pd.DataFrame(section_data)
 
 # Streamlit application
 def main():
@@ -110,24 +119,16 @@ def main():
         # Merge the data for calculations
         merged_data = pd.merge(student_data, teacher_data, on='Module Code', how='inner')
 
-        # Add calculated workload columns
-        merged_data['Teaching Hours'], merged_data['Office Hours'], merged_data['Grading Hours'] = zip(
-            *merged_data.apply(lambda x: calculate_workload(x, x['Student Number']), axis=1)
-        )
-
-        # Add total weekly workload per module
-        merged_data['Total Weekly Hours'] = merged_data['Teaching Hours'] + merged_data['Office Hours'] + merged_data['Grading Hours']
-
-        # Enforce 12-hour teaching limit and reassign excess
-        merged_data = enforce_teaching_limit_and_reassign(merged_data)
+        # Assign sections and calculate workload
+        section_data = assign_sections_and_calculate_workload(merged_data)
 
         # Aggregate by Term and Teacher Name
-        aggregated_data = merged_data.groupby(['Teacher Name', 'Term']).agg({
+        aggregated_data = section_data.groupby(['Teacher Name', 'Term']).agg({
             'Teaching Hours': 'sum',
             'Office Hours': 'sum',
-            'Grading Hours': 'sum',
-            'Total Weekly Hours': 'sum'
+            'Grading Hours': 'sum'
         }).reset_index()
+        aggregated_data['Total Weekly Hours'] = aggregated_data['Teaching Hours'] + aggregated_data['Office Hours'] + aggregated_data['Grading Hours']
 
         # Create a final summary for each teacher across terms
         teacher_summary = aggregated_data.groupby('Teacher Name').agg({
@@ -138,8 +139,8 @@ def main():
         }).reset_index()
 
         # Display data
-        st.subheader("Merged and Calculated Data")
-        st.dataframe(merged_data)
+        st.subheader("Section and Workload Data")
+        st.dataframe(section_data)
 
         st.subheader("Aggregated Workload Data by Term")
         st.dataframe(aggregated_data)
@@ -148,12 +149,20 @@ def main():
         st.dataframe(teacher_summary)
 
         # Downloadable aggregated data
-        csv = aggregated_data.to_csv(index=False).encode('utf-8')
+        section_csv = section_data.to_csv(index=False).encode('utf-8')
+        aggregated_csv = aggregated_data.to_csv(index=False).encode('utf-8')
         summary_csv = teacher_summary.to_csv(index=False).encode('utf-8')
 
         st.download_button(
+            label="Download Section Data as CSV",
+            data=section_csv,
+            file_name='section_data.csv',
+            mime='text/csv'
+        )
+
+        st.download_button(
             label="Download Aggregated Data as CSV",
-            data=csv,
+            data=aggregated_csv,
             file_name='aggregated_workload.csv',
             mime='text/csv'
         )
