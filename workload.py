@@ -52,9 +52,11 @@ def generate_template():
 
 # Function to calculate the workload
 def calculate_workload(course_data, teacher_modules, student_db):
-    # Merge the dataframes
+    # Merge the dataframes on 'Module Code' and 'Module Name'
     merged_data = pd.merge(course_data, teacher_modules, on='Module Code')
-    merged_data = pd.merge(merged_data, student_db, on=['Module Code', 'Term', 'Module Name'], how='inner')
+    
+    # Now merge with student_db on 'Module Code', 'Module Name', and 'Term'
+    merged_data = pd.merge(merged_data, student_db, on=['Module Code', 'Module Name', 'Term'], how='inner')
     
     # Placeholder calculation for teaching, office, grading hours
     merged_data['Teaching Hours'] = merged_data['Credit'].apply(lambda x: 4 if x == 10 else (4 if x == 15 else 6))
@@ -133,11 +135,6 @@ if teacher_file is not None and course_file is not None and student_file is not 
     teacher_modules.columns = teacher_modules.columns.str.strip()
     course_structure.columns = course_structure.columns.str.strip()
     student_db.columns = student_db.columns.str.strip()
-
-    # Debugging step: Display the column names for each DataFrame
-    st.write("Teacher Modules Columns: ", teacher_modules.columns)
-    st.write("Course Structure Columns: ", course_structure.columns)
-    st.write("Student Database Columns: ", student_db.columns)
 
     # Process the data and calculate the workload
     final_output = calculate_workload(course_structure, teacher_modules, student_db)
