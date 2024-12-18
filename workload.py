@@ -8,13 +8,17 @@ def calculate_workload(course_data, teacher_modules, student_db):
     course_data.columns = course_data.columns.str.strip()
     teacher_modules.columns = teacher_modules.columns.str.strip()
     student_db.columns = student_db.columns.str.strip()
-    
+
+    # Ensure 'Term' exists in teacher_modules DataFrame (add a placeholder if it's missing)
+    if 'Term' not in teacher_modules.columns:
+        teacher_modules['Term'] = 'Default Term'  # Replace 'Default Term' with the actual logic if needed
+
     # Merge the course_data and teacher_modules first (on 'Module Code' and 'Module Name')
     merged_data = pd.merge(course_data, teacher_modules, on=['Module Code', 'Module Name'], how='inner')
     
     # Merge the student_db separately to include 'Term' column
     student_count = student_db.groupby(['Module Code', 'Module Name', 'Term']).size().reset_index(name='Number of Students')
-    merged_data = pd.merge(merged_data, student_count, on=['Module Code', 'Module Name'], how='left')
+    merged_data = pd.merge(merged_data, student_count, on=['Module Code', 'Module Name', 'Term'], how='left')
     
     # Calculate workload components
     merged_data['Teaching Hours'] = merged_data['Credit'].apply(lambda x: 4 if x == 10 else (4 if x == 15 else 6))
@@ -95,3 +99,4 @@ if teacher_file is not None and course_file is not None and student_file is not 
 
 else:
     st.warning("Please upload all three CSV files to proceed.")
+
