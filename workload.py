@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
+from tabulate import tabulate
 import io
 
 # Function to generate a template
@@ -48,7 +50,7 @@ def generate_template():
     
     return course_buffer, teacher_buffer, student_buffer
 
-# Function to calculate the workload and include term allocation
+# Function to calculate the workload
 def calculate_workload(course_data, teacher_modules, student_db):
     # Clean column names to avoid issues with extra spaces
     course_data.columns = course_data.columns.str.strip()
@@ -58,10 +60,12 @@ def calculate_workload(course_data, teacher_modules, student_db):
     # Merge the dataframes: First merge course_data and teacher_modules on 'Module Code' and 'Module Name'
     merged_data = pd.merge(course_data, teacher_modules, on=['Module Code', 'Module Name'], how='inner')
     
-    # Merge the student database to get the student count per module
-    student_count = student_db.groupby(['Module Code', 'Module Name']).size().reset_index(name='Number of Students')
-    merged_data = pd.merge(merged_data, student_count, on=['Module Code', 'Module Name'], how='inner')
+    # Calculate the number of students per module
+    student_count = student_db.groupby(['Module Code', 'Module Name', 'Term']).size().reset_index(name='Number of Students')
     
+    # Merge the student count into the merged_data DataFrame
+    merged_data = pd.merge(merged_data, student_count, on=['Module Code', 'Module Name', 'Term'], how='inner')
+
     # Calculate the number of hours based on the credit value
     merged_data['Teaching Hours'] = merged_data['Credit'].apply(lambda x: 4 if x == 10 else (4 if x == 15 else 6))
     merged_data['Office Hours'] = merged_data['Credit'].apply(lambda x: 1 if x == 10 else (2 if x == 15 else 2))
@@ -88,17 +92,27 @@ def calculate_workload(course_data, teacher_modules, student_db):
     # Assuming 12 weeks per term
     merged_data['Total Term Workload'] = merged_data['Total Weekly Hours'] * 12
 
-    # Adjust the columns in final_output to include Term
-    required_columns = ['Teacher Name', 'Module Code', 'Module Name', 'Term', 'Section', 'Number of Students',
-                        'Teaching Hours', 'Office Hours', 'Grading Hours', 'Research Hours', 'Meetings Hours',
-                        'Curriculum Development Hours', 'Other Responsibilities Hours', 'Total Weekly Hours', 'Total Term Workload']
-    
-    # Select the available columns
-    final_output = merged_data[required_columns]
+    # Group the data by Term
+    grouped_data = merged_data.groupby(['Term', 'Teacher Name', 'Module Code', 'Module Name']).agg(
+        {
+            'Number of Students': 'sum',
+            'Teaching Hours': 'sum',
+            'Office Hours': 'sum',
+            'Grading Hours': 'sum',
+            'Research Hours': 'sum',
+            'Meetings Hours': 'sum',
+            'Curriculum Development Hours': 'sum',
+            'Other Responsibilities Hours': 'sum',
+            'Total Weekly Hours': 'sum',
+            'Total Term Workload': 'sum'
+        }).reset_index()
 
-    return final_output
+    # Print the columns of grouped_data to inspect them
+    print("Columns in grouped_data:", grouped_data.columns)
 
-# Example usage with Streamlit:
+    return grouped_data
+
+# Streamlit UI
 st.title('Workload Calculation for Teachers')
 
 # Provide option to download the template
