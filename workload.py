@@ -1,177 +1,112 @@
 import pandas as pd
 import streamlit as st
+import math
 
-# Define workload calculation functions
-def calculate_workload(row, students):
-    credits = row['Credits']
-    if credits == 10:
-        teaching_hours = 4
-        office_hours = 1
-        grading_hours = 0.083 * students
-    elif credits == 15:
-        teaching_hours = 4
-        office_hours = 2
-        grading_hours = 0.083 * students
-    elif credits == 20:
-        teaching_hours = 6
-        office_hours = 2
-        grading_hours = 0.117 * students
-    else:
-        teaching_hours = office_hours = grading_hours = 0  # Undefined credit hours
-    
-    return teaching_hours, office_hours, grading_hours
+def divide_students_into_sections(total_students, max_students_per_section):
+    """Divides total students into sections of a maximum size."""
+    sections = []
+    num_sections = math.ceil(total_students / max_students_per_section)
+    for i in range(1, num_sections + 1):
+        start = (i - 1) * max_students_per_section + 1
+        end = min(i * max_students_per_section, total_students)
+        sections.append(f"{start}-{end}")
+    return sections
 
-# Generate templates for download
-def generate_template(template_type):
-    if template_type == "student":
-        data = {
-            'Module Code': ['MOD101', 'MOD102'],
-            'Student Number': [30, 25]
-        }
-    elif template_type == "teacher":
-        data = {
-            'Module Code': ['MOD101', 'MOD102'],
-            'Teacher Name': ['John Doe', 'Jane Smith'],
-            'Credits': [10, 15],
-            'Term': ['TERM 1', 'TERM 2']
-        }
-    return pd.DataFrame(data)
-
-# Divide students into sections and assign to teachers
-def assign_sections_and_calculate_workload(merged_data, max_students_per_section=30):
-    section_data = []
+def enforce_teaching_limit_and_reassign(merged_data, max_hours_per_week):
+    """Ensures no teacher exceeds max_hours_per_week by reassigning sections."""
     teacher_workloads = {}
+    reassigned_sections = []
 
     for index, row in merged_data.iterrows():
-        module = row['Module Code']
-        term = row['Term']
-        total_students = row['Student Number']
-        credits = row['Credits']
-        
-        teaching_hours, office_hours, grading_hours = calculate_workload(row, max_students_per_section)
+        teacher = row['Teacher Name']
+        teaching_hours = row['Teaching Hours']
 
-        num_sections = -(-total_students // max_students_per_section)  # Ceiling division
-        available_teachers = merged_data[(merged_data['Module Code'] == module)]['Teacher Name'].unique()
+        if teacher not in teacher_workloads:
+            teacher_workloads[teacher] = 0
 
-        for section in range(1, num_sections + 1):
-            assigned_teacher = None
-            for teacher in available_teachers:
-                current_workload = teacher_workloads.get((teacher, term), 0)
-                if current_workload + teaching_hours <= 12:
-                    assigned_teacher = teacher
-                    break
+        if teacher_workloads[teacher] + teaching_hours <= max_hours_per_week:
+            teacher_workloads[teacher] += teaching_hours
+        else:
+            reassigned_sections.append(index)
 
-            if assigned_teacher:
-                teacher_workloads[(assigned_teacher, term)] = teacher_workloads.get((assigned_teacher, term), 0) + teaching_hours
-            else:
-                assigned_teacher = 'Unassigned (Manual Reassignment Needed)'
+    for index in reassigned_sections:
+        row = merged_data.loc[index]
+        available_teacher = next(
+            (t for t, hours in teacher_workloads.items() if hours + row['Teaching Hours'] <= max_hours_per_week),
+            None
+        )
+        if available_teacher:
+            teacher_workloads[available_teacher] += row['Teaching Hours']
+            merged_data.at[index, 'Teacher Name'] = available_teacher
+        else:
+            merged_data.at[index, 'Teacher Name'] = 'Unassigned'
 
-            section_data.append({
-                'Module Code': module,
-                'Term': term,
-                'Section': section,
-                'Teacher Name': assigned_teacher,
-                'Teaching Hours': teaching_hours,
-                'Office Hours': office_hours,
-                'Grading Hours': grading_hours,
-                'Total Students': min(max_students_per_section, total_students),
-            })
+    return merged_data
 
-            total_students -= max_students_per_section
+def calculate_workload_per_section(row):
+    """Calculate workload for each row based on section details."""
+    teaching_hours = row['Teaching Hours']
+    office_hours = row['Office Hours']
+    grading_hours = row['Grading Hours'] * row['Number of Students']
+    total_hours = teaching_hours + office_hours + grading_hours
+    return total_hours
 
-    return pd.DataFrame(section_data)
-
-# Streamlit application
 def main():
-    st.title("Teacher Workload Calculator")
+    st.title("Teacher Workload Management")
 
-    # Provide template downloads
-    st.subheader("Download Templates")
-    student_template = generate_template("student")
-    teacher_template = generate_template("teacher")
+    max_students_per_section = st.number_input("Max Students per Section", min_value=1, value=30, step=1)
+    max_hours_per_week = st.number_input("Max Teaching Hours per Week", min_value=1, value=12, step=1)
 
-    student_csv = student_template.to_csv(index=False).encode('utf-8')
-    teacher_csv = teacher_template.to_csv(index=False).encode('utf-8')
+    st.subheader("Upload Data")
+    teacher_file = st.file_uploader("Upload Teacher Module Template", type=["csv"])
+    student_file = st.file_uploader("Upload Student Database Template", type=["csv"])
 
-    st.download_button(
-        label="Download Student Database Template",
-        data=student_csv,
-        file_name='student_template.csv',
-        mime='text/csv'
-    )
-
-    st.download_button(
-        label="Download Teacher Module Template",
-        data=teacher_csv,
-        file_name='teacher_template.csv',
-        mime='text/csv'
-    )
-
-    # Upload CSV files
-    student_file = st.file_uploader("Upload Student Database CSV", type="csv")
-    teacher_file = st.file_uploader("Upload Teacher Module CSV", type="csv")
-
-    if student_file and teacher_file:
-        # Read the CSV files
-        student_data = pd.read_csv(student_file)
+    if teacher_file and student_file:
         teacher_data = pd.read_csv(teacher_file)
+        student_data = pd.read_csv(student_file)
 
-        # Merge the data for calculations
-        merged_data = pd.merge(student_data, teacher_data, on='Module Code', how='inner')
+        teacher_data['Sections'] = teacher_data.apply(
+            lambda row: divide_students_into_sections(row['Number of Students'], max_students_per_section), axis=1
+        )
 
-        # Assign sections and calculate workload
-        section_data = assign_sections_and_calculate_workload(merged_data)
+        exploded_data = teacher_data.explode('Sections').reset_index(drop=True)
+        exploded_data['Teaching Hours'] = exploded_data['Credits'].apply(lambda x: 4 if x == 10 else (6 if x == 20 else 4))
+        exploded_data['Office Hours'] = exploded_data['Credits'].apply(lambda x: 1 if x == 10 else 2)
+        exploded_data['Grading Hours'] = exploded_data['Credits'].apply(lambda x: 0.083 if x == 10 else (0.117 if x == 20 else 0.083))
 
-        # Aggregate by Term and Teacher Name
-        aggregated_data = section_data.groupby(['Teacher Name', 'Term']).agg({
-            'Teaching Hours': 'sum',
-            'Office Hours': 'sum',
-            'Grading Hours': 'sum'
-        }).reset_index()
-        aggregated_data['Total Weekly Hours'] = aggregated_data['Teaching Hours'] + aggregated_data['Office Hours'] + aggregated_data['Grading Hours']
+        exploded_data['Total Weekly Hours'] = exploded_data.apply(calculate_workload_per_section, axis=1)
 
-        # Create a final summary for each teacher across terms
-        teacher_summary = aggregated_data.groupby('Teacher Name').agg({
+        assigned_data = enforce_teaching_limit_and_reassign(exploded_data, max_hours_per_week)
+
+        st.subheader("Aggregated Workload Data by Term")
+        aggregated_data = assigned_data.groupby(
+            ['Teacher Name', 'Term', 'Sections'], as_index=False
+        ).agg({
             'Teaching Hours': 'sum',
             'Office Hours': 'sum',
             'Grading Hours': 'sum',
             'Total Weekly Hours': 'sum'
-        }).reset_index()
-
-        # Display data
-        st.subheader("Section and Workload Data")
-        st.dataframe(section_data)
-
-        st.subheader("Aggregated Workload Data by Term")
-        st.dataframe(aggregated_data)
-
-        st.subheader("Teacher Workload Summary")
-        st.dataframe(teacher_summary)
-
-        # Downloadable aggregated data
-        section_csv = section_data.to_csv(index=False).encode('utf-8')
-        aggregated_csv = aggregated_data.to_csv(index=False).encode('utf-8')
-        summary_csv = teacher_summary.to_csv(index=False).encode('utf-8')
+        })
+        st.write(aggregated_data)
 
         st.download_button(
-            label="Download Section Data as CSV",
-            data=section_csv,
-            file_name='section_data.csv',
-            mime='text/csv'
+            label="Download Aggregated Data",
+            data=aggregated_data.to_csv(index=False),
+            file_name="aggregated_workload.csv",
+            mime="text/csv"
         )
 
-        st.download_button(
-            label="Download Aggregated Data as CSV",
-            data=aggregated_csv,
-            file_name='aggregated_workload.csv',
-            mime='text/csv'
-        )
+        st.subheader("Teacher Summary")
+        teacher_summary = aggregated_data.groupby('Teacher Name', as_index=False).agg({
+            'Total Weekly Hours': 'sum'
+        })
+        st.write(teacher_summary)
 
         st.download_button(
-            label="Download Teacher Summary as CSV",
-            data=summary_csv,
-            file_name='teacher_summary.csv',
-            mime='text/csv'
+            label="Download Teacher Summary",
+            data=teacher_summary.to_csv(index=False),
+            file_name="teacher_summary.csv",
+            mime="text/csv"
         )
 
 if __name__ == "__main__":
