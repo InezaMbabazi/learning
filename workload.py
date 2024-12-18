@@ -49,7 +49,6 @@ def generate_template():
     
     return course_buffer, teacher_buffer, student_buffer
 
-# Function to calculate the workload
 def calculate_workload(course_data, teacher_modules, student_db):
     # Clean column names to avoid issues with extra spaces
     course_data.columns = course_data.columns.str.strip()
@@ -59,16 +58,23 @@ def calculate_workload(course_data, teacher_modules, student_db):
     # Merge the dataframes: First merge course_data and teacher_modules on 'Module Code' and 'Module Name'
     merged_data = pd.merge(course_data, teacher_modules, on=['Module Code', 'Module Name'], how='inner')
     
-    # Merge student database with the course and teacher data based on 'Module Code', 'Module Name', and 'Term'
+    # Merge student database with the course and teacher data based on 'Module Code' and 'Module Name'
     merged_data = pd.merge(merged_data, student_db[['Module Code', 'Module Name', 'Term', 'Cohort', 'Student Number', 'Section', 'Year']], 
                            on=['Module Code', 'Module Name'], how='left')
+
+    # Debugging: Print the columns to check if they are correct
+    st.write("Columns in merged_data:", merged_data.columns)
 
     # Ensure that we are considering only valid students (i.e., cohort is not empty)
     merged_data = merged_data[merged_data['Cohort'].notna() & (merged_data['Cohort'] != '')]
 
-    # Calculate the number of students per module and cohort
+    # Simplified debug: Check if grouping by a single column works
+    simplified_group = merged_data.groupby('Module Code').size().reset_index(name='Number of Students')
+    st.write(simplified_group)
+
+    # Now try to group by all the necessary columns
     student_count = merged_data.groupby(['Module Code', 'Module Name', 'Term', 'Cohort', 'Year']).size().reset_index(name='Number of Students')
-    
+
     # Merge the student count back into the merged data
     merged_data = pd.merge(merged_data, student_count, on=['Module Code', 'Module Name', 'Term', 'Cohort', 'Year'], how='inner')
 
@@ -118,6 +124,7 @@ def calculate_workload(course_data, teacher_modules, student_db):
         }).reset_index()
 
     return grouped_data
+
 
 # Streamlit UI
 st.title('Workload Calculation for Teachers')
