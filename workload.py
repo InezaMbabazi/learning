@@ -12,12 +12,16 @@ def calculate_workload(course_data, teacher_modules, student_db):
     # Merge the dataframes: First merge course_data and teacher_modules on 'Module Code' and 'Module Name'
     merged_data = pd.merge(course_data, teacher_modules, on=['Module Code', 'Module Name'], how='inner')
     
-    # Calculate the number of students per module
+    # Merge the student database to get the number of students
     student_count = student_db.groupby(['Module Code', 'Module Name']).size().reset_index(name='Number of Students')
-    
-    # Merge the student count into the merged_data DataFrame
     merged_data = pd.merge(merged_data, student_count, on=['Module Code', 'Module Name'], how='inner')
-
+    
+    # Ensure that the 'Term' column from course_data or student_db is included
+    if 'Term' in course_data.columns:
+        merged_data['Term'] = course_data['Term']
+    elif 'Term' in student_db.columns:
+        merged_data['Term'] = student_db['Term']
+    
     # Calculate the number of hours based on the credit value
     merged_data['Teaching Hours'] = merged_data['Credit'].apply(lambda x: 4 if x == 10 else (4 if x == 15 else 6))
     merged_data['Office Hours'] = merged_data['Credit'].apply(lambda x: 1 if x == 10 else (2 if x == 15 else 2))
