@@ -2,16 +2,6 @@ import pandas as pd
 import streamlit as st
 import math
 
-def divide_students_into_sections(total_students, max_students_per_section):
-    """Divides total students into sections of a maximum size."""
-    sections = []
-    num_sections = math.ceil(total_students / max_students_per_section)
-    for i in range(1, num_sections + 1):
-        start = (i - 1) * max_students_per_section + 1
-        end = min(i * max_students_per_section, total_students)
-        sections.append(f"{start}-{end}")
-    return sections
-
 def enforce_teaching_limit_and_reassign(merged_data, max_hours_per_week):
     """Ensures no teacher exceeds max_hours_per_week by reassigning sections."""
     teacher_workloads = {}
@@ -54,7 +44,6 @@ def calculate_workload_per_section(row):
 def main():
     st.title("Teacher Workload Management")
 
-    max_students_per_section = st.number_input("Max Students per Section", min_value=1, value=30, step=1)
     max_hours_per_week = st.number_input("Max Teaching Hours per Week", min_value=1, value=12, step=1)
 
     st.subheader("Upload Data")
@@ -65,18 +54,19 @@ def main():
         teacher_data = pd.read_csv(teacher_file)
         student_data = pd.read_csv(student_file)
 
-        teacher_data['Sections'] = teacher_data.apply(
-            lambda row: divide_students_into_sections(row['Number of Students'], max_students_per_section), axis=1
-        )
+        # Merge teacher and student data
+        merged_data = pd.merge(teacher_data, student_data, on=['Course Code', 'Term'], how='inner')
 
-        exploded_data = teacher_data.explode('Sections').reset_index(drop=True)
-        exploded_data['Teaching Hours'] = exploded_data['Credits'].apply(lambda x: 4 if x == 10 else (6 if x == 20 else 4))
-        exploded_data['Office Hours'] = exploded_data['Credits'].apply(lambda x: 1 if x == 10 else 2)
-        exploded_data['Grading Hours'] = exploded_data['Credits'].apply(lambda x: 0.083 if x == 10 else (0.117 if x == 20 else 0.083))
+        # Assign teaching, office, and grading hours based on credits
+        merged_data['Teaching Hours'] = merged_data['Credits'].apply(lambda x: 4 if x == 10 else (6 if x == 20 else 4))
+        merged_data['Office Hours'] = merged_data['Credits'].apply(lambda x: 1 if x == 10 else 2)
+        merged_data['Grading Hours'] = merged_data['Credits'].apply(lambda x: 0.083 if x == 10 else (0.117 if x == 20 else 0.083))
 
-        exploded_data['Total Weekly Hours'] = exploded_data.apply(calculate_workload_per_section, axis=1)
+        # Calculate total weekly hours
+        merged_data['Total Weekly Hours'] = merged_data.apply(calculate_workload_per_section, axis=1)
 
-        assigned_data = enforce_teaching_limit_and_reassign(exploded_data, max_hours_per_week)
+        # Enforce teaching limit and reassign sections if needed
+        assigned_data = enforce_teaching_limit_and_reassign(merged_data, max_hours_per_week)
 
         st.subheader("Aggregated Workload Data by Term")
         aggregated_data = assigned_data.groupby(
