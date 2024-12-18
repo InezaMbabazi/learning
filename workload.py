@@ -37,6 +37,11 @@ def generate_template(template_type):
         }
     return pd.DataFrame(data)
 
+# Enforce maximum 12 teaching hours per week
+def enforce_teaching_limit(workload_df):
+    workload_df['Teaching Hours'] = workload_df['Teaching Hours'].apply(lambda x: min(x, 12))
+    return workload_df
+
 # Streamlit application
 def main():
     st.title("Teacher Workload Calculator")
@@ -83,8 +88,19 @@ def main():
         # Add total weekly workload per module
         merged_data['Total Weekly Hours'] = merged_data['Teaching Hours'] + merged_data['Office Hours'] + merged_data['Grading Hours']
 
+        # Enforce 12-hour teaching limit per week
+        merged_data = enforce_teaching_limit(merged_data)
+
         # Aggregate by Term and Teacher Name
         aggregated_data = merged_data.groupby(['Teacher Name', 'Term']).agg({
+            'Teaching Hours': 'sum',
+            'Office Hours': 'sum',
+            'Grading Hours': 'sum',
+            'Total Weekly Hours': 'sum'
+        }).reset_index()
+
+        # Create a final summary for each teacher across terms
+        teacher_summary = aggregated_data.groupby('Teacher Name').agg({
             'Teaching Hours': 'sum',
             'Office Hours': 'sum',
             'Grading Hours': 'sum',
@@ -98,12 +114,24 @@ def main():
         st.subheader("Aggregated Workload Data by Term")
         st.dataframe(aggregated_data)
 
+        st.subheader("Teacher Workload Summary")
+        st.dataframe(teacher_summary)
+
         # Downloadable aggregated data
-        csv = aggregated_data.to_csv(index=False)
+        csv = aggregated_data.to_csv(index=False).encode('utf-8')
+        summary_csv = teacher_summary.to_csv(index=False).encode('utf-8')
+
         st.download_button(
             label="Download Aggregated Data as CSV",
             data=csv,
             file_name='aggregated_workload.csv',
+            mime='text/csv'
+        )
+
+        st.download_button(
+            label="Download Teacher Summary as CSV",
+            data=summary_csv,
+            file_name='teacher_summary.csv',
             mime='text/csv'
         )
 
