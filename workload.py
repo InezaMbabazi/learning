@@ -134,6 +134,11 @@ if teacher_file is not None and course_file is not None and student_file is not 
     course_structure.columns = course_structure.columns.str.strip()
     student_db.columns = student_db.columns.str.strip()
 
+    # Debugging step: Display the column names for each DataFrame
+    st.write("Teacher Modules Columns: ", teacher_modules.columns)
+    st.write("Course Structure Columns: ", course_structure.columns)
+    st.write("Student Database Columns: ", student_db.columns)
+
     # Process the data and calculate the workload
     final_output = calculate_workload(course_structure, teacher_modules, student_db)
 
