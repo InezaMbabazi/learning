@@ -34,11 +34,11 @@ def generate_template(template_type):
             'Teacher Name': ['John Doe', 'Jane Smith'],
             'Credits': [10, 15],
             'Term': ['TERM 1', 'TERM 2'],
-            'Assistant Name': ['Alice Johnson', 'Bob Lee']  # Add Assistant Name
+            'Teacher Status': ['Active', 'Inactive']  # Use Teacher Status instead of Assistant Name
         }
     return pd.DataFrame(data)
 
-# Divide students into sections and assign to teachers and assistants
+# Divide students into sections and assign to teachers
 def assign_sections_and_calculate_workload(merged_data, max_students_per_section=30):
     section_data = []
     teacher_workloads = {}
@@ -54,7 +54,12 @@ def assign_sections_and_calculate_workload(merged_data, max_students_per_section
 
         num_sections = -(-total_students // max_students_per_section)  # Ceiling division
         available_teachers = merged_data[(merged_data['Module Code'] == module)]['Teacher Name'].unique()
-        available_assistants = merged_data[(merged_data['Module Code'] == module)]['Assistant Name'].unique()
+
+        # Ensure 'Teacher Status' column exists
+        if 'Teacher Status' not in merged_data.columns:
+            raise KeyError("The 'Teacher Status' column is missing from the teacher data.")
+        
+        available_assistants = merged_data[(merged_data['Module Code'] == module)]['Teacher Status'].unique()
 
         for section in range(1, num_sections + 1):
             assigned_teacher = None
@@ -83,7 +88,7 @@ def assign_sections_and_calculate_workload(merged_data, max_students_per_section
                 'Term': term,
                 'Section': section,
                 'Teacher Name': assigned_teacher,
-                'Assistant Name': assigned_assistant,  # Add Assistant Name in the data
+                'Assistant Name': assigned_assistant,  # Add Teacher Status in the data
                 'Teaching Hours': teaching_hours,
                 'Office Hours': office_hours,
                 'Grading Hours': grading_hours,
@@ -131,6 +136,11 @@ def main():
 
         # Merge the data for calculations
         merged_data = pd.merge(student_data, teacher_data, on='Module Code', how='inner')
+
+        # Check if 'Teacher Status' exists
+        if 'Teacher Status' not in merged_data.columns:
+            st.error("The 'Teacher Status' column is missing from the uploaded teacher module file.")
+            return
 
         # Assign sections and calculate workload
         section_data, teacher_workloads, assistant_workloads = assign_sections_and_calculate_workload(merged_data)
