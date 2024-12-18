@@ -1,14 +1,14 @@
 import streamlit as st
 import pandas as pd
 
-# Function to calculate weekly hours based on credits
-def calculate_hours(credits):
+# Function to calculate annual workload based on credits
+def calculate_annual_hours(credits, sections):
     if credits == 10:
-        return 5  # 4 teaching + 1 office hour
+        return 5 * 12 * sections  # 5 hours per week * 12 weeks * sections
     elif credits == 15:
-        return 6  # 4 teaching + 2 office hours
+        return 6 * 12 * sections  # 6 hours per week * 12 weeks * sections
     elif credits == 20:
-        return 10  # 6 teaching + 4 office hours
+        return 10 * 12 * sections  # 10 hours per week * 12 weeks * sections
     return 0
 
 # Function to calculate workload and assign teachers
@@ -23,54 +23,56 @@ def calculate_workload(student_data, teacher_data):
     # Assign teachers
     for _, row in student_data.iterrows():
         module_code = row['Module Code']
-        weekly_hours = row['Weekly Hours']
-        sections = row['Sections']
+        annual_hours = calculate_annual_hours(row['Credits'], row['Sections'])
 
-        # Find teachers already assigned to this module
+        # Find teachers assigned to this module
         module_teachers = teacher_data[teacher_data['Module Code'] == module_code]
+        main_teachers = module_teachers[module_teachers['Teacher Status'] == 'Main']
+        assistant_teachers = module_teachers[module_teachers['Teacher Status'] == 'Assistant']
 
-        for sec in range(1, sections + 1):
-            assigned = False
+        # Assign main teacher first
+        assigned = False
+        for _, teacher_row in main_teachers.iterrows():
+            teacher_name = teacher_row['Teacher Name']
+            if teacher_workload[teacher_name] + annual_hours <= 480:  # Annual cap of 480 hours
+                teacher_workload[teacher_name] += annual_hours
+                assignments.append({
+                    'Teacher': teacher_name,
+                    'Module Code': module_code,
+                    'Module Name': row['Module Name'],
+                    'Annual Hours': annual_hours,
+                    'Section': row['Sections'],
+                    'Status': 'Main'
+                })
+                assigned = True
+                break
 
-            # Prefer main teachers for the module
-            for _, teacher_row in module_teachers.iterrows():
+        # Assign assistant teacher if a main teacher is found
+        if assigned:
+            for _, teacher_row in assistant_teachers.iterrows():
                 teacher_name = teacher_row['Teacher Name']
-                if teacher_workload[teacher_name] + weekly_hours <= 100:
-                    teacher_workload[teacher_name] += weekly_hours
+                if teacher_workload[teacher_name] + annual_hours <= 480:
+                    teacher_workload[teacher_name] += annual_hours
                     assignments.append({
                         'Teacher': teacher_name,
                         'Module Code': module_code,
                         'Module Name': row['Module Name'],
-                        'Section': sec,
-                        'Weekly Hours': weekly_hours
+                        'Annual Hours': annual_hours,
+                        'Section': row['Sections'],
+                        'Status': 'Assistant'
                     })
-                    assigned = True
                     break
 
-            # If no assigned teacher is available, assign anyone with capacity
-            if not assigned:
-                for teacher_name in teacher_workload:
-                    if teacher_workload[teacher_name] + weekly_hours <= 100:
-                        teacher_workload[teacher_name] += weekly_hours
-                        assignments.append({
-                            'Teacher': teacher_name,
-                            'Module Code': module_code,
-                            'Module Name': row['Module Name'],
-                            'Section': sec,
-                            'Weekly Hours': weekly_hours
-                        })
-                        assigned = True
-                        break
-
-            # If no teacher has capacity
-            if not assigned:
-                assignments.append({
-                    'Teacher': 'Unassigned',
-                    'Module Code': module_code,
-                    'Module Name': row['Module Name'],
-                    'Section': sec,
-                    'Weekly Hours': weekly_hours
-                })
+        # If no main teacher, flag as unassigned
+        if not assigned:
+            assignments.append({
+                'Teacher': 'Unassigned',
+                'Module Code': module_code,
+                'Module Name': row['Module Name'],
+                'Annual Hours': annual_hours,
+                'Section': row['Sections'],
+                'Status': 'Main'
+            })
 
     workload_summary = pd.DataFrame(teacher_workload.items(), columns=['Teacher', 'Total Hours'])
     assignments_df = pd.DataFrame(assignments)
@@ -78,8 +80,8 @@ def calculate_workload(student_data, teacher_data):
 
 # Streamlit App
 def main():
-    st.title("Teacher Workload Management System 📊")
-    st.write("Upload student and teacher data to calculate workload.")
+    st.title("Annual Teacher Workload Management System 📊")
+    st.write("Upload student and teacher data to calculate annual workload.")
 
     # File uploaders
     student_file = st.file_uploader("Upload Student Module Data (CSV)", type=["csv"])
@@ -89,9 +91,6 @@ def main():
         # Load data
         student_data = pd.read_csv(student_file)
         teacher_data = pd.read_csv(teacher_file)
-
-        # Add weekly hours column to student data
-        student_data['Weekly Hours'] = student_data['Credits'].apply(calculate_hours)
 
         st.subheader("Uploaded Student Module Data:")
         st.write(student_data)
@@ -111,7 +110,7 @@ def main():
         # Highlight unassigned sections
         unassigned_sections = assignments[assignments['Teacher'] == 'Unassigned']
         if not unassigned_sections.empty:
-            st.warning("Some sections could not be assigned due to workload constraints:")
+            st.warning("Some modules could not be assigned due to constraints:")
             st.write(unassigned_sections)
 
 if __name__ == "__main__":
