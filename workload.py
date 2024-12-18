@@ -22,6 +22,10 @@ def calculate_workload(course_data, teacher_modules, student_db):
     elif 'Term' in student_db.columns:
         merged_data['Term'] = student_db['Term']
     
+    # Ensure Term is added in the final dataframe if missing
+    if 'Term' not in merged_data.columns:
+        raise KeyError("Term column is missing in merged data.")
+
     # Calculate the number of hours based on the credit value
     merged_data['Teaching Hours'] = merged_data['Credit'].apply(lambda x: 4 if x == 10 else (4 if x == 15 else 6))
     merged_data['Office Hours'] = merged_data['Credit'].apply(lambda x: 1 if x == 10 else (2 if x == 15 else 2))
@@ -53,7 +57,7 @@ def calculate_workload(course_data, teacher_modules, student_db):
         'Teacher Name', 'Module Code', 'Module Name', 'Section', 'Number of Students',
         'Teaching Hours', 'Office Hours', 'Grading Hours', 'Research Hours', 
         'Meetings Hours', 'Curriculum Development Hours', 'Other Responsibilities Hours', 
-        'Total Weekly Hours', 'Total Term Workload'
+        'Total Weekly Hours', 'Total Term Workload', 'Term'
     ]
 
     # Creating separate dataframes for each term
