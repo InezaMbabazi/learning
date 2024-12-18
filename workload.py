@@ -33,14 +33,16 @@ def generate_template(template_type):
             'Module Code': ['MOD101', 'MOD102'],
             'Teacher Name': ['John Doe', 'Jane Smith'],
             'Credits': [10, 15],
-            'Term': ['TERM 1', 'TERM 2']
+            'Term': ['TERM 1', 'TERM 2'],
+            'Assistant Name': ['Alice Johnson', 'Bob Lee']  # Add Assistant Name
         }
     return pd.DataFrame(data)
 
-# Divide students into sections and assign to teachers
+# Divide students into sections and assign to teachers and assistants
 def assign_sections_and_calculate_workload(merged_data, max_students_per_section=30):
     section_data = []
     teacher_workloads = {}
+    assistant_workloads = {}
 
     for index, row in merged_data.iterrows():
         module = row['Module Code']
@@ -52,25 +54,36 @@ def assign_sections_and_calculate_workload(merged_data, max_students_per_section
 
         num_sections = -(-total_students // max_students_per_section)  # Ceiling division
         available_teachers = merged_data[(merged_data['Module Code'] == module)]['Teacher Name'].unique()
+        available_assistants = merged_data[(merged_data['Module Code'] == module)]['Assistant Name'].unique()
 
         for section in range(1, num_sections + 1):
             assigned_teacher = None
+            assigned_assistant = None
             for teacher in available_teachers:
                 current_workload = teacher_workloads.get((teacher, term), 0)
-                if current_workload + teaching_hours <= 12:
+                if current_workload + teaching_hours <= 12:  # Assign teacher if they have available capacity
                     assigned_teacher = teacher
                     break
+
+            # Assign assistant if available
+            if assigned_teacher:
+                assigned_assistant = available_assistants[0] if len(available_assistants) > 0 else None
 
             if assigned_teacher:
                 teacher_workloads[(assigned_teacher, term)] = teacher_workloads.get((assigned_teacher, term), 0) + teaching_hours
             else:
                 assigned_teacher = 'Unassigned (Manual Reassignment Needed)'
 
+            # Track assistant workload
+            if assigned_assistant:
+                assistant_workloads[(assigned_assistant, term)] = assistant_workloads.get((assigned_assistant, term), 0) + office_hours + grading_hours
+
             section_data.append({
                 'Module Code': module,
                 'Term': term,
                 'Section': section,
                 'Teacher Name': assigned_teacher,
+                'Assistant Name': assigned_assistant,  # Add Assistant Name in the data
                 'Teaching Hours': teaching_hours,
                 'Office Hours': office_hours,
                 'Grading Hours': grading_hours,
@@ -79,7 +92,7 @@ def assign_sections_and_calculate_workload(merged_data, max_students_per_section
 
             total_students -= max_students_per_section
 
-    return pd.DataFrame(section_data)
+    return pd.DataFrame(section_data), teacher_workloads, assistant_workloads
 
 # Streamlit application
 def main():
@@ -120,10 +133,10 @@ def main():
         merged_data = pd.merge(student_data, teacher_data, on='Module Code', how='inner')
 
         # Assign sections and calculate workload
-        section_data = assign_sections_and_calculate_workload(merged_data)
+        section_data, teacher_workloads, assistant_workloads = assign_sections_and_calculate_workload(merged_data)
 
         # Aggregate by Term and Teacher Name
-        aggregated_data = section_data.groupby(['Teacher Name', 'Term']).agg({
+        aggregated_data = section_data.groupby(['Teacher Name', 'Assistant Name', 'Term']).agg({
             'Teaching Hours': 'sum',
             'Office Hours': 'sum',
             'Grading Hours': 'sum'
@@ -133,6 +146,13 @@ def main():
         # Create a final summary for each teacher across terms
         teacher_summary = aggregated_data.groupby('Teacher Name').agg({
             'Teaching Hours': 'sum',
+            'Office Hours': 'sum',
+            'Grading Hours': 'sum',
+            'Total Weekly Hours': 'sum'
+        }).reset_index()
+
+        # Create a summary for assistants
+        assistant_summary = aggregated_data.groupby('Assistant Name').agg({
             'Office Hours': 'sum',
             'Grading Hours': 'sum',
             'Total Weekly Hours': 'sum'
@@ -148,10 +168,14 @@ def main():
         st.subheader("Teacher Workload Summary")
         st.dataframe(teacher_summary)
 
+        st.subheader("Assistant Workload Summary")
+        st.dataframe(assistant_summary)
+
         # Downloadable aggregated data
         section_csv = section_data.to_csv(index=False).encode('utf-8')
         aggregated_csv = aggregated_data.to_csv(index=False).encode('utf-8')
         summary_csv = teacher_summary.to_csv(index=False).encode('utf-8')
+        assistant_csv = assistant_summary.to_csv(index=False).encode('utf-8')
 
         st.download_button(
             label="Download Section Data as CSV",
@@ -171,6 +195,13 @@ def main():
             label="Download Teacher Summary as CSV",
             data=summary_csv,
             file_name='teacher_summary.csv',
+            mime='text/csv'
+        )
+
+        st.download_button(
+            label="Download Assistant Summary as CSV",
+            data=assistant_csv,
+            file_name='assistant_summary.csv',
             mime='text/csv'
         )
 
