@@ -92,36 +92,17 @@ def calculate_workload(course_data, teacher_modules, student_db):
     # Assuming 12 weeks per term
     merged_data['Total Term Workload'] = merged_data['Total Weekly Hours'] * 12
 
-    # Print the columns of merged_data to inspect them
-    print("Columns in merged_data:", merged_data.columns)
-
     # Adjust the columns in final_output if necessary based on available columns
     required_columns = ['Teacher Name', 'Module Code', 'Module Name', 'Section', 'Number of Students',
                         'Teaching Hours', 'Office Hours', 'Grading Hours',
                         'Research Hours', 'Meetings Hours', 'Curriculum Development Hours',
                         'Other Responsibilities Hours', 'Total Weekly Hours', 'Total Term Workload']
 
-    # Check if the required columns exist in merged_data
-    missing_columns = [col for col in required_columns if col not in merged_data.columns]
-    if missing_columns:
-        print(f"Missing columns: {missing_columns}")
-    
     # Select the available columns
     final_output = merged_data[[col for col in required_columns if col in merged_data.columns]]
 
     return final_output
 
-# Example usage:
-# Assuming course_data, teacher_modules, and student_db are your input DataFrames
-# course_data = pd.read_csv('course_structure.csv')
-# teacher_modules = pd.read_csv('teacher_modules.csv')
-# student_db = pd.read_csv('student_db.csv')
-
-# Calculate workload
-# final_output = calculate_workload(course_data, teacher_modules, student_db)
-
-# Print the final output (or return it in your application)
-# print(final_output)
 # Streamlit UI
 st.title('Workload Calculation for Teachers')
 
@@ -162,6 +143,13 @@ if teacher_file is not None and course_file is not None and student_file is not 
     course_structure = pd.read_csv(course_file)
     student_db = pd.read_csv(student_file)
     
+    # Extract unique terms from the student database
+    unique_terms = student_db['Term'].unique()
+
+    # Display unique terms from the student database
+    st.subheader("Terms Available in Student Database")
+    st.write(unique_terms)
+
     # Process the data and calculate the workload
     final_output = calculate_workload(course_structure, teacher_modules, student_db)
 
