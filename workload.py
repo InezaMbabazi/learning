@@ -1,44 +1,41 @@
 import pandas as pd
 import streamlit as st
 
-# Define workload calculation functions
-def calculate_workload(row, students):
+# Function to generate templates for students and teachers
+def generate_template(template_type):
+    if template_type == "student":
+        return pd.DataFrame({
+            'Student ID': [],
+            'Module Code': [],
+            'Term': [],
+            'Student Number': [],
+            'Credits': []
+        })
+    elif template_type == "teacher":
+        return pd.DataFrame({
+            'Module Code': [],
+            'Teacher Name': [],
+            'Assistant Name': [],
+            'Teacher Status': [],  # e.g. 'Main' or 'Assistant'
+            'Term': [],
+            'Credits': []
+        })
+
+# Function to calculate teaching hours, office hours, and grading hours
+def calculate_workload(row, max_students_per_section):
+    total_students = row['Student Number']
     credits = row['Credits']
-    if credits == 10:
-        teaching_hours = 4
-        office_hours = 1
-        grading_hours = 0.083 * students
-    elif credits == 15:
-        teaching_hours = 4
-        office_hours = 2
-        grading_hours = 0.083 * students
-    elif credits == 20:
-        teaching_hours = 6
-        office_hours = 2
-        grading_hours = 0.117 * students
-    else:
-        teaching_hours = office_hours = grading_hours = 0  # Undefined credit hours
+    
+    # Teaching hours per term based on credits
+    teaching_hours = credits * 2  # e.g. 2 hours per credit
+    
+    # Office and grading hours based on students and credits
+    office_hours = total_students * 0.1  # 10% of total students
+    grading_hours = total_students * 0.05  # 5% of total students
     
     return teaching_hours, office_hours, grading_hours
 
-# Generate templates for download
-def generate_template(template_type):
-    if template_type == "student":
-        data = {
-            'Module Code': ['MOD101', 'MOD102'],
-            'Student Number': [30, 25]
-        }
-    elif template_type == "teacher":
-        data = {
-            'Module Code': ['MOD101', 'MOD102'],
-            'Teacher Name': ['John Doe', 'Jane Smith'],
-            'Credits': [10, 15],
-            'Term': ['TERM 1', 'TERM 2'],
-            'Teacher Status': ['Active', 'Inactive']  # Use Teacher Status instead of Assistant Name
-        }
-    return pd.DataFrame(data)
-
-# Divide students into sections and assign to teachers
+# Assign sections and calculate workload
 def assign_sections_and_calculate_workload(merged_data, max_students_per_section=30):
     section_data = []
     teacher_workloads = {}
@@ -94,13 +91,25 @@ def assign_sections_and_calculate_workload(merged_data, max_students_per_section
                 'Office Hours': office_hours,
                 'Grading Hours': grading_hours,
                 'Total Students': min(max_students_per_section, total_students),
+                'Student Number': row['Student Number']  # Add Student Number to section data
             })
 
             total_students -= max_students_per_section
 
     return pd.DataFrame(section_data), teacher_workloads, assistant_workloads
 
-# Streamlit application
+# Aggregated Workload Data by Term
+def create_aggregated_data_with_students(section_data):
+    aggregated_data = section_data.groupby(['Teacher Name', 'Assistant Name', 'Term']).agg({
+        'Teaching Hours': 'sum',
+        'Office Hours': 'sum',
+        'Grading Hours': 'sum',
+        'Student Number': 'sum'  # Sum the Student Number for each teacher-assistant-term combination
+    }).reset_index()
+    aggregated_data['Total Weekly Hours'] = aggregated_data['Teaching Hours'] + aggregated_data['Office Hours'] + aggregated_data['Grading Hours']
+    return aggregated_data
+
+# Streamlit application main logic
 def main():
     st.title("Teacher Workload Calculator")
 
@@ -146,19 +155,15 @@ def main():
         # Assign sections and calculate workload
         section_data, teacher_workloads, assistant_workloads = assign_sections_and_calculate_workload(merged_data)
 
-        # Aggregate by Term and Teacher Name
-        aggregated_data = section_data.groupby(['Teacher Name', 'Assistant Name', 'Term']).agg({
-            'Teaching Hours': 'sum',
-            'Office Hours': 'sum',
-            'Grading Hours': 'sum'
-        }).reset_index()
-        aggregated_data['Total Weekly Hours'] = aggregated_data['Teaching Hours'] + aggregated_data['Office Hours'] + aggregated_data['Grading Hours']
+        # Create the aggregated data including Student Number
+        aggregated_data = create_aggregated_data_with_students(section_data)
 
         # Create a final summary for each teacher across terms
         teacher_summary = aggregated_data.groupby('Teacher Name').agg({
             'Teaching Hours': 'sum',
             'Office Hours': 'sum',
             'Grading Hours': 'sum',
+            'Student Number': 'sum',
             'Total Weekly Hours': 'sum'
         }).reset_index()
 
@@ -166,6 +171,7 @@ def main():
         assistant_summary = aggregated_data.groupby('Assistant Name').agg({
             'Office Hours': 'sum',
             'Grading Hours': 'sum',
+            'Student Number': 'sum',
             'Total Weekly Hours': 'sum'
         }).reset_index()
 
@@ -173,7 +179,7 @@ def main():
         st.subheader("Section and Workload Data")
         st.dataframe(section_data)
 
-        st.subheader("Aggregated Workload Data by Term")
+        st.subheader("Aggregated Workload Data by Term (with Student Numbers)")
         st.dataframe(aggregated_data)
 
         st.subheader("Teacher Workload Summary")
