@@ -1,54 +1,6 @@
-import streamlit as st
 import pandas as pd
-import numpy as np
+import streamlit as st
 from tabulate import tabulate
-import io
-
-# Function to generate a template
-def generate_template():
-    # Sample course structure template
-    course_template = pd.DataFrame({
-        'Module Code': ['M101', 'M102', 'M103'],
-        'Module Name': ['Course 1', 'Course 2', 'Course 3'],
-        'Credit': [10, 15, 20],
-        'Term': ['Term 1', 'Term 2', 'Term 3'],
-        'Year': [2024, 2024, 2024],
-        'Program': ['Program A', 'Program B', 'Program C']
-    })
-    
-    # Sample teacher module template
-    teacher_template = pd.DataFrame({
-        'Teacher Name': ['Alice', 'Bob', 'Carol'],
-        'Module Code': ['M101', 'M102', 'M103'],
-        'Module Name': ['Course 1', 'Course 2', 'Course 3']
-    })
-    
-    # Sample student database template
-    student_template = pd.DataFrame({
-        'Cohort': ['Cohort 1', 'Cohort 2', 'Cohort 3'],
-        'Student Number': ['S001', 'S002', 'S003'],
-        'Module Name': ['Course 1', 'Course 2', 'Course 3'],
-        'Module Code': ['M101', 'M102', 'M103'],
-        'Term': ['Term 1', 'Term 2', 'Term 3'],
-        'Section': ['A', 'B', 'C'],
-        'Year': [2024, 2024, 2024]
-    })
-    
-    # Convert DataFrames to CSV strings and then to bytes
-    course_buffer = io.BytesIO()
-    teacher_buffer = io.BytesIO()
-    student_buffer = io.BytesIO()
-    
-    course_template.to_csv(course_buffer, index=False)
-    teacher_template.to_csv(teacher_buffer, index=False)
-    student_template.to_csv(student_buffer, index=False)
-    
-    # Ensure the buffers are set to the beginning so they can be read
-    course_buffer.seek(0)
-    teacher_buffer.seek(0)
-    student_buffer.seek(0)
-    
-    return course_buffer, teacher_buffer, student_buffer
 
 # Function to calculate the workload
 def calculate_workload(course_data, teacher_modules, student_db):
@@ -92,61 +44,33 @@ def calculate_workload(course_data, teacher_modules, student_db):
     # Assuming 12 weeks per term
     merged_data['Total Term Workload'] = merged_data['Total Weekly Hours'] * 12
 
-    # Calculate the annual workload by summing the term workloads
-    total_annual_workload = merged_data['Total Term Workload'].sum()
+    # Split the data by term
+    term_columns = [
+        'Teacher Name', 'Module Code', 'Module Name', 'Section', 'Number of Students',
+        'Teaching Hours', 'Office Hours', 'Grading Hours', 'Research Hours', 
+        'Meetings Hours', 'Curriculum Development Hours', 'Other Responsibilities Hours', 
+        'Total Weekly Hours', 'Total Term Workload'
+    ]
 
-    # Group the data by Term to get the total workload per term
-    term_workload = merged_data.groupby('Term')['Total Term Workload'].sum().reset_index()
+    # Creating separate dataframes for each term
+    term_1_data = merged_data[merged_data['Term'] == 'Term 1'][term_columns].copy()
+    term_2_data = merged_data[merged_data['Term'] == 'Term 2'][term_columns].copy()
+    term_3_data = merged_data[merged_data['Term'] == 'Term 3'][term_columns].copy()
 
-    # Print the columns of merged_data to inspect them
-    print("Columns in merged_data:", merged_data.columns)
+    # Renaming columns to reflect Term 1, Term 2, Term 3
+    term_1_data.columns = [f'TERM 1 {col}' for col in term_1_data.columns]
+    term_2_data.columns = [f'TERM 2 {col}' for col in term_2_data.columns]
+    term_3_data.columns = [f'TERM 3 {col}' for col in term_3_data.columns]
 
-    # Adjust the columns in final_output if necessary based on available columns
-    required_columns = ['Teacher Name', 'Module Code', 'Module Name', 'Section', 'Number of Students',
-                        'Teaching Hours', 'Office Hours', 'Grading Hours',
-                        'Research Hours', 'Meetings Hours', 'Curriculum Development Hours',
-                        'Other Responsibilities Hours', 'Total Weekly Hours', 'Total Term Workload']
+    # Merge all terms into one dataframe
+    final_output = pd.concat([term_1_data, term_2_data, term_3_data], axis=1)
 
-    # Check if the required columns exist in merged_data
-    missing_columns = [col for col in required_columns if col not in merged_data.columns]
-    if missing_columns:
-        print(f"Missing columns: {missing_columns}")
-    
-    # Select the available columns
-    final_output = merged_data[[col for col in required_columns if col in merged_data.columns]]
-
-    return final_output, term_workload, total_annual_workload
+    return final_output
 
 # Streamlit UI
 st.title('Workload Calculation for Teachers')
 
-# Provide option to download the template
-st.subheader("Download Template Files for Upload")
-
-course_buffer, teacher_buffer, student_buffer = generate_template()
-
-st.download_button(
-    label="Download Course Structure Template",
-    data=course_buffer,
-    file_name="course_structure_template.csv",
-    mime="text/csv"
-)
-
-st.download_button(
-    label="Download Teacher Module Template",
-    data=teacher_buffer,
-    file_name="teacher_module_template.csv",
-    mime="text/csv"
-)
-
-st.download_button(
-    label="Download Student Database Template",
-    data=student_buffer,
-    file_name="student_database_template.csv",
-    mime="text/csv"
-)
-
-# File upload widgets
+# Upload CSV files
 teacher_file = st.file_uploader("Upload Teacher Modules CSV", type=["csv"])
 course_file = st.file_uploader("Upload Course Structure CSV", type=["csv"])
 student_file = st.file_uploader("Upload Student Database CSV", type=["csv"])
@@ -158,7 +82,7 @@ if teacher_file is not None and course_file is not None and student_file is not 
     student_db = pd.read_csv(student_file)
     
     # Process the data and calculate the workload
-    final_output, term_workload, total_annual_workload = calculate_workload(course_structure, teacher_modules, student_db)
+    final_output = calculate_workload(course_structure, teacher_modules, student_db)
 
     # Display the final output
     st.subheader("Calculated Workload")
@@ -168,14 +92,6 @@ if teacher_file is not None and course_file is not None and student_file is not 
     st.subheader("Workload Summary in Table Format")
     table_output = tabulate(final_output, headers='keys', tablefmt='grid', showindex=False)
     st.text(table_output)
-
-    # Display the total term workload for each term
-    st.subheader("Term Workload Summary")
-    st.write(term_workload)
-
-    # Display the total annual workload
-    st.subheader("Total Annual Workload")
-    st.write(f"The total annual workload is {total_annual_workload} hours.")
 
 else:
     st.warning("Please upload all three CSV files to proceed.")
