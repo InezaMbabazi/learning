@@ -32,6 +32,29 @@ def calculate_workload(course_structure, student_database, teacher_module):
     merged_data["Total Workload"] = merged_data.apply(compute_hours, axis=1)
     return merged_data
 
+# Group workload by teacher and term, aggregating modules and total workload
+def calculate_trimester_workload(workload_data):
+    grouped_data = (
+        workload_data.groupby(["Teacher Name", "Term_x"])
+        .agg(
+            Modules=("Module Name_x", ", ".join),
+            Total_Workload=("Total Workload", "sum"),
+        )
+        .reset_index()
+    )
+    return grouped_data
+
+# Pivot table to display one row per teacher with trimesters as columns
+def pivot_workload_by_teacher(trimester_workload):
+    pivoted_data = trimester_workload.pivot(
+        index="Teacher Name", columns="Term_x", values=["Modules", "Total_Workload"]
+    )
+    pivoted_data.columns = [
+        f"{col[1]} - {col[0]}" for col in pivoted_data.columns.to_flat_index()
+    ]
+    pivoted_data.reset_index(inplace=True)
+    return pivoted_data
+
 # Streamlit app
 st.title("Teacher Workload Calculator")
 
@@ -58,13 +81,15 @@ if student_file and teacher_file and course_file:
 
     # Calculate workload
     workload_data = calculate_workload(course_structure, student_database, teacher_module)
+    trimester_workload = calculate_trimester_workload(workload_data)
+    pivoted_workload = pivot_workload_by_teacher(trimester_workload)
 
     # Display results
     st.subheader("Calculated Workload")
-    st.dataframe(workload_data)
+    st.dataframe(pivoted_workload)
     
     # Option to download results
-    csv = workload_data.to_csv(index=False)
+    csv = pivoted_workload.to_csv(index=False)
     st.download_button(label="Download Workload Data as CSV", data=csv, file_name="workload_data.csv", mime="text/csv")
 else:
     st.write("Please upload all required files to proceed.")
