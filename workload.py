@@ -12,9 +12,7 @@ def generate_template():
         'Module Name': ['Course 1', 'Course 2', 'Course 3'],
         'Credit': [10, 15, 20],
         'Term': ['Term 1', 'Term 2', 'Term 3'],
-        'Year': [2024, 2024, 2024],
-        'Program': ['Program A', 'Program B', 'Program C'],
-        'Cohort': ['Cohort 1', 'Cohort 2', '']  # Module M103 has no cohort
+        'Program': ['Program A', 'Program B', 'Program C']
     })
     
     # Sample teacher module template
@@ -24,15 +22,15 @@ def generate_template():
         'Module Name': ['Course 1', 'Course 2', 'Course 3']
     })
     
-    # Sample student database template (Section now contains numbers instead of strings)
+    # Sample student database template
     student_template = pd.DataFrame({
-        'Cohort': ['Cohort 1', 'Cohort 2', 'Cohort 1'],
+        'Cohort': ['Cohort 1', 'Cohort 2', 'Cohort 3'],
         'Student Number': ['S001', 'S002', 'S003'],
         'Module Name': ['Course 1', 'Course 2', 'Course 3'],
         'Module Code': ['M101', 'M102', 'M103'],
         'Term': ['Term 1', 'Term 2', 'Term 3'],
-        'Section': [1, 2, 3],  # Section is now numeric
-        'Year': [2024, 2024, 2024]
+        'Section': [1, 2, 3],  # Changed to numeric sections
+        'Year': [1, 2, 3]  # Representing student year (1st, 2nd, 3rd)
     })
     
     # Convert DataFrames to CSV strings and then to bytes
@@ -61,53 +59,26 @@ def calculate_workload(course_data, teacher_modules, student_db):
     # Merge the dataframes: First merge course_data and teacher_modules on 'Module Code' and 'Module Name'
     merged_data = pd.merge(course_data, teacher_modules, on=['Module Code', 'Module Name'], how='inner')
     
-    # Only keep the rows where the module has a cohort
+    # Merge student database with the course and teacher data based on 'Module Code', 'Module Name', and 'Term'
+    merged_data = pd.merge(merged_data, student_db[['Module Code', 'Module Name', 'Term', 'Cohort', 'Student Number', 'Year']], 
+                           on=['Module Code', 'Module Name', 'Term'], how='left')
+
+    # Ensure that we are considering only valid students (i.e., cohort is not empty)
     merged_data = merged_data[merged_data['Cohort'].notna() & (merged_data['Cohort'] != '')]
-    
-    # Filter student_db by the Cohort in the merged_data
-    student_db_filtered = student_db[student_db['Cohort'].isin(merged_data['Cohort'].unique())]
-    
-    # Calculate the number of students per module (filtered by cohort)
-    student_count = student_db_filtered.groupby(['Module Code', 'Module Name', 'Term']).size().reset_index(name='Number of Students')
-    
-    # Merge the student count into the merged_data DataFrame
-    merged_data = pd.merge(merged_data, student_count, on=['Module Code', 'Module Name', 'Term'], how='inner')
 
-    # Calculate the number of sections (classes) by dividing students by sections
-    merged_data['Number of Sections'] = merged_data['Number of Students'] // 30  # Assuming max 30 students per section
-    merged_data['Remaining Students'] = merged_data['Number of Students'] % 30  # Remaining students in the last section
+    # Calculate the number of students per module and cohort
+    student_count = merged_data.groupby(['Module Code', 'Module Name', 'Term', 'Cohort', 'Year']).size().reset_index(name='Number of Students')
     
-    # Now we need to distribute the students across sections (classes)
-    section_assignments = []
-    for index, row in merged_data.iterrows():
-        # Assign students to sections
-        for section in range(1, row['Number of Sections'] + 1):
-            section_assignments.append({'Module Code': row['Module Code'], 
-                                        'Module Name': row['Module Name'], 
-                                        'Term': row['Term'], 
-                                        'Cohort': row['Cohort'],
-                                        'Section': section, 
-                                        'Students Assigned': 30})
-        
-        # If there are remaining students, assign them to a new section
-        if row['Remaining Students'] > 0:
-            section_assignments.append({'Module Code': row['Module Code'], 
-                                        'Module Name': row['Module Name'], 
-                                        'Term': row['Term'], 
-                                        'Cohort': row['Cohort'],
-                                        'Section': row['Number of Sections'] + 1, 
-                                        'Students Assigned': row['Remaining Students']})
+    # Merge the student count back into the merged data
+    merged_data = pd.merge(merged_data, student_count, on=['Module Code', 'Module Name', 'Term', 'Cohort', 'Year'], how='inner')
 
-    # Create a DataFrame with section assignments
-    section_data = pd.DataFrame(section_assignments)
-    
-    # Merge this section data back into the main merged_data
-    merged_data = pd.merge(merged_data, section_data, on=['Module Code', 'Module Name', 'Term', 'Cohort'], how='left')
+    # Calculate the number of classes per section based on student count divided by the section number
+    merged_data['Classes'] = (merged_data['Number of Students'] / merged_data['Section']).apply(np.ceil)
 
-    # Add the number of hours based on credit value
+    # Calculate the number of hours based on the credit value
     merged_data['Teaching Hours'] = merged_data['Credit'].apply(lambda x: 4 if x == 10 else (4 if x == 15 else 6))
     merged_data['Office Hours'] = merged_data['Credit'].apply(lambda x: 1 if x == 10 else (2 if x == 15 else 2))
-    merged_data['Grading Hours'] = merged_data['Students Assigned'] * merged_data['Credit'].apply(
+    merged_data['Grading Hours'] = merged_data['Number of Students'] * merged_data['Credit'].apply(
         lambda x: 0.083 if x == 10 else (0.083 if x == 15 else 0.117))
 
     # Add placeholders for other responsibilities (adjust as needed)
@@ -130,10 +101,10 @@ def calculate_workload(course_data, teacher_modules, student_db):
     # Assuming 12 weeks per term
     merged_data['Total Term Workload'] = merged_data['Total Weekly Hours'] * 12
 
-    # Group the data by Term and Teacher
-    grouped_data = merged_data.groupby(['Term', 'Teacher Name', 'Module Code', 'Module Name', 'Cohort', 'Section']).agg(
+    # Group the data by Term, Teacher Name, and other relevant variables
+    grouped_data = merged_data.groupby(['Term', 'Teacher Name', 'Module Code', 'Module Name', 'Year']).agg(
         {
-            'Students Assigned': 'sum',
+            'Number of Students': 'sum',
             'Teaching Hours': 'sum',
             'Office Hours': 'sum',
             'Grading Hours': 'sum',
@@ -142,7 +113,8 @@ def calculate_workload(course_data, teacher_modules, student_db):
             'Curriculum Development Hours': 'sum',
             'Other Responsibilities Hours': 'sum',
             'Total Weekly Hours': 'sum',
-            'Total Term Workload': 'sum'
+            'Total Term Workload': 'sum',
+            'Classes': 'sum'  # Sum up the number of classes
         }).reset_index()
 
     return grouped_data
@@ -182,21 +154,22 @@ course_file = st.file_uploader("Upload Course Structure CSV", type=["csv"])
 student_file = st.file_uploader("Upload Student Database CSV", type=["csv"])
 
 if teacher_file is not None and course_file is not None and student_file is not None:
+    # Read the uploaded CSV files into DataFrames
     teacher_modules = pd.read_csv(teacher_file)
-    course_data = pd.read_csv(course_file)
+    course_structure = pd.read_csv(course_file)
     student_db = pd.read_csv(student_file)
     
-    # Calculate the workload
-    workload_data = calculate_workload(course_data, teacher_modules, student_db)
-    
-    # Display the workload data
-    st.subheader("Calculated Workload Data")
-    st.dataframe(workload_data)
+    # Process the data and calculate the workload
+    final_output = calculate_workload(course_structure, teacher_modules, student_db)
 
-    # Optionally, you can display as a table or download as CSV
+    # Display the final output
+    st.subheader("Workload Summary")
+    st.write(final_output)
+
+    # Option to download the final output
     st.download_button(
-        label="Download Workload Data as CSV",
-        data=workload_data.to_csv(index=False),
-        file_name="calculated_workload.csv",
+        label="Download Workload Summary",
+        data=final_output.to_csv(index=False).encode('utf-8'),
+        file_name="workload_summary.csv",
         mime="text/csv"
     )
