@@ -37,10 +37,38 @@ def generate_template(template_type):
         }
     return pd.DataFrame(data)
 
-# Enforce maximum 12 teaching hours per week
-def enforce_teaching_limit(workload_df):
-    workload_df['Teaching Hours'] = workload_df['Teaching Hours'].apply(lambda x: min(x, 12))
-    return workload_df
+# Enforce maximum 12 teaching hours per week and reassign excess
+def enforce_teaching_limit_and_reassign(merged_data):
+    teacher_workloads = {}
+
+    # Process each row
+    for index, row in merged_data.iterrows():
+        teacher = row['Teacher Name']
+        module = row['Module Code']
+        term = row['Term']
+        teaching_hours = row['Teaching Hours']
+
+        # Initialize teacher workload if not already present
+        if teacher not in teacher_workloads:
+            teacher_workloads[teacher] = 0
+
+        # Check if adding this module exceeds 12 hours
+        if teacher_workloads[teacher] + teaching_hours > 12:
+            # Find another teacher for the same module
+            available_teacher = merged_data[(merged_data['Module Code'] == module) & 
+                                            (merged_data['Teacher Name'] != teacher) & 
+                                            (teacher_workloads.get(merged_data['Teacher Name'], 0) + teaching_hours <= 12)]
+
+            if not available_teacher.empty:
+                new_teacher = available_teacher.iloc[0]['Teacher Name']
+                merged_data.at[index, 'Teacher Name'] = new_teacher
+                teacher_workloads[new_teacher] = teacher_workloads.get(new_teacher, 0) + teaching_hours
+            else:
+                merged_data.at[index, 'Teacher Name'] = 'Unassigned (Manual Reassignment Needed)'
+        else:
+            teacher_workloads[teacher] += teaching_hours
+
+    return merged_data
 
 # Streamlit application
 def main():
@@ -88,8 +116,8 @@ def main():
         # Add total weekly workload per module
         merged_data['Total Weekly Hours'] = merged_data['Teaching Hours'] + merged_data['Office Hours'] + merged_data['Grading Hours']
 
-        # Enforce 12-hour teaching limit per week
-        merged_data = enforce_teaching_limit(merged_data)
+        # Enforce 12-hour teaching limit and reassign excess
+        merged_data = enforce_teaching_limit_and_reassign(merged_data)
 
         # Aggregate by Term and Teacher Name
         aggregated_data = merged_data.groupby(['Teacher Name', 'Term']).agg({
