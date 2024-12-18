@@ -18,13 +18,14 @@ def calculate_workload(student_data, teacher_data):
 
     # Initialize teacher workload
     for _, row in teacher_data.iterrows():
-        teacher_workload[row['Teacher Name']] = 0
+        teacher_workload[row['Teacher Name']] = {'Total Hours': 0, 'Term Hours': {}}
 
     # Assign teachers
     for _, row in student_data.iterrows():
         module_code = row['Module Code']
         weekly_hours = row['Weekly Hours']
         sections = row['Sections']
+        term = row['Term']
 
         # Find teachers already assigned to this module
         module_teachers = teacher_data[teacher_data['Module Code'] == module_code]
@@ -35,12 +36,16 @@ def calculate_workload(student_data, teacher_data):
             # Prefer main teachers for the module
             for _, teacher_row in module_teachers.iterrows():
                 teacher_name = teacher_row['Teacher Name']
-                if teacher_workload[teacher_name] + weekly_hours <= 12:
-                    teacher_workload[teacher_name] += weekly_hours
+                if teacher_workload[teacher_name]['Total Hours'] + weekly_hours <= 12:
+                    teacher_workload[teacher_name]['Total Hours'] += weekly_hours
+                    teacher_workload[teacher_name]['Term Hours'][term] = (
+                        teacher_workload[teacher_name]['Term Hours'].get(term, 0) + weekly_hours
+                    )
                     assignments.append({
                         'Teacher': teacher_name,
                         'Module Code': module_code,
                         'Module Name': row['Module Name'],
+                        'Term': term,
                         'Section': sec,
                         'Weekly Hours': weekly_hours
                     })
@@ -50,12 +55,16 @@ def calculate_workload(student_data, teacher_data):
             # If no assigned teacher is available, assign anyone with capacity
             if not assigned:
                 for teacher_name in teacher_workload:
-                    if teacher_workload[teacher_name] + weekly_hours <= 12:
-                        teacher_workload[teacher_name] += weekly_hours
+                    if teacher_workload[teacher_name]['Total Hours'] + weekly_hours <= 12:
+                        teacher_workload[teacher_name]['Total Hours'] += weekly_hours
+                        teacher_workload[teacher_name]['Term Hours'][term] = (
+                            teacher_workload[teacher_name]['Term Hours'].get(term, 0) + weekly_hours
+                        )
                         assignments.append({
                             'Teacher': teacher_name,
                             'Module Code': module_code,
                             'Module Name': row['Module Name'],
+                            'Term': term,
                             'Section': sec,
                             'Weekly Hours': weekly_hours
                         })
@@ -68,18 +77,29 @@ def calculate_workload(student_data, teacher_data):
                     'Teacher': 'Unassigned',
                     'Module Code': module_code,
                     'Module Name': row['Module Name'],
+                    'Term': term,
                     'Section': sec,
                     'Weekly Hours': weekly_hours
                 })
 
-    workload_summary = pd.DataFrame(teacher_workload.items(), columns=['Teacher', 'Total Hours'])
+    # Create term-wise workload summary
+    workload_summary = []
+    for teacher, data in teacher_workload.items():
+        for term, hours in data['Term Hours'].items():
+            workload_summary.append({
+                'Teacher': teacher,
+                'Term': term,
+                'Weekly Hours': hours
+            })
+    
+    workload_summary_df = pd.DataFrame(workload_summary)
     assignments_df = pd.DataFrame(assignments)
-    return assignments_df, workload_summary
+    return assignments_df, workload_summary_df
 
 # Streamlit App
 def main():
     st.title("Teacher Workload Management System 📊")
-    st.write("Upload student and teacher data to calculate workload.")
+    st.write("Upload student and teacher data to calculate workload by term.")
 
     # File uploaders
     student_file = st.file_uploader("Upload Student Module Data (CSV)", type=["csv"])
@@ -105,7 +125,7 @@ def main():
         st.subheader("Teacher Assignments:")
         st.write(assignments)
 
-        st.subheader("Workload Summary:")
+        st.subheader("Workload Summary Grouped by Term:")
         st.write(workload_summary)
 
         # Highlight unassigned sections
