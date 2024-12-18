@@ -55,9 +55,11 @@ def enforce_teaching_limit_and_reassign(merged_data):
         # Check if adding this module exceeds 12 hours
         if teacher_workloads[teacher] + teaching_hours > 12:
             # Find another teacher for the same module
-            available_teacher = merged_data[(merged_data['Module Code'] == module) & 
-                                            (merged_data['Teacher Name'] != teacher) & 
-                                            (teacher_workloads.get(merged_data['Teacher Name'], 0) + teaching_hours <= 12)]
+            available_teacher = merged_data[
+                (merged_data['Module Code'] == module) & 
+                (merged_data['Teacher Name'] != teacher) & 
+                (merged_data['Teacher Name'].map(teacher_workloads.get).fillna(0) + teaching_hours <= 12)
+            ]
 
             if not available_teacher.empty:
                 new_teacher = available_teacher.iloc[0]['Teacher Name']
