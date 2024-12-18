@@ -2,6 +2,16 @@ import pandas as pd
 import streamlit as st
 import math
 
+def divide_students_into_sections(total_students, max_students_per_section):
+    """Divides total students into sections of a maximum size."""
+    sections = []
+    num_sections = math.ceil(total_students / max_students_per_section)
+    for i in range(1, num_sections + 1):
+        start = (i - 1) * max_students_per_section + 1
+        end = min(i * max_students_per_section, total_students)
+        sections.append(f"{start}-{end}")
+    return sections
+
 def enforce_teaching_limit_and_reassign(merged_data, max_hours_per_week):
     """Ensures no teacher exceeds max_hours_per_week by reassigning sections."""
     teacher_workloads = {}
@@ -44,6 +54,7 @@ def calculate_workload_per_section(row):
 def main():
     st.title("Teacher Workload Management")
 
+    max_students_per_section = st.number_input("Max Students per Section", min_value=1, value=30, step=1)
     max_hours_per_week = st.number_input("Max Teaching Hours per Week", min_value=1, value=12, step=1)
 
     st.subheader("Upload Data")
@@ -51,66 +62,52 @@ def main():
     student_file = st.file_uploader("Upload Student Database Template", type=["csv"])
 
     if teacher_file and student_file:
-        try:
-            teacher_data = pd.read_csv(teacher_file)
-            student_data = pd.read_csv(student_file)
+        teacher_data = pd.read_csv(teacher_file)
+        student_data = pd.read_csv(student_file)
 
-            # Check if required columns exist
-            required_columns = ['Module Code', 'Term']
-            for col in required_columns:
-                if col not in teacher_data.columns:
-                    st.error(f"Column '{col}' is missing in the Teacher Module Template.")
-                    return
-                if col not in student_data.columns:
-                    st.error(f"Column '{col}' is missing in the Student Database Template.")
-                    return
+        teacher_data['Sections'] = teacher_data.apply(
+            lambda row: divide_students_into_sections(row['Number of Students'], max_students_per_section), axis=1
+        )
 
-            # Merge teacher and student data
-            merged_data = pd.merge(teacher_data, student_data, on=['Course Code', 'Term'], how='inner')
+        exploded_data = teacher_data.explode('Sections').reset_index(drop=True)
+        exploded_data['Teaching Hours'] = exploded_data['Credits'].apply(lambda x: 4 if x == 10 else (6 if x == 20 else 4))
+        exploded_data['Office Hours'] = exploded_data['Credits'].apply(lambda x: 1 if x == 10 else 2)
+        exploded_data['Grading Hours'] = exploded_data['Credits'].apply(lambda x: 0.083 if x == 10 else (0.117 if x == 20 else 0.083))
 
-            # Assign teaching, office, and grading hours based on credits
-            merged_data['Teaching Hours'] = merged_data['Credits'].apply(lambda x: 4 if x == 10 else (6 if x == 20 else 4))
-            merged_data['Office Hours'] = merged_data['Credits'].apply(lambda x: 1 if x == 10 else 2)
-            merged_data['Grading Hours'] = merged_data['Credits'].apply(lambda x: 0.083 if x == 10 else (0.117 if x == 20 else 0.083))
+        exploded_data['Total Weekly Hours'] = exploded_data.apply(calculate_workload_per_section, axis=1)
 
-            # Calculate total weekly hours
-            merged_data['Total Weekly Hours'] = merged_data.apply(calculate_workload_per_section, axis=1)
+        assigned_data = enforce_teaching_limit_and_reassign(exploded_data, max_hours_per_week)
 
-            # Enforce teaching limit and reassign sections if needed
-            assigned_data = enforce_teaching_limit_and_reassign(merged_data, max_hours_per_week)
+        st.subheader("Aggregated Workload Data by Term")
+        aggregated_data = assigned_data.groupby(
+            ['Teacher Name', 'Term', 'Sections'], as_index=False
+        ).agg({
+            'Teaching Hours': 'sum',
+            'Office Hours': 'sum',
+            'Grading Hours': 'sum',
+            'Total Weekly Hours': 'sum'
+        })
+        st.write(aggregated_data)
 
-            st.subheader("Aggregated Workload Data by Term")
-            aggregated_data = assigned_data.groupby(
-                ['Teacher Name', 'Term', 'Sections'], as_index=False
-            ).agg({
-                'Teaching Hours': 'sum',
-                'Office Hours': 'sum',
-                'Grading Hours': 'sum',
-                'Total Weekly Hours': 'sum'
-            })
-            st.write(aggregated_data)
+        st.download_button(
+            label="Download Aggregated Data",
+            data=aggregated_data.to_csv(index=False),
+            file_name="aggregated_workload.csv",
+            mime="text/csv"
+        )
 
-            st.download_button(
-                label="Download Aggregated Data",
-                data=aggregated_data.to_csv(index=False),
-                file_name="aggregated_workload.csv",
-                mime="text/csv"
-            )
+        st.subheader("Teacher Summary")
+        teacher_summary = aggregated_data.groupby('Teacher Name', as_index=False).agg({
+            'Total Weekly Hours': 'sum'
+        })
+        st.write(teacher_summary)
 
-            st.subheader("Teacher Summary")
-            teacher_summary = aggregated_data.groupby('Teacher Name', as_index=False).agg({
-                'Total Weekly Hours': 'sum'
-            })
-            st.write(teacher_summary)
-
-            st.download_button(
-                label="Download Teacher Summary",
-                data=teacher_summary.to_csv(index=False),
-                file_name="teacher_summary.csv",
-                mime="text/csv"
-            )
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
+        st.download_button(
+            label="Download Teacher Summary",
+            data=teacher_summary.to_csv(index=False),
+            file_name="teacher_summary.csv",
+            mime="text/csv"
+        )
 
 if __name__ == "__main__":
     main()
