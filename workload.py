@@ -6,26 +6,32 @@ import io
 
 # Function to generate a template
 def generate_template():
-    # Sample template for the course structure, teacher modules, and student database
+    # Sample course structure template
     course_template = pd.DataFrame({
         'Module Code': ['M101', 'M102', 'M103'],
         'Module Name': ['Course 1', 'Course 2', 'Course 3'],
         'Credit': [10, 15, 20],
         'Term': ['Term 1', 'Term 2', 'Term 3'],
-        'Number of Students': [30, 25, 35]
+        'Year': [2024, 2024, 2024],
+        'Program': ['Program A', 'Program B', 'Program C']
     })
-
+    
+    # Sample teacher module template
     teacher_template = pd.DataFrame({
         'Teacher Name': ['Alice', 'Bob', 'Carol'],
         'Module Code': ['M101', 'M102', 'M103'],
-        'Section': ['A', 'B', 'C']
+        'Module Name': ['Course 1', 'Course 2', 'Course 3']
     })
     
+    # Sample student database template
     student_template = pd.DataFrame({
-        'Module Code': ['M101', 'M102', 'M103'],
+        'Cohort': ['Cohort 1', 'Cohort 2', 'Cohort 3'],
+        'Student Number': ['S001', 'S002', 'S003'],
         'Module Name': ['Course 1', 'Course 2', 'Course 3'],
+        'Module Code': ['M101', 'M102', 'M103'],
         'Term': ['Term 1', 'Term 2', 'Term 3'],
-        'Number of Students': [30, 25, 35]
+        'Section': ['A', 'B', 'C'],
+        'Year': [2024, 2024, 2024]
     })
     
     # Convert DataFrames to CSV strings and then to bytes
@@ -76,7 +82,7 @@ def calculate_workload(course_data, teacher_modules, student_db):
     merged_data['Total Term Workload'] = merged_data['Total Weekly Hours'] * 12
 
     # Select the relevant columns for the final output
-    final_output = merged_data[['Teacher Name', 'Module Code', 'Section', 'Number of Students',
+    final_output = merged_data[['Teacher Name', 'Module Code', 'Module Name', 'Section', 'Number of Students',
                                 'Teaching Hours', 'Office Hours', 'Grading Hours',
                                 'Research Hours', 'Meetings Hours', 'Curriculum Development Hours',
                                 'Other Responsibilities Hours', 'Total Weekly Hours', 'Total Term Workload']]
