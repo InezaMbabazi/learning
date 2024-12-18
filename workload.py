@@ -35,7 +35,7 @@ def calculate_workload(student_data, teacher_data):
             # Prefer main teachers for the module
             for _, teacher_row in module_teachers.iterrows():
                 teacher_name = teacher_row['Teacher Name']
-                if teacher_workload[teacher_name] + weekly_hours <= 12:
+                if teacher_workload[teacher_name] + weekly_hours <= 100:
                     teacher_workload[teacher_name] += weekly_hours
                     assignments.append({
                         'Teacher': teacher_name,
@@ -50,7 +50,7 @@ def calculate_workload(student_data, teacher_data):
             # If no assigned teacher is available, assign anyone with capacity
             if not assigned:
                 for teacher_name in teacher_workload:
-                    if teacher_workload[teacher_name] + weekly_hours <= 12:
+                    if teacher_workload[teacher_name] + weekly_hours <= 100:
                         teacher_workload[teacher_name] += weekly_hours
                         assignments.append({
                             'Teacher': teacher_name,
