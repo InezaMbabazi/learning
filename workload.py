@@ -70,16 +70,17 @@ def assign_sections_and_calculate_workload(merged_data, max_students_per_section
                     assigned_teacher = teacher
                     break
 
-            # Assign assistant if available
+            # Assign assistant only if a teacher is assigned
             if assigned_teacher:
-                assigned_assistant = available_assistants[0] if len(available_assistants) > 0 else None
+                available_assistants_for_section = available_assistants  # We can decide on assigning assistants if available
+                assigned_assistant = available_assistants_for_section[0] if len(available_assistants_for_section) > 0 else None
 
             if assigned_teacher:
                 teacher_workloads[(assigned_teacher, term)] = teacher_workloads.get((assigned_teacher, term), 0) + teaching_hours
             else:
                 assigned_teacher = 'Unassigned (Manual Reassignment Needed)'
 
-            # Track assistant workload
+            # Track assistant workload (no teaching hours for assistant)
             if assigned_assistant:
                 assistant_workloads[(assigned_assistant, term)] = assistant_workloads.get((assigned_assistant, term), 0) + office_hours + grading_hours
 
@@ -88,8 +89,8 @@ def assign_sections_and_calculate_workload(merged_data, max_students_per_section
                 'Term': term,
                 'Section': section,
                 'Teacher Name': assigned_teacher,
-                'Assistant Name': assigned_assistant,  # Add Teacher Status in the data
-                'Teaching Hours': teaching_hours,
+                'Assistant Name': assigned_assistant,  # Assign assistant if available
+                'Teaching Hours': teaching_hours if assigned_teacher else 0,
                 'Office Hours': office_hours,
                 'Grading Hours': grading_hours,
                 'Total Students': min(max_students_per_section, total_students),
