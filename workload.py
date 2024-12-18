@@ -92,6 +92,12 @@ def calculate_workload(course_data, teacher_modules, student_db):
     # Assuming 12 weeks per term
     merged_data['Total Term Workload'] = merged_data['Total Weekly Hours'] * 12
 
+    # Calculate the annual workload by summing the term workloads
+    total_annual_workload = merged_data['Total Term Workload'].sum()
+
+    # Group the data by Term to get the total workload per term
+    term_workload = merged_data.groupby('Term')['Total Term Workload'].sum().reset_index()
+
     # Print the columns of merged_data to inspect them
     print("Columns in merged_data:", merged_data.columns)
 
@@ -109,19 +115,8 @@ def calculate_workload(course_data, teacher_modules, student_db):
     # Select the available columns
     final_output = merged_data[[col for col in required_columns if col in merged_data.columns]]
 
-    return final_output
+    return final_output, term_workload, total_annual_workload
 
-# Example usage:
-# Assuming course_data, teacher_modules, and student_db are your input DataFrames
-# course_data = pd.read_csv('course_structure.csv')
-# teacher_modules = pd.read_csv('teacher_modules.csv')
-# student_db = pd.read_csv('student_db.csv')
-
-# Calculate workload
-# final_output = calculate_workload(course_data, teacher_modules, student_db)
-
-# Print the final output (or return it in your application)
-# print(final_output)
 # Streamlit UI
 st.title('Workload Calculation for Teachers')
 
@@ -163,7 +158,7 @@ if teacher_file is not None and course_file is not None and student_file is not 
     student_db = pd.read_csv(student_file)
     
     # Process the data and calculate the workload
-    final_output = calculate_workload(course_structure, teacher_modules, student_db)
+    final_output, term_workload, total_annual_workload = calculate_workload(course_structure, teacher_modules, student_db)
 
     # Display the final output
     st.subheader("Calculated Workload")
@@ -173,6 +168,14 @@ if teacher_file is not None and course_file is not None and student_file is not 
     st.subheader("Workload Summary in Table Format")
     table_output = tabulate(final_output, headers='keys', tablefmt='grid', showindex=False)
     st.text(table_output)
+
+    # Display the total term workload for each term
+    st.subheader("Term Workload Summary")
+    st.write(term_workload)
+
+    # Display the total annual workload
+    st.subheader("Total Annual Workload")
+    st.write(f"The total annual workload is {total_annual_workload} hours.")
 
 else:
     st.warning("Please upload all three CSV files to proceed.")
