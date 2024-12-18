@@ -60,8 +60,8 @@ def calculate_workload(course_data, teacher_modules, student_db):
     merged_data = pd.merge(course_data, teacher_modules, on=['Module Code', 'Module Name'], how='inner')
     
     # Merge student database with the course and teacher data based on 'Module Code', 'Module Name', and 'Term'
-    merged_data = pd.merge(merged_data, student_db[['Module Code', 'Module Name', 'Term', 'Cohort', 'Student Number', 'Year']], 
-                           on=['Module Code', 'Module Name', 'Term'], how='left')
+    merged_data = pd.merge(merged_data, student_db[['Module Code', 'Module Name', 'Term', 'Cohort', 'Student Number','Section' 'Year']], 
+                           on=['Module Code', 'Module Name'], how='left')
 
     # Ensure that we are considering only valid students (i.e., cohort is not empty)
     merged_data = merged_data[merged_data['Cohort'].notna() & (merged_data['Cohort'] != '')]
