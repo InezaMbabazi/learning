@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 from tabulate import tabulate
+import io
 
 # Function to calculate the workload
 def calculate_workload(course_data, teacher_modules, student_db):
@@ -69,6 +70,21 @@ def calculate_workload(course_data, teacher_modules, student_db):
 
     return final_output
 
+# Function to create and return a downloadable template
+def generate_template():
+    # Creating a basic template with 'Term' column
+    template_data = {
+        'Teacher Name': [''] * 5,
+        'Module Code': [''] * 5,
+        'Module Name': [''] * 5,
+        'Section': [''] * 5,
+        'Term': ['Term 1', 'Term 2', 'Term 3', 'Term 1', 'Term 2'],
+        'Credit': [10, 15, 20, 15, 10],
+    }
+    
+    template_df = pd.DataFrame(template_data)
+    return template_df
+
 # Streamlit UI
 st.title('Workload Calculation for Teachers')
 
@@ -77,6 +93,19 @@ teacher_file = st.file_uploader("Upload Teacher Modules CSV", type=["csv"])
 course_file = st.file_uploader("Upload Course Structure CSV", type=["csv"])
 student_file = st.file_uploader("Upload Student Database CSV", type=["csv"])
 
+# Add Download Template Button
+if st.button('Download Template'):
+    template_df = generate_template()
+    # Convert the template to CSV
+    csv_template = template_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Teacher Module Template",
+        data=csv_template,
+        file_name="teacher_module_template.csv",
+        mime="text/csv"
+    )
+
+# Process files if uploaded
 if teacher_file is not None and course_file is not None and student_file is not None:
     # Read the uploaded CSV files into DataFrames
     teacher_modules = pd.read_csv(teacher_file)
