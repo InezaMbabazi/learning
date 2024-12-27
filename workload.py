@@ -1,90 +1,95 @@
 import pandas as pd
+import numpy as np
 import streamlit as st
 
-# Sample data for teaching modules and students
-# Teacher database (for demonstration purposes)
+# Sample Data - replace with your actual data sources
 teacher_data = {
-    'Teacher Name': ['John Doe', 'Jane Smith', 'Alice Brown'],
-    'Teacher Status': ['Main', 'Main', 'Assistant'],
-    'Total Assigned Hours': [0, 0, 0]
+    'Teacher\'s Name': ['John Doe', 'Jane Smith', 'Michael Johnson'],
+    'Teacher Status': ['Main', 'Assistant', 'Main']
 }
 
-# Student database (for demonstration purposes)
+module_data = {
+    'Module Name': ['Math 101', 'Physics 102', 'History 103'],
+    'Module Code': ['M101', 'P102', 'H103'],
+    'Credits': [10, 15, 20],  # Module credits
+}
+
 student_data = {
-    'Cohort': ['Cohort 1', 'Cohort 2', 'Cohort 3'],
-    'Number of Students': [40, 50, 60],
-    'Module Name': ['Math 101', 'Science 101', 'History 101'],
-    'Code': ['MATH101', 'SCI101', 'HIST101'],
-    'Term': ['Term 1', 'Term 1', 'Term 1'],
-    'Sections': [2, 2, 3],
+    'Cohort': [1, 1, 2],
+    'Number of Students': [60, 50, 70],
+    'Module Name': ['Math 101', 'Physics 102', 'History 103'],
+    'Code': ['M101', 'P102', 'H103'],
+    'Term': ['Term 1', 'Term 2', 'Term 3'],
+    'Sections': [3, 2, 4],
     'Year': [2024, 2024, 2024],
     'Credits': [10, 15, 20],
-    'Programme': ['BSc', 'BSc', 'BA'],
-    'When to Take Place': ['Week 1', 'Week 1', 'Week 2']
+    'Programme': ['Engineering', 'Science', 'Arts'],
+    'When to Take Place': ['Term 1', 'Term 2', 'Term 3'],
 }
 
-# Convert to DataFrames
-teacher_df = pd.DataFrame(teacher_data)
-student_df = pd.DataFrame(student_data)
+# Convert data to DataFrames
+teachers_df = pd.DataFrame(teacher_data)
+modules_df = pd.DataFrame(module_data)
+students_df = pd.DataFrame(student_data)
 
-# Define function to calculate weekly workload for each teacher
-def calculate_workload(student_df, teacher_df):
-    # Define the teaching hours based on credits
-    teaching_hours = {10: 4, 15: 4, 20: 6}
-    office_hours = {10: 1, 15: 2, 20: 4}
-    
-    # Add columns to student dataframe for weekly hours calculation
-    student_df['Weekly Teaching Hours'] = student_df['Credits'].map(teaching_hours)
-    student_df['Weekly Office Hours'] = student_df['Credits'].map(office_hours)
-    
-    # Group by teacher and "When to Take Place" and assign workload
-    workload_data = []
+# Assigning Workload
+def calculate_workload():
+    # Initialize an empty list to store workload assignments
+    workload = []
 
-    for index, row in student_df.iterrows():
-        # Get the teacher
-        available_teachers = teacher_df[teacher_df['Total Assigned Hours'] < 12]
+    for index, row in students_df.iterrows():
+        num_students = row['Number of Students']
+        num_sections = row['Sections']
+        students_per_section = num_students / num_sections
+
+        # Get the corresponding module data
+        module = modules_df[modules_df['Module Name'] == row['Module Name']].iloc[0]
+        credits = module['Credits']
+
+        # Calculate teaching and office hours based on credits
+        if credits == 10:
+            teaching_hours = 4
+            office_hours = 1
+        elif credits == 15:
+            teaching_hours = 4
+            office_hours = 2
+        elif credits == 20:
+            teaching_hours = 6
+            office_hours = 4
+
+        total_weekly_hours = teaching_hours + office_hours
+
+        # Find an available teacher for this module
+        available_teachers = teachers_df[teachers_df['Teacher Status'] == 'Main']
+        assigned_teacher = available_teachers.iloc[0]  # Just pick the first available teacher
+        assistant_teacher = teachers_df[teachers_df['Teacher Status'] == 'Assistant'].iloc[0]  # Pick assistant
         
-        # Assign teachers and assistants
-        for teacher_index, teacher_row in available_teachers.iterrows():
-            if teacher_row['Total Assigned Hours'] + row['Weekly Teaching Hours'] <= 12:
-                # Update teacher workload
-                teacher_df.at[teacher_index, 'Total Assigned Hours'] += row['Weekly Teaching Hours']
-                
-                # Assign main teacher and assistant
-                workload_data.append({
-                    'Teacher\'s Name': teacher_row['Teacher Name'],
-                    'Module Name': row['Module Name'],
-                    'Credits': row['Credits'],
-                    'Weekly Teaching Hours': row['Weekly Teaching Hours'],
-                    'Weekly Office Hours': row['Weekly Office Hours'],
-                    'When to Take Place': row['When to Take Place'],
-                    'Assistant Teacher': 'N/A' if teacher_row['Teacher Status'] == 'Main' else 'Assistant',
-                })
-                break
+        # Assign the workload
+        workload.append({
+            'Teacher\'s Name': assigned_teacher['Teacher\'s Name'],
+            'Module Name': row['Module Name'],
+            'Credits': credits,
+            'Total Weekly Hours': total_weekly_hours,
+            'When to Take Place': row['When to Take Place'],
+            'Assistant Teacher': assistant_teacher['Teacher\'s Name']
+        })
 
-    # Create a DataFrame for workload
-    workload_df = pd.DataFrame(workload_data)
-    
-    # Calculate Year Workload by multiplying weekly hours by 12
-    workload_df['Year Teaching Hours'] = workload_df['Weekly Teaching Hours'] * 12
-    workload_df['Year Office Hours'] = workload_df['Weekly Office Hours'] * 12
-    
-    return workload_df
+    return pd.DataFrame(workload)
 
-# Calculate workload
-workload_df = calculate_workload(student_df, teacher_df)
+# Calculate the initial workload
+workload_df = calculate_workload()
 
-# Display the workload table
-st.write("### Teacher Workload Table")
+# Display the initial workload
+st.write("### Initial Workload Assignment")
 st.dataframe(workload_df)
 
-# Form to edit workload entries
+# Option to edit the workload
 st.write("### Edit Workload Entry")
 with st.form("edit_workload"):
     selected_index = st.selectbox(
         "Select Row to Edit",
         options=workload_df.index,
-        format_func=lambda x: f"{workload_df.loc[x, 'Teacher\'s Name']} - {workload_df.loc[x, 'Module Name']}"
+        format_func=lambda x: f"{workload_df.loc[x, \"Teacher's Name\"]} - {workload_df.loc[x, 'Module Name']}"
     )
     new_teacher = st.text_input("Teacher's Name", workload_df.loc[selected_index, "Teacher's Name"])
     new_assistant = st.text_input("Assistant Teacher", workload_df.loc[selected_index, "Assistant Teacher"])
@@ -102,9 +107,31 @@ with st.form("edit_workload"):
         workload_df.loc[selected_index, "Assistant Teacher"] = new_assistant
         workload_df.loc[selected_index, "When to Take Place"] = new_when_to_take_place
         st.success("Entry updated successfully!")
-        st.experimental_rerun()  # Refresh app
+        st.experimental_rerun()  # Refresh the app to reflect changes
 
-# Show teacher with the highest workload in a week
-teacher_max_workload = teacher_df.loc[teacher_df['Total Assigned Hours'].idxmax()]
-st.write("### Teacher with Maximum Weekly Hours")
-st.write(f"Teacher: {teacher_max_workload['Teacher Name']}, Total Weekly Hours: {teacher_max_workload['Total Assigned Hours']}")
+# Calculate the weekly and yearly workload for each teacher
+def calculate_teacher_workload(workload_df):
+    weekly_workload = workload_df.groupby(['Teacher\'s Name', 'When to Take Place']).agg({
+        'Total Weekly Hours': 'sum'
+    }).reset_index()
+
+    yearly_workload = workload_df.groupby('Teacher\'s Name').agg({
+        'Total Weekly Hours': 'sum'
+    }).reset_index()
+    yearly_workload['Total Yearly Hours'] = yearly_workload['Total Weekly Hours'] * 12  # Assuming 12 weeks per term
+
+    return weekly_workload, yearly_workload
+
+# Calculate weekly and yearly workload
+weekly_workload, yearly_workload = calculate_teacher_workload(workload_df)
+
+# Display weekly and yearly workload
+st.write("### Weekly Workload")
+st.dataframe(weekly_workload)
+
+st.write("### Yearly Workload")
+st.dataframe(yearly_workload)
+
+# Optionally, you could show the teacher with the most weekly hours
+max_weekly_teacher = weekly_workload.loc[weekly_workload['Total Weekly Hours'].idxmax()]
+st.write(f"### Teacher with the Most Weekly Hours: {max_weekly_teacher['Teacher\'s Name']} - {max_weekly_teacher['Total Weekly Hours']} hours")
