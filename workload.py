@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 # Streamlit app
-st.title("Enhanced Lecturer Workload Allocation with Assistants")
+st.title("Lecturer Workload Allocation")
 
 # Upload files
 teacher_file = st.file_uploader("Upload Teachers Database Template", type="csv")
@@ -38,50 +38,54 @@ if teacher_file and student_file:
         is_large_class = students_per_section > large_class_threshold
 
         # Find the main teacher for the module
-        available_teachers = teachers_df[teachers_df['Module Code'] == module['Code']]
+        available_main_teachers = teachers_df[
+            (teachers_df['Module Code'] == module['Code']) &
+            (teachers_df['Teacher Status'] == 'Main Teacher') &
+            (teachers_df['Weekly Assigned Hours'] + module['Teaching Hours per Week'] <= 12) &
+            (teachers_df['Assigned Modules'] < 3)
+        ]
+
         assistant_teacher = None
 
-        for _, teacher in available_teachers.iterrows():
-            weekly_hours = teacher['Weekly Assigned Hours'] + module['Teaching Hours per Week']
-            assigned_modules = teacher['Assigned Modules'] + 1
+        if not available_main_teachers.empty:
+            main_teacher = available_main_teachers.iloc[0]
+            teachers_df.loc[main_teacher.name, 'Weekly Assigned Hours'] += module['Teaching Hours per Week']
+            teachers_df.loc[main_teacher.name, 'Yearly Assigned Hours'] = teachers_df.loc[main_teacher.name, 'Weekly Assigned Hours'] * 12
+            teachers_df.loc[main_teacher.name, 'Assigned Modules'] += 1
 
-            if weekly_hours <= 12 and assigned_modules <= 3:
-                teachers_df.loc[teacher.name, 'Weekly Assigned Hours'] += module['Teaching Hours per Week']
-                teachers_df.loc[teacher.name, 'Yearly Assigned Hours'] = teachers_df.loc[teacher.name, 'Weekly Assigned Hours'] * 12
-                teachers_df.loc[teacher.name, 'Assigned Modules'] += 1
+            # If large class, assign an assistant teacher
+            if is_large_class:
+                available_assistants = teachers_df[
+                    (teachers_df['Teacher Status'] == 'Assistant') &
+                    (teachers_df['Weekly Assigned Hours'] < 12) &
+                    (teachers_df['Assigned Modules'] < 3) &
+                    (teachers_df['Teacher\'s Name'] != main_teacher["Teacher's Name"])
+                ]
+                if not available_assistants.empty:
+                    assistant_teacher = available_assistants.iloc[0]["Teacher's Name"]
 
-                # If large class, find an assistant
-                if is_large_class:
-                    assistant_available = teachers_df[
-                        (teachers_df['Weekly Assigned Hours'] < 12) & 
-                        (teachers_df['Assigned Modules'] < 3) & 
-                        (teachers_df['Teacher\'s Name'] != teacher["Teacher's Name"])
-                    ]
-                    if not assistant_available.empty:
-                        assistant_teacher = assistant_available.iloc[0]["Teacher's Name"]
-
-                workload.append({
-                    "Teacher's Name": teacher["Teacher's Name"],
-                    "Assistant Teacher": assistant_teacher if is_large_class else "None",
-                    "Module Name": module["Module Name"],
-                    "Teaching Hours (Weekly)": module["Teaching Hours per Week"],
-                    "Office Hours (Weekly)": module["Office Hours per Week"],
-                    "Total Hours (Weekly)": module["Total Weekly Hours"],
-                    "Yearly Hours": module["Yearly Hours"],
-                    "When to Take Place": module["When to Take Place"]
-                })
-                break
+            workload.append({
+                "Teacher's Name": main_teacher["Teacher's Name"],
+                "Assistant Teacher": assistant_teacher if is_large_class else "None",
+                "Module Name": module["Module Name"],
+                "Teaching Hours (Weekly)": module["Teaching Hours per Week"],
+                "Office Hours (Weekly)": module["Office Hours per Week"],
+                "Total Hours (Weekly)": module["Total Weekly Hours"],
+                "Yearly Hours": module["Yearly Hours"],
+                "When to Take Place": module["When to Take Place"],
+                "Teacher Status": main_teacher['Teacher Status']
+            })
 
     # Convert workload to DataFrame
     workload_df = pd.DataFrame(workload)
 
     # Display workload
-    st.write("Workload with Assistants")
+    st.write("Workload with Assistants and Status")
     st.dataframe(workload_df)
     st.download_button(
         "Download Workload",
         workload_df.to_csv(index=False),
-        "workload_with_assistants.csv"
+        "workload_with_assistants_status.csv"
     )
 
     # Teacher with the most weekly hours
