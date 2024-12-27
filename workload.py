@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 # Streamlit app
-st.title("Simplified Teacher Workload Allocation")
+st.title("Enhanced Teacher Workload Allocation")
 
 # File upload
 teacher_file = st.file_uploader("Upload Teachers Database Template", type="csv")
@@ -13,7 +13,7 @@ if teacher_file and module_file:
     teachers_df = pd.read_csv(teacher_file)
     modules_df = pd.read_csv(module_file)
 
-    # Initialize teacher tracking columns
+    # Initialize columns for tracking
     teachers_df['Weekly Assigned Hours'] = 0
     teachers_df['Assigned Modules'] = 0
 
@@ -21,76 +21,51 @@ if teacher_file and module_file:
     modules_df['Teaching Hours per Week'] = modules_df['Credits'].apply(lambda x: 4 if x in [10, 15] else 6)
     modules_df['Office Hours per Week'] = modules_df['Credits'].apply(lambda x: 1 if x == 10 else (2 if x == 15 else 4))
     modules_df['Total Weekly Hours'] = modules_df['Teaching Hours per Week'] + modules_df['Office Hours per Week']
-    
+    modules_df['Class Size'] = modules_df['Number of Students'] / modules_df['Sections']  # Assuming 'Sections' exists
     modules_df['Assigned Teacher'] = None
 
-    # Function to check if a teacher can be assigned a module without exceeding 12 hours
-    def can_assign_teacher(teacher_name, module_hours):
-        # Check if teacher exists
-        if teacher_name in teachers_df["Teacher's Name"].values:
-            current_hours = teachers_df.loc[teachers_df["Teacher's Name"] == teacher_name, "Weekly Assigned Hours"].values[0]
-            return (current_hours + module_hours) <= 12
-        return False  # If teacher is not found, return False
-
-    # Assign modules to teachers based on "When to Take Place"
+    # Assign modules to teachers ensuring "When to Take Place" is checked and no teacher exceeds 12 hours
     for idx, module in modules_df.iterrows():
-        assigned = False
-        # Check if module is scheduled to take place
+        # Step 1: Check if module is scheduled (i.e., "When to Take Place" has a value)
         if pd.notnull(module['When to Take Place']):
-            # Find the teacher that can handle the module
+            assigned = False
+
+            # Step 2: Find eligible teachers who can teach this module and have less than 12 hours already assigned
             eligible_teachers = teachers_df[
-                (teachers_df['Assigned Modules'] < 3)  # Ensure no teacher is assigned more than 3 modules
+                (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
+                (teachers_df['Assigned Modules'] < 3)  # Ensure no teacher teaches more than 3 modules
             ]
+            
+            # Ensure the teacher is qualified to teach this specific module (optional, depending on your logic)
+            eligible_teachers = eligible_teachers[eligible_teachers['Qualifications'].str.contains(module['Module Name'], na=False)]
+            
+            if not eligible_teachers.empty:
+                # Step 3: Assign the module to the first eligible teacher
+                teacher = eligible_teachers.iloc[0]
+                teachers_df.loc[teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
+                teachers_df.loc[teacher.name, 'Assigned Modules'] += 1
+                modules_df.at[idx, 'Assigned Teacher'] = teacher["Teacher's Name"]
+                assigned = True
 
-            for teacher_name, teacher_data in eligible_teachers.iterrows():
-                # Check if the teacher can take the module without exceeding 12 hours
-                if can_assign_teacher(teacher_name, module['Total Weekly Hours']):
-                    # Assign the module to this teacher
-                    modules_df.at[idx, 'Assigned Teacher'] = teacher_data["Teacher's Name"]
-                    teachers_df.loc[teacher_data.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
-                    teachers_df.loc[teacher_data.name, 'Assigned Modules'] += 1
-                    assigned = True
-                    break
-        
-        if not assigned:
-            # Log module as unassigned if no teacher can be found
-            modules_df.at[idx, 'Assigned Teacher'] = 'Unassigned'
-
-    # Generate outputs
-    unassigned_modules = modules_df[modules_df['Assigned Teacher'] == 'Unassigned']
-    workload_df = modules_df[modules_df['Assigned Teacher'] != 'Unassigned']
-
-    # Calculate yearly workload
-    yearly_workload = (
-        workload_df.groupby("Assigned Teacher")
-        .agg({"Total Weekly Hours": "sum"})
-        .reset_index()
-    )
-    yearly_workload["Yearly Hours"] = yearly_workload["Total Weekly Hours"] * 12
+            if not assigned:
+                # Log the module as unassigned if no teacher is eligible
+                modules_df.at[idx, 'Assigned Teacher'] = 'Unassigned'
 
     # Display results
     st.write("Assigned Workload")
-    st.dataframe(workload_df)
-
-    st.write("Yearly Workload")
-    st.dataframe(yearly_workload)
+    st.dataframe(modules_df[modules_df['Assigned Teacher'] != 'Unassigned'])
 
     st.write("Unassigned Modules")
-    st.dataframe(unassigned_modules)
+    st.dataframe(modules_df[modules_df['Assigned Teacher'] == 'Unassigned'])
 
-    # Download buttons
+    # Download buttons for assigned and unassigned modules
     st.download_button(
         "Download Assigned Workload",
-        workload_df.to_csv(index=False),
+        modules_df[modules_df['Assigned Teacher'] != 'Unassigned'].to_csv(index=False),
         "assigned_workload.csv"
     )
     st.download_button(
-        "Download Yearly Workload",
-        yearly_workload.to_csv(index=False),
-        "yearly_workload.csv"
-    )
-    st.download_button(
         "Download Unassigned Modules",
-        unassigned_modules.to_csv(index=False),
+        modules_df[modules_df['Assigned Teacher'] == 'Unassigned'].to_csv(index=False),
         "unassigned_modules.csv"
     )
