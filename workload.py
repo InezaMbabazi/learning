@@ -83,6 +83,29 @@ if teacher_file and module_file:
                         teachers_df.loc[teacher_data.name, 'Weekly Assigned Hours'] -= module['Total Weekly Hours']
                         excess_hours -= module['Total Weekly Hours']
 
+    # Check for any teacher exceeding 12 hours and fix
+    for teacher_name, teacher_data in teachers_df.iterrows():
+        if teacher_data['Weekly Assigned Hours'] > 12:
+            excess_hours = teacher_data['Weekly Assigned Hours'] - 12
+            for idx, module in modules_df[modules_df['Assigned Teacher'] == teacher_name].iterrows():
+                if excess_hours <= 0:
+                    break
+                if module['Total Weekly Hours'] <= excess_hours:
+                    # Reassign module
+                    eligible_teachers = teachers_df[
+                        (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
+                        (teachers_df['Assigned Modules'] < 3) &
+                        (teachers_df["Teacher's Name"] != teacher_name)
+                    ].sort_values(by=['Weekly Assigned Hours', 'Assigned Modules'])
+
+                    if not eligible_teachers.empty:
+                        new_teacher = eligible_teachers.iloc[0]
+                        modules_df.at[idx, 'Assigned Teacher'] = new_teacher["Teacher's Name"]
+                        teachers_df.loc[new_teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
+                        teachers_df.loc[new_teacher.name, 'Assigned Modules'] += 1
+                        teachers_df.loc[teacher_data.name, 'Weekly Assigned Hours'] -= module['Total Weekly Hours']
+                        excess_hours -= module['Total Weekly Hours']
+
     # Generate outputs
     unassigned_modules = modules_df[modules_df['Assigned Teacher'] == 'Unassigned']
     workload_df = modules_df[modules_df['Assigned Teacher'] != 'Unassigned']
