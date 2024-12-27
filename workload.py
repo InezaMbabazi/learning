@@ -13,6 +13,9 @@ if teacher_file and module_file:
     teachers_df = pd.read_csv(teacher_file)
     modules_df = pd.read_csv(module_file)
 
+    # Display columns of teachers_df to check for the correct column name
+    st.write(teachers_df.columns)
+
     # Initialize columns for tracking
     teachers_df['Weekly Assigned Hours'] = 0
     teachers_df['Assigned Modules'] = 0
@@ -43,8 +46,9 @@ if teacher_file and module_file:
                 (teachers_df['Assigned Modules'] < 3)  # Ensure no teacher teaches more than 3 modules
             ]
 
-            # Ensure the teacher is qualified to teach this specific module (optional, based on your logic)
-            eligible_teachers = eligible_teachers[eligible_teachers['Modules'].str.contains(module['Module Name'], na=False)]
+            # Ensure the teacher is qualified to teach this specific module
+            # Adjust the column name to "Module Name"
+            eligible_teachers = eligible_teachers[eligible_teachers['Module Name'].str.contains(module['Module Name'], na=False)]
 
             if not eligible_teachers.empty:
                 # Step 3: Assign the module to the first eligible teacher
