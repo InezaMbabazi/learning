@@ -1,108 +1,124 @@
 import pandas as pd
 import streamlit as st
 
-# Load templates
-teach_module_template = pd.DataFrame({
-    "Teacher's Name": ["John Doe", "Jane Smith", "Emily Davis", "Robert Brown"],
-    "Module Code": ["M101", "M102", "M103", "M104"],
-    "Module Name": ["Math", "Physics", "Chemistry", "Biology"],
-    "Teacher Status": ["Main", "Main", "Main", "Assistant"],
-})
+# Streamlit app
+st.title("Lecturer Workload Allocation")
 
-students_database_template = pd.DataFrame({
-    "Cohort": ["2024", "2024", "2024", "2024"],
-    "Number of Students": [50, 80, 120, 60],
-    "Module Name": ["Math", "Physics", "Chemistry", "Biology"],
-    "Code": ["M101", "M102", "M103", "M104"],
-    "Term": ["T1", "T1", "T1", "T2"],
-    "Sections": [2, 2, 4, 2],
-    "Year": ["2024", "2024", "2024", "2024"],
-    "Credits": [10, 15, 20, 10],
-    "Programme": ["Science", "Science", "Science", "Science"],
-    "When to Take Place": ["Trimester 1", "Trimester 1", "Trimester 1", "Trimester 2"],
-})
+# Upload files
+teacher_file = st.file_uploader("Upload Teachers Database Template", type="csv")
+student_file = st.file_uploader("Upload Students Database Template", type="csv")
 
-# Teaching and office hours logic
-def calculate_hours(row):
-    if row["Credits"] == 10:
-        return {"Teaching Hours": 4, "Office Hours": 1}
-    elif row["Credits"] == 15:
-        return {"Teaching Hours": 4, "Office Hours": 2}
-    elif row["Credits"] == 20:
-        return {"Teaching Hours": 6, "Office Hours": 4}
-    else:
-        return {"Teaching Hours": 0, "Office Hours": 0}
+if teacher_file and student_file:
+    # Load the data
+    teachers_df = pd.read_csv(teacher_file)
+    students_df = pd.read_csv(student_file)
 
-# Calculate hours for each module
-students_database_template = students_database_template.join(
-    students_database_template.apply(calculate_hours, axis=1, result_type="expand")
-)
+    # Initialize tracking columns
+    teachers_df['Weekly Assigned Hours'] = 0
+    teachers_df['Yearly Assigned Hours'] = 0
+    teachers_df['Assigned Modules'] = 0
 
-# Merge templates
-workload_df = pd.merge(
-    students_database_template,
-    teach_module_template,
-    on=["Module Name", "Module Code"],
-    how="left"
-)
+    # Preprocess Students Data
+    students_df['Teaching Hours per Week'] = students_df['Credits'].apply(lambda x: 4 if x in [10, 15] else 6)
+    students_df['Office Hours per Week'] = students_df['Credits'].apply(lambda x: 1 if x == 10 else (2 if x == 15 else 4))
+    students_df['Total Weekly Hours'] = students_df['Teaching Hours per Week'] + students_df['Office Hours per Week']
 
-# Assign assistant logic
-workload_df["Assistant Teacher"] = workload_df.apply(
-    lambda row: "Assistant Assigned" if row["Number of Students"] > 60 else "None",
-    axis=1
-)
+    # Threshold for assigning assistants
+    large_class_threshold = 50
 
-# Calculate weekly totals
-workload_df["Teaching Hours (Weekly)"] = workload_df["Teaching Hours"]
-workload_df["Office Hours (Weekly)"] = workload_df["Office Hours"]
-workload_df["Total Hours (Weekly)"] = workload_df["Teaching Hours (Weekly)"] + workload_df["Office Hours (Weekly)"]
+    # Assign modules to teachers
+    workload = []
+    for _, module in students_df.iterrows():
+        num_students = module['Number of Students']
+        num_sections = module['Sections']
+        students_per_section = num_students / num_sections
 
-# Display weekly workload
-weekly_workload = (
-    workload_df.groupby(["Teacher's Name", "When to Take Place"])
-    .agg({
-        "Teaching Hours (Weekly)": "sum",
-        "Office Hours (Weekly)": "sum",
-        "Total Hours (Weekly)": "sum",
-    })
-    .reset_index()
-)
-st.write("Weekly Workload")
-st.dataframe(weekly_workload)
+        # Check if a class is large
+        is_large_class = students_per_section > large_class_threshold
 
-# Download weekly workload
-st.download_button(
-    "Download Weekly Workload",
-    weekly_workload.to_csv(index=False),
-    "weekly_workload.csv"
-)
+        # Find the main teacher for the module
+        available_main_teachers = teachers_df[
+            (teachers_df['Module Code'] == module['Code']) &
+            (teachers_df['Teacher Status'] == 'Main Teacher') &
+            (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
+            (teachers_df['Assigned Modules'] < 3)
+        ]
 
-# Calculate yearly totals
-yearly_workload = (
-    workload_df.groupby("Teacher's Name")
-    .agg({
-        "Teaching Hours (Weekly)": "sum",
-        "Office Hours (Weekly)": "sum",
-        "Total Hours (Weekly)": "sum",
-    })
-    .reset_index()
-)
-yearly_workload["Total Teaching Hours (Yearly)"] = yearly_workload["Teaching Hours (Weekly)"] * 12
-yearly_workload["Total Office Hours (Yearly)"] = yearly_workload["Office Hours (Weekly)"] * 12
-yearly_workload["Total Hours (Yearly)"] = yearly_workload["Total Hours (Weekly)"] * 12
+        assistant_teacher = None
 
-# Display yearly workload
-st.write("Yearly Workload")
-st.dataframe(yearly_workload)
+        if not available_main_teachers.empty:
+            main_teacher = available_main_teachers.iloc[0]
+            teachers_df.loc[main_teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
+            teachers_df.loc[main_teacher.name, 'Assigned Modules'] += 1
 
-# Download yearly workload
-st.download_button(
-    "Download Yearly Workload",
-    yearly_workload.to_csv(index=False),
-    "yearly_workload.csv"
-)
+            # If large class, assign an assistant teacher
+            if is_large_class:
+                available_assistants = teachers_df[
+                    (teachers_df['Teacher Status'] == 'Assistant') &
+                    (teachers_df['Weekly Assigned Hours'] < 12) &
+                    (teachers_df['Assigned Modules'] < 3) &
+                    (teachers_df['Teacher\'s Name'] != main_teacher["Teacher's Name"])
+                ]
+                if not available_assistants.empty:
+                    assistant_teacher = available_assistants.iloc[0]["Teacher's Name"]
 
-# Identify teachers exceeding weekly limits
-overworked_teachers = weekly_workload[weekly_workload["Total Hours (Weekly)"] > 12]
-st.write("Teachers Exceeding Weekly Workload Limit")
-st.dataframe(overworked_teachers)
+            workload.append({
+                "Teacher's Name": main_teacher["Teacher's Name"],
+                "Assistant Teacher": assistant_teacher if is_large_class else "None",
+                "Module Name": module["Module Name"],
+                "Teaching Hours (Weekly)": module["Teaching Hours per Week"],
+                "Office Hours (Weekly)": module["Office Hours per Week"],
+                "Total Hours (Weekly)": module["Total Weekly Hours"],
+                "When to Take Place": module["When to Take Place"],
+                "Teacher Status": main_teacher['Teacher Status']
+            })
+
+    # Convert workload to DataFrame
+    workload_df = pd.DataFrame(workload)
+
+    # Calculate yearly workload
+    yearly_workload = (
+        workload_df.groupby("Teacher's Name")
+        .agg({
+            "Total Hours (Weekly)": "sum"
+        })
+        .reset_index()
+    )
+    yearly_workload["Yearly Hours"] = yearly_workload["Total Hours (Weekly)"] * 12
+
+    # Display weekly workload
+    st.write("Weekly Workload")
+    st.dataframe(workload_df)
+
+    # Display yearly workload
+    st.write("Yearly Workload")
+    st.dataframe(yearly_workload)
+
+    # Download buttons
+    st.download_button(
+        "Download Weekly Workload",
+        workload_df.to_csv(index=False),
+        "weekly_workload.csv"
+    )
+    st.download_button(
+        "Download Yearly Workload",
+        yearly_workload.to_csv(index=False),
+        "yearly_workload.csv"
+    )
+
+    # Teacher with the most weekly hours
+    most_hours_teacher = workload_df.groupby("Teacher's Name").sum().reset_index().sort_values(
+        "Total Hours (Weekly)", ascending=False).iloc[0]
+    st.write("Teacher with the Most Weekly Hours")
+    st.write(most_hours_teacher)
+
+    # Unassigned modules
+    unassigned_modules = students_df[~students_df['Module Name'].isin(workload_df['Module Name'])]
+    st.write("Unassigned Modules (if any)")
+    st.dataframe(unassigned_modules)
+    if not unassigned_modules.empty:
+        st.download_button(
+            "Download Unassigned Modules",
+            unassigned_modules.to_csv(index=False),
+            "unassigned_modules.csv"
+        )
