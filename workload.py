@@ -19,7 +19,6 @@ if teacher_file and module_file:
     # Initialize columns for tracking
     teachers_df['Weekly Assigned Hours'] = 0
     teachers_df['Assigned Modules'] = 0
-    teachers_df['Assigned'] = False  # Track if a teacher has been assigned a module
 
     # Preprocess modules data
     # Calculate class size
@@ -41,24 +40,21 @@ if teacher_file and module_file:
         if module['Scheduled']:
             assigned = False
 
-            # Step 2: Find eligible teachers who can teach this module, are main teachers, and have less than 12 hours already assigned
+            # Step 2: Find eligible teachers who can teach this module and have less than 12 hours already assigned
             eligible_teachers = teachers_df[
                 (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
                 (teachers_df['Assigned Modules'] < 3)  # Ensure no teacher teaches more than 3 modules
             ]
 
-            # Filter for main teachers based on 'Teacher Status' column
-            eligible_teachers = eligible_teachers[eligible_teachers['Teacher Status'] == 'main']
-
             # Ensure the teacher is qualified to teach this specific module
-            eligible_teachers = eligible_teachers[eligible_teachers['Module Name'].str.contains(module['Module Name'], na=False)]
+            # Adjust the column name based on your data
+            eligible_teachers = eligible_teachers[eligible_teachers['Modules'].str.contains(module['Module Name'], na=False)]
 
             if not eligible_teachers.empty:
-                # Step 3: Assign the module to the first eligible main teacher
+                # Step 3: Assign the module to the first eligible teacher
                 teacher = eligible_teachers.iloc[0]
                 teachers_df.loc[teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
                 teachers_df.loc[teacher.name, 'Assigned Modules'] += 1
-                teachers_df.loc[teacher.name, 'Assigned'] = True  # Mark the teacher as assigned
                 modules_df.at[idx, 'Assigned Teacher'] = teacher["Teacher's Name"]
                 assigned = True
 
@@ -75,11 +71,8 @@ if teacher_file and module_file:
                         modules_df.at[idx, 'Assistant Teacher'] = assistant_teacher["Teacher's Name"]
                         teachers_df.loc[assistant_teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
             else:
-                # Log the module as unassigned if no main teacher is eligible
+                # Log the module as unassigned if no teacher is eligible
                 modules_df.at[idx, 'Assigned Teacher'] = 'Unassigned'
-
-    # Find teachers who have not been assigned any module
-    unassigned_teachers = teachers_df[teachers_df['Assigned'] == False]
 
     # Display results
     st.write("Assigned Workload")
@@ -87,9 +80,6 @@ if teacher_file and module_file:
 
     st.write("Unassigned Modules")
     st.dataframe(modules_df[modules_df['Assigned Teacher'] == 'Unassigned'])
-
-    st.write("Teachers Without Modules")
-    st.dataframe(unassigned_teachers[['Teacher\'s Name', 'Assigned Modules']])
 
     # Download buttons for assigned and unassigned modules
     st.download_button(
@@ -101,9 +91,4 @@ if teacher_file and module_file:
         "Download Unassigned Modules",
         modules_df[modules_df['Assigned Teacher'] == 'Unassigned'].to_csv(index=False),
         "unassigned_modules.csv"
-    )
-    st.download_button(
-        "Download Teachers Without Modules",
-        unassigned_teachers[['Teacher\'s Name', 'Assigned Modules']].to_csv(index=False),
-        "teachers_without_modules.csv"
     )
