@@ -2,36 +2,39 @@ import pandas as pd
 import streamlit as st
 
 # Streamlit app
-st.title("Lecturer Workload Allocation with Reassignment")
+st.title("Balanced Lecturer Workload Allocation")
 
-# Upload files
+# File upload
 teacher_file = st.file_uploader("Upload Teachers Database Template", type="csv")
-student_file = st.file_uploader("Upload Students Database Template", type="csv")
+module_file = st.file_uploader("Upload Students Database Template", type="csv")
 
-if teacher_file and student_file:
+if teacher_file and module_file:
     # Load data
     teachers_df = pd.read_csv(teacher_file)
-    students_df = pd.read_csv(student_file)
+    modules_df = pd.read_csv(module_file)
 
-    # Initialize tracking columns
+    # Initialize teacher tracking columns
     teachers_df['Weekly Assigned Hours'] = 0
     teachers_df['Assigned Modules'] = 0
 
-    # Preprocess Students Data
-    students_df['Teaching Hours per Week'] = students_df['Credits'].apply(lambda x: 4 if x in [10, 15] else 6)
-    students_df['Office Hours per Week'] = students_df['Credits'].apply(lambda x: 1 if x == 10 else (2 if x == 15 else 4))
-    students_df['Total Weekly Hours'] = students_df['Teaching Hours per Week'] + students_df['Office Hours per Week']
+    # Preprocess modules data
+    modules_df['Teaching Hours per Week'] = modules_df['Credits'].apply(lambda x: 4 if x in [10, 15] else 6)
+    modules_df['Office Hours per Week'] = modules_df['Credits'].apply(lambda x: 1 if x == 10 else (2 if x == 15 else 4))
+    modules_df['Total Weekly Hours'] = modules_df['Teaching Hours per Week'] + modules_df['Office Hours per Week']
 
-    # Track module assignments
+    # Initialize outputs
     workload = []
     unassigned_modules = []
 
-    for _, module in students_df.iterrows():
-        # Filter available teachers
+    # Assign modules
+    for _, module in modules_df.iterrows():
+        assigned = False
+
+        # Sort teachers by least workload and modules assigned
         available_teachers = teachers_df[
             (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
             (teachers_df['Assigned Modules'] < 3)
-        ]
+        ].sort_values(by=['Weekly Assigned Hours', 'Assigned Modules'])
 
         if not available_teachers.empty:
             # Assign to the first available teacher
@@ -47,46 +50,47 @@ if teacher_file and student_file:
                 "Total Hours (Weekly)": module["Total Weekly Hours"],
                 "When to Take Place": module["When to Take Place"],
             })
-        else:
-            # Add to unassigned modules
+            assigned = True
+
+        if not assigned:
+            # Add to unassigned modules if no teacher available
             unassigned_modules.append(module.to_dict())
 
-    # Check for teachers exceeding the module limit in any term
-    workload_df = pd.DataFrame(workload)
-    module_reassignments = []
-
-    for teacher_name, group in workload_df.groupby("Teacher's Name"):
-        for when, term_group in group.groupby("When to Take Place"):
-            if len(term_group) > 3:
+    # Ensure no teacher exceeds 12 weekly hours in any "When to Take Place"
+    reassignment_needed = []
+    for teacher_name, group in pd.DataFrame(workload).groupby("Teacher's Name"):
+        for term, term_group in group.groupby("When to Take Place"):
+            if term_group['Total Hours (Weekly)'].sum() > 12:
                 # Identify excess modules
-                excess_modules = term_group.iloc[3:]
+                excess_hours = term_group['Total Hours (Weekly)'].sum() - 12
+                while excess_hours > 0 and not term_group.empty:
+                    # Reassign one module at a time
+                    excess_module = term_group.iloc[-1]
+                    term_group = term_group.iloc[:-1]  # Remove from current teacher
+                    workload.remove(excess_module.to_dict())
+                    excess_hours -= excess_module['Total Hours (Weekly)']
 
-                for _, excess_module in excess_modules.iterrows():
-                    # Reassign excess module
+                    # Attempt to reassign
                     available_teachers = teachers_df[
                         (teachers_df['Weekly Assigned Hours'] + excess_module['Total Hours (Weekly)'] <= 12) &
                         (teachers_df['Assigned Modules'] < 3) &
                         (teachers_df["Teacher's Name"] != teacher_name)
-                    ]
+                    ].sort_values(by=['Weekly Assigned Hours', 'Assigned Modules'])
 
                     if not available_teachers.empty:
                         new_teacher = available_teachers.iloc[0]
                         teachers_df.loc[new_teacher.name, 'Weekly Assigned Hours'] += excess_module['Total Hours (Weekly)']
                         teachers_df.loc[new_teacher.name, 'Assigned Modules'] += 1
-
-                        module_reassignments.append({
-                            "Reassigned From": teacher_name,
-                            "Reassigned To": new_teacher["Teacher's Name"],
-                            "Module Name": excess_module["Module Name"],
-                            "When to Take Place": excess_module["When to Take Place"]
+                        workload.append({
+                            "Teacher's Name": new_teacher["Teacher's Name"],
+                            **excess_module.to_dict(),
                         })
-                        workload_df.loc[excess_module.name, "Teacher's Name"] = new_teacher["Teacher's Name"]
                     else:
-                        # If no available teacher, add to unassigned modules
+                        # Unassign if no teacher is available
                         unassigned_modules.append(excess_module.to_dict())
 
-    # Convert reassignment data to DataFrame
-    reassignment_df = pd.DataFrame(module_reassignments)
+    # Convert workload and unassigned modules to DataFrames
+    workload_df = pd.DataFrame(workload)
     unassigned_modules_df = pd.DataFrame(unassigned_modules)
 
     # Calculate yearly workload
@@ -97,15 +101,12 @@ if teacher_file and student_file:
     )
     yearly_workload["Yearly Hours"] = yearly_workload["Total Hours (Weekly)"] * 12
 
-    # Display tables
+    # Display results
     st.write("Weekly Workload")
     st.dataframe(workload_df)
 
     st.write("Yearly Workload")
     st.dataframe(yearly_workload)
-
-    st.write("Module Reassignments")
-    st.dataframe(reassignment_df)
 
     st.write("Unassigned Modules")
     st.dataframe(unassigned_modules_df)
@@ -120,11 +121,6 @@ if teacher_file and student_file:
         "Download Yearly Workload",
         yearly_workload.to_csv(index=False),
         "yearly_workload.csv"
-    )
-    st.download_button(
-        "Download Module Reassignments",
-        reassignment_df.to_csv(index=False),
-        "module_reassignments.csv"
     )
     st.download_button(
         "Download Unassigned Modules",
