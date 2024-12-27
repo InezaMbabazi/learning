@@ -19,6 +19,7 @@ if teacher_file and module_file:
     # Initialize columns for tracking
     teachers_df['Weekly Assigned Hours'] = 0
     teachers_df['Assigned Modules'] = 0
+    teachers_df['Assigned'] = False  # Track if a teacher has been assigned a module
 
     # Preprocess modules data
     # Calculate class size
@@ -55,6 +56,7 @@ if teacher_file and module_file:
                 teacher = eligible_teachers.iloc[0]
                 teachers_df.loc[teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
                 teachers_df.loc[teacher.name, 'Assigned Modules'] += 1
+                teachers_df.loc[teacher.name, 'Assigned'] = True  # Mark the teacher as assigned
                 modules_df.at[idx, 'Assigned Teacher'] = teacher["Teacher's Name"]
                 assigned = True
 
@@ -74,12 +76,18 @@ if teacher_file and module_file:
                 # Log the module as unassigned if no teacher is eligible
                 modules_df.at[idx, 'Assigned Teacher'] = 'Unassigned'
 
+    # Find teachers who have not been assigned any module
+    unassigned_teachers = teachers_df[teachers_df['Assigned'] == False]
+
     # Display results
     st.write("Assigned Workload")
     st.dataframe(modules_df[modules_df['Assigned Teacher'] != 'Unassigned'])
 
     st.write("Unassigned Modules")
     st.dataframe(modules_df[modules_df['Assigned Teacher'] == 'Unassigned'])
+
+    st.write("Teachers Without Modules")
+    st.dataframe(unassigned_teachers[['Teacher\'s Name', 'Assigned Modules']])
 
     # Download buttons for assigned and unassigned modules
     st.download_button(
@@ -91,4 +99,9 @@ if teacher_file and module_file:
         "Download Unassigned Modules",
         modules_df[modules_df['Assigned Teacher'] == 'Unassigned'].to_csv(index=False),
         "unassigned_modules.csv"
+    )
+    st.download_button(
+        "Download Teachers Without Modules",
+        unassigned_teachers[['Teacher\'s Name', 'Assigned Modules']].to_csv(index=False),
+        "teachers_without_modules.csv"
     )
