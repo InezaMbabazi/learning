@@ -9,8 +9,12 @@ teacher_file = st.file_uploader("Upload Teachers Database Template", type="csv")
 student_file = st.file_uploader("Upload Students Database Template", type="csv")
 
 if teacher_file and student_file:
+    # Load the data
     teachers_df = pd.read_csv(teacher_file)
     students_df = pd.read_csv(student_file)
+    
+    # Initialize a column to track assigned hours for each teacher
+    teachers_df['Total Assigned Hours'] = 0
     
     # Preprocess Students Data
     students_df['Sections'] = students_df['Number of Students'] // students_df['Sections']
@@ -31,7 +35,8 @@ if teacher_file and student_file:
                     "Office Hours": module["Office Hours"],
                     "When to Take Place": module["When to Take Place"]
                 })
-                teacher['Total Assigned Hours'] += module['Total Weekly Hours']
+                # Update teacher's assigned hours
+                teachers_df.loc[teacher.name, 'Total Assigned Hours'] += module['Total Weekly Hours']
                 break
 
     # Convert workload to DataFrame
