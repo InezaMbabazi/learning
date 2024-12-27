@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 # Streamlit app
-st.title("Interactive Lecturer Workload Allocation")
+st.title("Lecturer Workload Allocation with Editing Capability")
 
 # Upload files
 teacher_file = st.file_uploader("Upload Teachers Database Template", type="csv")
@@ -13,78 +13,34 @@ if teacher_file and student_file:
     teachers_df = pd.read_csv(teacher_file)
     students_df = pd.read_csv(student_file)
 
-    # Initialize tracking columns
-    teachers_df['Weekly Assigned Hours'] = 0
-    teachers_df['Yearly Assigned Hours'] = 0
-    teachers_df['Assigned Modules'] = 0
-
-    # Preprocess Students Data
+    # Process and calculate workload
     students_df['Teaching Hours per Week'] = students_df['Credits'].apply(lambda x: 4 if x in [10, 15] else 6)
     students_df['Office Hours per Week'] = students_df['Credits'].apply(lambda x: 1 if x == 10 else (2 if x == 15 else 4))
     students_df['Total Weekly Hours'] = students_df['Teaching Hours per Week'] + students_df['Office Hours per Week']
 
-    # Assign modules to teachers
     workload = []
     for _, module in students_df.iterrows():
-        # Find the main teacher for the module
-        available_main_teachers = teachers_df[
-            (teachers_df['Teacher Status'] == 'Main Teacher') &
-            (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
-            (teachers_df['Assigned Modules'] < 3)
-        ]
-        assistant_teacher = None
-
-        if not available_main_teachers.empty:
-            main_teacher = available_main_teachers.iloc[0]
-            teachers_df.loc[main_teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
-            teachers_df.loc[main_teacher.name, 'Assigned Modules'] += 1
-
-            workload.append({
-                "Teacher's Name": main_teacher["Teacher's Name"],
-                "Module Name": module["Module Name"],
-                "Teaching Hours (Weekly)": module["Teaching Hours per Week"],
-                "Office Hours (Weekly)": module["Office Hours per Week"],
-                "Total Hours (Weekly)": module["Total Weekly Hours"],
-                "When to Take Place": module["When to Take Place"],
-                "Teacher Status": main_teacher['Teacher Status']
-            })
+        workload.append({
+            "Teacher's Name": "Unassigned",
+            "Assistant Teacher": "None",
+            "Module Name": module["Module Name"],
+            "Teaching Hours (Weekly)": module["Teaching Hours per Week"],
+            "Office Hours (Weekly)": module["Office Hours per Week"],
+            "Total Hours (Weekly)": module["Total Weekly Hours"],
+            "When to Take Place": module["When to Take Place"]
+        })
 
     # Convert workload to DataFrame
     workload_df = pd.DataFrame(workload)
 
-    # Display workload
-    st.write("Current Workload")
-    st.dataframe(workload_df)
+    # Display workload with editing option
+    st.write("### Workload Table")
+    edited_workload = st.experimental_data_editor(workload_df, num_rows="dynamic", use_container_width=True)
 
-    # Allow reassignment
-    st.write("Reassign Teachers for Modules")
-    for i, row in workload_df.iterrows():
-        module_name = row['Module Name']
-        current_teacher = row["Teacher's Name"]
-        new_teacher = st.selectbox(
-            f"Assign a new teacher for {module_name} (Current: {current_teacher})",
-            teachers_df["Teacher's Name"].unique(),
-            key=f"reassign_{i}"
-        )
-
-        # Update teacher if changed
-        if new_teacher != current_teacher:
-            old_teacher_idx = teachers_df[teachers_df["Teacher's Name"] == current_teacher].index[0]
-            new_teacher_idx = teachers_df[teachers_df["Teacher's Name"] == new_teacher].index[0]
-
-            # Adjust workloads
-            teachers_df.loc[old_teacher_idx, 'Weekly Assigned Hours'] -= row["Total Hours (Weekly)"]
-            teachers_df.loc[old_teacher_idx, 'Assigned Modules'] -= 1
-
-            teachers_df.loc[new_teacher_idx, 'Weekly Assigned Hours'] += row["Total Hours (Weekly)"]
-            teachers_df.loc[new_teacher_idx, 'Assigned Modules'] += 1
-
-            # Update workload_df
-            workload_df.at[i, "Teacher's Name"] = new_teacher
-
-    # Display updated workloads
-    st.write("Updated Workload")
-    st.dataframe(workload_df)
+    # Save updates to the workload
+    if st.button("Save Updates"):
+        workload_df = edited_workload
+        st.success("Workload updated successfully!")
 
     # Calculate yearly workload
     yearly_workload = (
@@ -94,8 +50,30 @@ if teacher_file and student_file:
     )
     yearly_workload["Yearly Hours"] = yearly_workload["Total Hours (Weekly)"] * 12
 
-    st.write("Yearly Workload")
+    # Display yearly workload
+    st.write("### Yearly Workload Table")
     st.dataframe(yearly_workload)
+
+    # Form to update workload
+    st.write("### Update Specific Workload Entry")
+    with st.form("update_workload_form"):
+        teacher_name = st.selectbox("Select Teacher's Name", workload_df["Teacher's Name"].unique())
+        module_name = st.selectbox("Select Module Name", workload_df["Module Name"].unique())
+        assistant_teacher = st.text_input("Assistant Teacher (Optional)", "None")
+        when_to_take_place = st.selectbox("When to Take Place", workload_df["When to Take Place"].unique())
+        submit_button = st.form_submit_button(label="Update Workload")
+
+        if submit_button:
+            workload_df.loc[
+                (workload_df["Teacher's Name"] == teacher_name) &
+                (workload_df["Module Name"] == module_name),
+                ["Assistant Teacher", "When to Take Place"]
+            ] = [assistant_teacher, when_to_take_place]
+            st.success("Workload updated successfully!")
+
+    # Display updated workload
+    st.write("### Updated Workload Table")
+    st.dataframe(workload_df)
 
     # Download buttons
     st.download_button(
