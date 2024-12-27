@@ -48,6 +48,10 @@ if teacher_file and module_file:
                 (teachers_df['Teacher Status'] == 'teacher')  # Ensure only teachers with "teacher status" are eligible
             ]
 
+            # Debugging: Check eligible teachers
+            st.write(f"Eligible teachers for module {module['Module Name']}:")
+            st.write(eligible_teachers)
+
             # Ensure the teacher is qualified to teach this specific module
             eligible_teachers = eligible_teachers[eligible_teachers['Module Name'].str.contains(module['Module Name'], na=False)]
 
