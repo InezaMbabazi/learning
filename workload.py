@@ -44,14 +44,49 @@ if teacher_file and student_file:
     # Convert workload to DataFrame
     workload_df = pd.DataFrame(workload)
 
-    # Group by teacher and When to Take Place
+    # Group workload by teacher and When to Take Place
     grouped_workload = workload_df.groupby(["Teacher's Name", "When to Take Place"]).agg(
         Total_Teaching_Hours=pd.NamedAgg(column="Teaching Hours", aggfunc="sum"),
         Total_Office_Hours=pd.NamedAgg(column="Office Hours", aggfunc="sum"),
         Total_Hours=pd.NamedAgg(column="Total Hours", aggfunc="sum")
     ).reset_index()
 
-    # Display and download
+    # Weekly workload for each teacher
+    weekly_workload = grouped_workload.copy()
+    weekly_workload['Weekly_Teaching_Hours'] = weekly_workload['Total_Teaching_Hours'] / 12
+    weekly_workload['Weekly_Office_Hours'] = weekly_workload['Total_Office_Hours'] / 12
+    weekly_workload['Weekly_Total_Hours'] = weekly_workload['Total_Hours'] / 12
+
+    # Yearly workload for each teacher
+    yearly_workload = grouped_workload.groupby("Teacher's Name").agg(
+        Yearly_Teaching_Hours=pd.NamedAgg(column="Total_Teaching_Hours", aggfunc="sum"),
+        Yearly_Office_Hours=pd.NamedAgg(column="Total_Office_Hours", aggfunc="sum"),
+        Yearly_Total_Hours=pd.NamedAgg(column="Total_Hours", aggfunc="sum")
+    ).reset_index()
+
+    # Display grouped workload
     st.write("Grouped Workload by Teacher and When to Take Place")
     st.dataframe(grouped_workload)
-    
+    st.download_button(
+        "Download Grouped Workload",
+        grouped_workload.to_csv(index=False),
+        "grouped_workload.csv"
+    )
+
+    # Display weekly workload
+    st.write("Weekly Workload by Teacher and When to Take Place")
+    st.dataframe(weekly_workload)
+    st.download_button(
+        "Download Weekly Workload",
+        weekly_workload.to_csv(index=False),
+        "weekly_workload.csv"
+    )
+
+    # Display yearly workload
+    st.write("Yearly Workload by Teacher")
+    st.dataframe(yearly_workload)
+    st.download_button(
+        "Download Yearly Workload",
+        yearly_workload.to_csv(index=False),
+        "yearly_workload.csv"
+    )
