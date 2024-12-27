@@ -41,18 +41,20 @@ if teacher_file and module_file:
         if module['Scheduled']:
             assigned = False
 
-            # Step 2: Find eligible teachers who can teach this module and have less than 12 hours already assigned
+            # Step 2: Find eligible teachers who can teach this module, are main teachers, and have less than 12 hours already assigned
             eligible_teachers = teachers_df[
                 (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
                 (teachers_df['Assigned Modules'] < 3)  # Ensure no teacher teaches more than 3 modules
             ]
 
+            # Filter for main teachers based on 'Teacher Status' column
+            eligible_teachers = eligible_teachers[eligible_teachers['Teacher Status'] == 'main']
+
             # Ensure the teacher is qualified to teach this specific module
-            # Adjust the column name to "Module Name"
             eligible_teachers = eligible_teachers[eligible_teachers['Module Name'].str.contains(module['Module Name'], na=False)]
 
             if not eligible_teachers.empty:
-                # Step 3: Assign the module to the first eligible teacher
+                # Step 3: Assign the module to the first eligible main teacher
                 teacher = eligible_teachers.iloc[0]
                 teachers_df.loc[teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
                 teachers_df.loc[teacher.name, 'Assigned Modules'] += 1
@@ -73,7 +75,7 @@ if teacher_file and module_file:
                         modules_df.at[idx, 'Assistant Teacher'] = assistant_teacher["Teacher's Name"]
                         teachers_df.loc[assistant_teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
             else:
-                # Log the module as unassigned if no teacher is eligible
+                # Log the module as unassigned if no main teacher is eligible
                 modules_df.at[idx, 'Assigned Teacher'] = 'Unassigned'
 
     # Find teachers who have not been assigned any module
