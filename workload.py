@@ -43,7 +43,8 @@ if teacher_file and module_file:
             # Step 2: Find eligible teachers who can teach this module and have less than 12 hours already assigned
             eligible_teachers = teachers_df[
                 (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
-                (teachers_df['Assigned Modules'] < 3)  # Ensure no teacher teaches more than 3 modules
+                (teachers_df['Assigned Modules'] < 3) &  # Ensure no teacher teaches more than 3 modules
+                (teachers_df['Status'] == 'teacher')  # Ensure only teachers with "teacher status" are eligible
             ]
 
             # Ensure the teacher is qualified to teach this specific module
@@ -58,19 +59,22 @@ if teacher_file and module_file:
                 modules_df.at[idx, 'Assigned Teacher'] = teacher["Teacher's Name"]
                 assigned = True
 
-                # Step 4: Assign assistant teacher for large classes (if any)
+                # Step 4: Assign assistant teacher for large classes (if class size > 50)
                 if module['Class Size'] > 50:
                     assistant_candidates = teachers_df[
                         (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
                         (teachers_df['Assigned Modules'] < 3) &
-                        (teachers_df["Teacher's Name"] != teacher["Teacher's Name"])
+                        (teachers_df['Status'] == 'teacher') &  # Ensure assistant is also under "teacher status"
+                        (teachers_df["Teacher's Name"] != teacher["Teacher's Name"])  # Ensure assistant is not the same teacher
                     ]
 
                     if not assistant_candidates.empty:
                         assistant_teacher = assistant_candidates.iloc[0]
                         modules_df.at[idx, 'Assistant Teacher'] = assistant_teacher["Teacher's Name"]
                         teachers_df.loc[assistant_teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
-            else:
+                        teachers_df.loc[assistant_teacher.name, 'Assigned Modules'] += 1
+
+            if not assigned:
                 # Log the module as unassigned if no teacher is eligible
                 modules_df.at[idx, 'Assigned Teacher'] = 'Unassigned'
 
