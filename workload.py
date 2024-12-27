@@ -55,8 +55,9 @@ if teacher_file and student_file:
         if not available_main_teachers.empty:
             # Check if the main teacher can take more modules for the term
             for teacher in available_main_teachers.itertuples():
-                if teacher.Assigned_Modules < 3:
-                    main_teacher = teacher
+                teacher_data = teacher._asdict()
+                if teacher_data['Assigned Modules'] < 3:
+                    main_teacher = teacher_data
                     teachers_df.loc[teacher.Index, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
                     teachers_df.loc[teacher.Index, 'Assigned Modules'] += 1
                     break
