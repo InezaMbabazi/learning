@@ -18,57 +18,40 @@ if teacher_file and student_file:
     
     # Preprocess Students Data
     students_df['Sections'] = students_df['Number of Students'] // students_df['Sections']
-    students_df['Weekly Hours'] = students_df['Credits'].apply(lambda x: 4 if x == 10 else (6 if x == 15 else 10))
-    students_df['Office Hours'] = students_df['Credits'].apply(lambda x: 1 if x == 10 else (2 if x == 15 else 4))
-    students_df['Total Weekly Hours'] = students_df['Weekly Hours'] + students_df['Office Hours']
+    students_df['Teaching Hours per Week'] = students_df['Credits'].apply(lambda x: 4 if x in [10, 15] else 6)
+    students_df['Office Hours per Week'] = students_df['Credits'].apply(lambda x: 1 if x == 10 else (2 if x == 15 else 4))
+    students_df['Teaching Hours per Term'] = students_df['Teaching Hours per Week'] * 12
+    students_df['Office Hours per Term'] = students_df['Office Hours per Week'] * 12
+    students_df['Total Hours per Term'] = students_df['Teaching Hours per Term'] + students_df['Office Hours per Term']
     
     # Assign modules to teachers
     workload = []
     for _, module in students_df.iterrows():
         available_teachers = teachers_df[teachers_df['Module Code'] == module['Code']]
         for _, teacher in available_teachers.iterrows():
-            if teacher['Total Assigned Hours'] + module['Total Weekly Hours'] <= 12:
+            if teacher['Total Assigned Hours'] + module['Total Hours per Term'] <= 12 * 12:
                 workload.append({
                     "Teacher's Name": teacher["Teacher's Name"],
                     "Module Name": module["Module Name"],
-                    "Weekly Hours": module["Weekly Hours"],
-                    "Office Hours": module["Office Hours"],
-                    "Total Weekly Hours": module["Total Weekly Hours"],
+                    "Teaching Hours": module["Teaching Hours per Term"],
+                    "Office Hours": module["Office Hours per Term"],
+                    "Total Hours": module["Total Hours per Term"],
                     "When to Take Place": module["When to Take Place"]
                 })
-                # Update teacher's assigned hours
-                teachers_df.loc[teacher.name, 'Total Assigned Hours'] += module['Total Weekly Hours']
+                teachers_df.loc[teacher.name, 'Total Assigned Hours'] += module['Total Hours per Term']
                 break
 
     # Convert workload to DataFrame
     workload_df = pd.DataFrame(workload)
 
-    # Aggregate total hours per teacher by `When to Take Place`
-    total_hours_df = (
-        workload_df.groupby(["Teacher's Name", "When to Take Place"])
-        .agg(
-            Total_Teaching_Hours=("Weekly Hours", "sum"),
-            Total_Office_Hours=("Office Hours", "sum"),
-            Total_Hours=("Total Weekly Hours", "sum"),
-        )
-        .reset_index()
-    )
+    # Group by teacher and When to Take Place
+    grouped_workload = workload_df.groupby(["Teacher's Name", "When to Take Place"]).agg(
+        Total_Teaching_Hours=pd.NamedAgg(column="Teaching Hours", aggfunc="sum"),
+        Total_Office_Hours=pd.NamedAgg(column="Office Hours", aggfunc="sum"),
+        Total_Hours=pd.NamedAgg(column="Total Hours", aggfunc="sum")
+    ).reset_index()
 
-    # Display the workload allocation and aggregated total hours
-    st.write("Workload Allocation")
-    st.dataframe(workload_df)
-
-    st.write("Total Hours per Teacher per 'When to Take Place'")
-    st.dataframe(total_hours_df)
-
-    # Allow download of both tables
-    st.download_button(
-        "Download Workload Allocation",
-        workload_df.to_csv(index=False),
-        "workload_allocation.csv",
-    )
-    st.download_button(
-        "Download Total Hours Summary",
-        total_hours_df.to_csv(index=False),
-        "total_hours_summary.csv",
-    )
+    # Display and download
+    st.write("Grouped Workload by Teacher and When to Take Place")
+    st.dataframe(grouped_workload)
+    
