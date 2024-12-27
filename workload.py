@@ -51,7 +51,7 @@ if teacher_file and student_file:
         Total_Hours=pd.NamedAgg(column="Total Hours", aggfunc="sum")
     ).reset_index()
 
-    # Weekly workload for each teacher
+    # Weekly workload grouped by `When to Take Place`
     weekly_workload = grouped_workload.copy()
     weekly_workload['Weekly_Teaching_Hours'] = weekly_workload['Total_Teaching_Hours'] / 12
     weekly_workload['Weekly_Office_Hours'] = weekly_workload['Total_Office_Hours'] / 12
@@ -73,7 +73,7 @@ if teacher_file and student_file:
         "grouped_workload.csv"
     )
 
-    # Display weekly workload
+    # Display weekly workload grouped by When to Take Place
     st.write("Weekly Workload by Teacher and When to Take Place")
     st.dataframe(weekly_workload)
     st.download_button(
