@@ -15,14 +15,12 @@ if teacher_file and student_file:
 
     # Initialize tracking columns
     teachers_df['Weekly Assigned Hours'] = 0
-    teachers_df['Yearly Assigned Hours'] = 0
     teachers_df['Assigned Modules'] = 0
 
     # Preprocess Students Data
     students_df['Teaching Hours per Week'] = students_df['Credits'].apply(lambda x: 4 if x in [10, 15] else 6)
     students_df['Office Hours per Week'] = students_df['Credits'].apply(lambda x: 1 if x == 10 else (2 if x == 15 else 4))
     students_df['Total Weekly Hours'] = students_df['Teaching Hours per Week'] + students_df['Office Hours per Week']
-    students_df['Yearly Hours'] = students_df['Total Weekly Hours'] * 12
 
     # Threshold for assigning assistants
     large_class_threshold = 50
@@ -50,7 +48,6 @@ if teacher_file and student_file:
         if not available_main_teachers.empty:
             main_teacher = available_main_teachers.iloc[0]
             teachers_df.loc[main_teacher.name, 'Weekly Assigned Hours'] += module['Teaching Hours per Week']
-            teachers_df.loc[main_teacher.name, 'Yearly Assigned Hours'] = teachers_df.loc[main_teacher.name, 'Weekly Assigned Hours'] * 12
             teachers_df.loc[main_teacher.name, 'Assigned Modules'] += 1
 
             # If large class, assign an assistant teacher
@@ -70,8 +67,7 @@ if teacher_file and student_file:
                 "Module Name": module["Module Name"],
                 "Teaching Hours (Weekly)": module["Teaching Hours per Week"],
                 "Office Hours (Weekly)": module["Office Hours per Week"],
-                "Total Hours (Weekly)": module["Total Weekly Hours"],
-                "Yearly Hours": module["Yearly Hours"],
+                "Total Weekly Hours": module["Total Weekly Hours"],
                 "When to Take Place": module["When to Take Place"],
                 "Teacher Status": main_teacher['Teacher Status']
             })
@@ -79,17 +75,34 @@ if teacher_file and student_file:
     # Convert workload to DataFrame
     workload_df = pd.DataFrame(workload)
 
+    # Calculate Yearly Hours by grouping by Teacher's Name and When to Take Place
+    yearly_hours = (
+        workload_df.groupby(["Teacher's Name", "When to Take Place"])['Total Weekly Hours']
+        .sum()
+        .reset_index()
+        .rename(columns={'Total Weekly Hours': 'Yearly Hours'})
+    )
+    yearly_hours['Yearly Hours'] *= 12
+
+    # Merge Yearly Hours back into workload_df
+    workload_df = pd.merge(
+        workload_df,
+        yearly_hours,
+        on=["Teacher's Name", "When to Take Place"],
+        how="left"
+    )
+
     # Display workload
-    st.write("Workload with Assistants and Status")
+    st.write("Workload with Yearly Hours")
     st.dataframe(workload_df)
     st.download_button(
         "Download Workload",
         workload_df.to_csv(index=False),
-        "workload_with_assistants_status.csv"
+        "workload_with_yearly_hours.csv"
     )
 
     # Teacher with the most weekly hours
-    most_hours_teacher = teachers_df.loc[teachers_df['Weekly Assigned Hours'].idxmax()]
+    most_hours_teacher = workload_df.loc[workload_df.groupby("Teacher's Name")['Total Weekly Hours'].sum().idxmax()]
     st.write("Teacher with the Most Weekly Hours")
     st.write(most_hours_teacher)
 
