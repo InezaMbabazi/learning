@@ -26,8 +26,10 @@ if teacher_file and student_file:
     # Threshold for assigning assistants
     large_class_threshold = 50
 
-    # Assign modules to teachers
+    # List to keep track of the modules assigned
     workload = []
+    unassigned_modules = []
+
     for _, module in students_df.iterrows():
         num_students = module['Number of Students']
         num_sections = module['Sections']
@@ -45,14 +47,19 @@ if teacher_file and student_file:
         ]
 
         assistant_teacher = None
+        main_teacher = None
 
         if not available_main_teachers.empty:
-            main_teacher = available_main_teachers.iloc[0]
-            teachers_df.loc[main_teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
-            teachers_df.loc[main_teacher.name, 'Assigned Modules'] += 1
+            # Check if the main teacher can take more modules for the term
+            for teacher in available_main_teachers.itertuples():
+                if teacher.Assigned_Modules < 3:
+                    main_teacher = teacher
+                    teachers_df.loc[teacher.Index, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
+                    teachers_df.loc[teacher.Index, 'Assigned Modules'] += 1
+                    break
 
             # If large class, assign an assistant teacher
-            if is_large_class:
+            if is_large_class and main_teacher:
                 available_assistants = teachers_df[
                     (teachers_df['Teacher Status'] == 'Assistant') &
                     (teachers_df['Weekly Assigned Hours'] < 12) &
@@ -62,16 +69,19 @@ if teacher_file and student_file:
                 if not available_assistants.empty:
                     assistant_teacher = available_assistants.iloc[0]["Teacher's Name"]
 
-            workload.append({
-                "Teacher's Name": main_teacher["Teacher's Name"],
-                "Assistant Teacher": assistant_teacher if is_large_class else "None",
-                "Module Name": module["Module Name"],
-                "Teaching Hours (Weekly)": module["Teaching Hours per Week"],
-                "Office Hours (Weekly)": module["Office Hours per Week"],
-                "Total Hours (Weekly)": module["Total Weekly Hours"],
-                "When to Take Place": module["When to Take Place"],
-                "Teacher Status": main_teacher['Teacher Status']
-            })
+            if main_teacher:
+                workload.append({
+                    "Teacher's Name": main_teacher["Teacher's Name"],
+                    "Assistant Teacher": assistant_teacher if is_large_class else "None",
+                    "Module Name": module["Module Name"],
+                    "Teaching Hours (Weekly)": module["Teaching Hours per Week"],
+                    "Office Hours (Weekly)": module["Office Hours per Week"],
+                    "Total Hours (Weekly)": module["Total Weekly Hours"],
+                    "When to Take Place": module["When to Take Place"],
+                    "Teacher Status": main_teacher['Teacher Status']
+                })
+        else:
+            unassigned_modules.append(module)
 
     # Convert workload to DataFrame
     workload_df = pd.DataFrame(workload)
@@ -112,13 +122,13 @@ if teacher_file and student_file:
     st.write("Teacher with the Most Weekly Hours")
     st.write(most_hours_teacher)
 
-    # Unassigned modules
-    unassigned_modules = students_df[~students_df['Module Name'].isin(workload_df['Module Name'])]
-    st.write("Unassigned Modules (if any)")
-    st.dataframe(unassigned_modules)
-    if not unassigned_modules.empty:
+    # Unassigned modules report
+    if unassigned_modules:
+        unassigned_modules_df = pd.DataFrame(unassigned_modules)
+        st.write("Unassigned Modules (if any)")
+        st.dataframe(unassigned_modules_df)
         st.download_button(
             "Download Unassigned Modules",
-            unassigned_modules.to_csv(index=False),
+            unassigned_modules_df.to_csv(index=False),
             "unassigned_modules.csv"
         )
