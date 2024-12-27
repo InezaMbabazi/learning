@@ -13,10 +13,13 @@ if teacher_file and student_file:
     teachers_df = pd.read_csv(teacher_file)
     students_df = pd.read_csv(student_file)
 
-    # Initialize tracking columns
-    teachers_df['Weekly Assigned Hours'] = 0
-    teachers_df['Yearly Assigned Hours'] = 0
-    teachers_df['Assigned Modules'] = 0
+    # Initialize tracking columns in the teacher dataframe
+    if 'Assigned Modules' not in teachers_df.columns:
+        teachers_df['Assigned Modules'] = 0
+    if 'Weekly Assigned Hours' not in teachers_df.columns:
+        teachers_df['Weekly Assigned Hours'] = 0
+    if 'Yearly Assigned Hours' not in teachers_df.columns:
+        teachers_df['Yearly Assigned Hours'] = 0
 
     # Preprocess Students Data
     students_df['Teaching Hours per Week'] = students_df['Credits'].apply(lambda x: 4 if x in [10, 15] else 6)
