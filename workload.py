@@ -13,7 +13,8 @@ if teacher_file and module_file:
     teachers_df = pd.read_csv(teacher_file)
     modules_df = pd.read_csv(module_file)
 
-    # Display columns of teachers_df to check for the correct column name
+    # Check the columns of the teachers' dataframe
+    st.write("Teachers Database Columns:")
     st.write(teachers_df.columns)
 
     # Initialize columns for tracking
@@ -44,11 +45,10 @@ if teacher_file and module_file:
             eligible_teachers = teachers_df[
                 (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
                 (teachers_df['Assigned Modules'] < 3) &  # Ensure no teacher teaches more than 3 modules
-                (teachers_df['Status'] == 'teacher')  # Ensure only teachers with "teacher status" are eligible
+                (teachers_df['Teacher Status'] == 'teacher')  # Ensure only teachers with "teacher status" are eligible
             ]
 
             # Ensure the teacher is qualified to teach this specific module
-            # Adjust the column name to "Module Name"
             eligible_teachers = eligible_teachers[eligible_teachers['Module Name'].str.contains(module['Module Name'], na=False)]
 
             if not eligible_teachers.empty:
@@ -64,7 +64,7 @@ if teacher_file and module_file:
                     assistant_candidates = teachers_df[
                         (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
                         (teachers_df['Assigned Modules'] < 3) &
-                        (teachers_df['Status'] == 'teacher') &  # Ensure assistant is also under "teacher status"
+                        (teachers_df['Teacher Status'] == 'teacher') &  # Ensure assistant is also under "teacher status"
                         (teachers_df["Teacher's Name"] != teacher["Teacher's Name"])  # Ensure assistant is not the same teacher
                     ]
 
