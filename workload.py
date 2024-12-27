@@ -47,8 +47,8 @@ if teacher_file and module_file:
             ]
 
             # Ensure the teacher is qualified to teach this specific module
-            # Adjust the column name based on your data
-            eligible_teachers = eligible_teachers[eligible_teachers['Modules'].str.contains(module['Module Name'], na=False)]
+            # Adjust the column name to "Module Name"
+            eligible_teachers = eligible_teachers[eligible_teachers['Module Name'].str.contains(module['Module Name'], na=False)]
 
             if not eligible_teachers.empty:
                 # Step 3: Assign the module to the first eligible teacher
