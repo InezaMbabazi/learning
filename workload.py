@@ -26,8 +26,11 @@ if teacher_file and module_file:
 
     # Function to check if a teacher can be assigned a module without exceeding 12 hours
     def can_assign_teacher(teacher_name, module_hours):
-        current_hours = teachers_df.loc[teachers_df["Teacher's Name"] == teacher_name, "Weekly Assigned Hours"].values[0]
-        return (current_hours + module_hours) <= 12
+        # Check if teacher exists
+        if teacher_name in teachers_df["Teacher's Name"].values:
+            current_hours = teachers_df.loc[teachers_df["Teacher's Name"] == teacher_name, "Weekly Assigned Hours"].values[0]
+            return (current_hours + module_hours) <= 12
+        return False  # If teacher is not found, return False
 
     # Assign modules to teachers based on "When to Take Place"
     for idx, module in modules_df.iterrows():
