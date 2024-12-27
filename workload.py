@@ -33,6 +33,7 @@ if teacher_file and student_file:
                     "Module Name": module["Module Name"],
                     "Weekly Hours": module["Weekly Hours"],
                     "Office Hours": module["Office Hours"],
+                    "Total Weekly Hours": module["Total Weekly Hours"],
                     "When to Take Place": module["When to Take Place"]
                 })
                 # Update teacher's assigned hours
@@ -42,7 +43,32 @@ if teacher_file and student_file:
     # Convert workload to DataFrame
     workload_df = pd.DataFrame(workload)
 
-    # Display and download
+    # Aggregate total hours per teacher by `When to Take Place`
+    total_hours_df = (
+        workload_df.groupby(["Teacher's Name", "When to Take Place"])
+        .agg(
+            Total_Teaching_Hours=("Weekly Hours", "sum"),
+            Total_Office_Hours=("Office Hours", "sum"),
+            Total_Hours=("Total Weekly Hours", "sum"),
+        )
+        .reset_index()
+    )
+
+    # Display the workload allocation and aggregated total hours
     st.write("Workload Allocation")
     st.dataframe(workload_df)
-    st.download_button("Download Workload Allocation", workload_df.to_csv(index=False), "workload_allocation.csv")
+
+    st.write("Total Hours per Teacher per 'When to Take Place'")
+    st.dataframe(total_hours_df)
+
+    # Allow download of both tables
+    st.download_button(
+        "Download Workload Allocation",
+        workload_df.to_csv(index=False),
+        "workload_allocation.csv",
+    )
+    st.download_button(
+        "Download Total Hours Summary",
+        total_hours_df.to_csv(index=False),
+        "total_hours_summary.csv",
+    )
