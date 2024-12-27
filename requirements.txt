@@ -1,7 +1,7 @@
 openai==0.28
 PyPDF2==3.0.1
 python-docx
-streamlit
+streamlit>=1.18.0
 PyMuPDF
 Pillow
 watchdog
