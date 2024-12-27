@@ -30,7 +30,6 @@ if teacher_file and student_file:
     for _, module in students_df.iterrows():
         available_teachers = teachers_df[teachers_df['Module Code'] == module['Code']]
         for _, teacher in available_teachers.iterrows():
-            # Check if the teacher's total assigned hours for the week will exceed the limit
             if teacher['Total Assigned Hours'] + module['Total Hours per Term'] <= 12 * 12:
                 workload.append({
                     "Teacher's Name": teacher["Teacher's Name"],
@@ -56,7 +55,7 @@ if teacher_file and student_file:
         Total_Hours=pd.NamedAgg(column="Total Hours", aggfunc="sum")
     ).reset_index()
 
-    # Filter teachers who exceed 12 hours per week (Check total teaching hours per week)
+    # Filter teachers who exceed 12 hours per week
     grouped_workload = grouped_workload[grouped_workload['Total_Teaching_Hours'] <= 12]
 
     # Display grouped workload
