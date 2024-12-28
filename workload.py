@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 # Streamlit app
-st.title("Teacher Workload Allocation for Independent Module Sections")
+st.title("Teacher Workload Allocation with Module Sections")
 
 # File upload
 teacher_file = st.file_uploader("Upload Teachers Database Template", type="csv")
@@ -23,7 +23,7 @@ if teacher_file and module_file:
     if missing_columns_modules or missing_columns_teachers:
         st.error(f"Missing columns:\nModules: {missing_columns_modules}\nTeachers: {missing_columns_teachers}")
     else:
-        # Split modules by sections
+        # Split modules into sections
         expanded_modules = []
         for _, module in modules_df.iterrows():
             class_size = module['Number of Students'] / module['Sections']
@@ -46,7 +46,7 @@ if teacher_file and module_file:
         teachers_df['Weekly Assigned Hours'] = 0
         teachers_df['Assigned Modules'] = 0
 
-        # Assign modules
+        # Assign teachers to modules
         for idx, module in modules_df.iterrows():
             if pd.notna(module['When to Take Place']):
                 # Find eligible teacher
@@ -57,6 +57,7 @@ if teacher_file and module_file:
                 ]
 
                 if not eligible_teachers.empty:
+                    # Assign to the first eligible teacher
                     selected_teacher = eligible_teachers.iloc[0]
                     teachers_df.loc[selected_teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
                     teachers_df.loc[selected_teacher.name, 'Assigned Modules'] += 1
