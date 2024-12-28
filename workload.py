@@ -40,38 +40,39 @@ if teacher_file and module_file:
         if module['Scheduled']:
             assigned = False
 
-            # Step 2: Find eligible teachers who can teach this module and have less than 12 hours already assigned
-            eligible_teachers = teachers_df[
+            # Step 2: Find eligible main teachers
+            main_teachers = teachers_df[
                 (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
-                (teachers_df['Assigned Modules'] < 3)  # Ensure no teacher teaches more than 3 modules
+                (teachers_df['Assigned Modules'] < 3) &
+                (teachers_df['Teacher Status'] == 'Main Teacher')
             ]
 
             # Ensure the teacher is qualified to teach this specific module
-            # Adjust the column name to "Module Name"
-            eligible_teachers = eligible_teachers[eligible_teachers['Module Name'].str.contains(module['Module Name'], na=False)]
+            main_teachers = main_teachers[main_teachers['Module Name'].str.contains(module['Module Name'], na=False)]
 
-            if not eligible_teachers.empty:
-                # Step 3: Assign the module to the first eligible teacher
-                teacher = eligible_teachers.iloc[0]
-                teachers_df.loc[teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
-                teachers_df.loc[teacher.name, 'Assigned Modules'] += 1
-                modules_df.at[idx, 'Assigned Teacher'] = teacher["Teacher's Name"]
+            if not main_teachers.empty:
+                # Assign the module to the first eligible main teacher
+                main_teacher = main_teachers.iloc[0]
+                teachers_df.loc[main_teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
+                teachers_df.loc[main_teacher.name, 'Assigned Modules'] += 1
+                modules_df.at[idx, 'Assigned Teacher'] = main_teacher["Teacher's Name"]
                 assigned = True
 
-                # Step 4: Assign assistant teacher for large classes (if any)
+                # Assign assistant teacher for large classes
                 if module['Class Size'] > 50:
-                    assistant_candidates = teachers_df[
+                    assistant_teachers = teachers_df[
                         (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
                         (teachers_df['Assigned Modules'] < 3) &
-                        (teachers_df["Teacher's Name"] != teacher["Teacher's Name"])
+                        (teachers_df['Teacher Status'] == 'Assistant') &
+                        (teachers_df["Teacher's Name"] != main_teacher["Teacher's Name"])
                     ]
 
-                    if not assistant_candidates.empty:
-                        assistant_teacher = assistant_candidates.iloc[0]
+                    if not assistant_teachers.empty:
+                        assistant_teacher = assistant_teachers.iloc[0]
                         modules_df.at[idx, 'Assistant Teacher'] = assistant_teacher["Teacher's Name"]
                         teachers_df.loc[assistant_teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
             else:
-                # Log the module as unassigned if no teacher is eligible
+                # Log the module as unassigned if no main teacher is eligible
                 modules_df.at[idx, 'Assigned Teacher'] = 'Unassigned'
 
     # Display results
@@ -81,6 +82,7 @@ if teacher_file and module_file:
     st.write("Unassigned Modules")
     st.dataframe(modules_df[modules_df['Assigned Teacher'] == 'Unassigned'])
 
+    st.write("Download Data")
     # Download buttons for assigned and unassigned modules
     st.download_button(
         "Download Assigned Workload",
