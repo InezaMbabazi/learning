@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 # Streamlit app
-st.title("Enhanced Teacher Workload Allocation")
+st.title("Teacher Workload Allocation for Independent Module Sections")
 
 # File upload
 teacher_file = st.file_uploader("Upload Teachers Database Template", type="csv")
@@ -23,13 +23,24 @@ if teacher_file and module_file:
     if missing_columns_modules or missing_columns_teachers:
         st.error(f"Missing columns:\nModules: {missing_columns_modules}\nTeachers: {missing_columns_teachers}")
     else:
-        # Preprocess modules data
-        modules_df['Class Size'] = (modules_df['Number of Students'] / modules_df['Sections']).apply(lambda x: round(x))
-        modules_df['Teaching Hours per Week'] = modules_df['Class Size'].apply(lambda x: 4 if x <= 50 else 6)
-        modules_df['Office Hours per Week'] = modules_df['Class Size'].apply(lambda x: 1 if x <= 50 else 2)
+        # Split modules by sections
+        expanded_modules = []
+        for _, module in modules_df.iterrows():
+            class_size = module['Number of Students'] / module['Sections']
+            for section in range(1, int(module['Sections']) + 1):
+                expanded_modules.append({
+                    'Module Name': module['Module Name'],
+                    'Section': f"Section {section}",
+                    'Class Size': round(class_size),
+                    'When to Take Place': module['When to Take Place'],
+                    'Teaching Hours per Week': 4 if class_size <= 50 else 6,
+                    'Office Hours per Week': 1 if class_size <= 50 else 2,
+                })
+
+        # Create expanded modules DataFrame
+        modules_df = pd.DataFrame(expanded_modules)
         modules_df['Total Weekly Hours'] = modules_df['Teaching Hours per Week'] + modules_df['Office Hours per Week']
         modules_df['Assigned Teacher'] = None
-        modules_df['Assistant Teacher'] = None
 
         # Initialize workload tracking for teachers
         teachers_df['Weekly Assigned Hours'] = 0
@@ -38,34 +49,18 @@ if teacher_file and module_file:
         # Assign modules
         for idx, module in modules_df.iterrows():
             if pd.notna(module['When to Take Place']):
-                # Find main teacher
-                eligible_main_teachers = teachers_df[
-                    (teachers_df['Teacher Status'] == 'Main Teacher') &
+                # Find eligible teacher
+                eligible_teachers = teachers_df[
                     (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
                     (teachers_df['Assigned Modules'] < 3) &
                     (teachers_df['Module Name'].str.contains(module['Module Name'], na=False))
                 ]
 
-                if not eligible_main_teachers.empty:
-                    main_teacher = eligible_main_teachers.iloc[0]
-                    teachers_df.loc[main_teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
-                    teachers_df.loc[main_teacher.name, 'Assigned Modules'] += 1
-                    modules_df.at[idx, 'Assigned Teacher'] = main_teacher["Teacher's Name"]
-
-                    # Assign assistant teacher if the class size is large
-                    if module['Class Size'] > 50:
-                        eligible_assistant_teachers = teachers_df[
-                            (teachers_df['Teacher Status'] == 'Assistant') &
-                            (teachers_df['Weekly Assigned Hours'] + module['Total Weekly Hours'] <= 12) &
-                            (teachers_df['Assigned Modules'] < 3) &
-                            (teachers_df["Teacher's Name"] != main_teacher["Teacher's Name"])
-                        ]
-
-                        if not eligible_assistant_teachers.empty:
-                            assistant_teacher = eligible_assistant_teachers.iloc[0]
-                            teachers_df.loc[assistant_teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
-                            teachers_df.loc[assistant_teacher.name, 'Assigned Modules'] += 1
-                            modules_df.at[idx, 'Assistant Teacher'] = assistant_teacher["Teacher's Name"]
+                if not eligible_teachers.empty:
+                    selected_teacher = eligible_teachers.iloc[0]
+                    teachers_df.loc[selected_teacher.name, 'Weekly Assigned Hours'] += module['Total Weekly Hours']
+                    teachers_df.loc[selected_teacher.name, 'Assigned Modules'] += 1
+                    modules_df.at[idx, 'Assigned Teacher'] = selected_teacher["Teacher's Name"]
                 else:
                     modules_df.at[idx, 'Assigned Teacher'] = 'Unassigned'
 
