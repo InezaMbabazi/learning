@@ -19,6 +19,7 @@ def main():
         # Initialize workload tracker
         lecturer_hours = {name: 0 for name in df_lecturers["Teacher's Name"]}
         lecturer_workload = []
+        unassigned_modules = []
         
         # Assign modules to lecturers ensuring fair distribution
         for _, row in df_students.iterrows():
@@ -30,6 +31,7 @@ def main():
             # Sort lecturers by current workload (ascending) for fair distribution
             available_lecturers = available_lecturers.sort_values(by=["Teacher's Name"], key=lambda x: x.map(lecturer_hours))
             
+            assigned = False
             for _, lecturer in available_lecturers.iterrows():
                 lecturer_name = lecturer["Teacher's Name"]
                 
@@ -41,12 +43,20 @@ def main():
                         "Hours Assigned": hours_needed
                     })
                     lecturer_hours[lecturer_name] += hours_needed
+                    assigned = True
                     break  # Assign to only one lecturer per module
+            
+            if not assigned:
+                unassigned_modules.append({
+                    "Module Code": module_code,
+                    "Hours Needed": hours_needed
+                })
         
-        # Convert results to DataFrame
+        # Convert results to DataFrames
         workload_df = pd.DataFrame(lecturer_workload)
+        unassigned_df = pd.DataFrame(unassigned_modules)
         
-        # Display result
+        # Display assigned workload
         st.write("### Assigned Workload")
         st.dataframe(workload_df)
         
@@ -55,7 +65,18 @@ def main():
         st.write("### Lecturer Workload Summary")
         st.dataframe(lecturer_summary)
         
-        # Provide download link
+        # Display unassigned modules if any
+        if not unassigned_df.empty:
+            st.write("### Unassigned Modules")
+            st.dataframe(unassigned_df)
+            st.download_button(
+                label="Download Unassigned Modules CSV",
+                data=unassigned_df.to_csv(index=False).encode("utf-8"),
+                file_name="unassigned_modules.csv",
+                mime="text/csv"
+            )
+        
+        # Provide download links
         st.download_button(
             label="Download Workload CSV",
             data=workload_df.to_csv(index=False).encode("utf-8"),
