@@ -20,12 +20,15 @@ def main():
         lecturer_hours = {name: 0 for name in df_lecturers["Teacher's Name"]}
         lecturer_workload = []
         
-        # Assign modules to lecturers
+        # Assign modules to lecturers ensuring fair distribution
         for _, row in df_students.iterrows():
             module_code = row["Code"]
             hours_needed = row["Total Hours Needed"]
             
             available_lecturers = df_lecturers[df_lecturers["Module Code"] == module_code]
+            
+            # Sort lecturers by current workload (ascending) for fair distribution
+            available_lecturers = available_lecturers.sort_values(by=["Teacher's Name"], key=lambda x: x.map(lecturer_hours))
             
             for _, lecturer in available_lecturers.iterrows():
                 lecturer_name = lecturer["Teacher's Name"]
@@ -47,11 +50,23 @@ def main():
         st.write("### Assigned Workload")
         st.dataframe(workload_df)
         
+        # Display total assigned hours per lecturer
+        lecturer_summary = pd.DataFrame(list(lecturer_hours.items()), columns=["Lecturer", "Total Hours Assigned"])
+        st.write("### Lecturer Workload Summary")
+        st.dataframe(lecturer_summary)
+        
         # Provide download link
         st.download_button(
             label="Download Workload CSV",
             data=workload_df.to_csv(index=False).encode("utf-8"),
             file_name="lecturer_workload.csv",
+            mime="text/csv"
+        )
+        
+        st.download_button(
+            label="Download Lecturer Summary CSV",
+            data=lecturer_summary.to_csv(index=False).encode("utf-8"),
+            file_name="lecturer_summary.csv",
             mime="text/csv"
         )
         
