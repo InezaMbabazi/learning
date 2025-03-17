@@ -10,6 +10,9 @@ def main():
     lecturer_file = st.file_uploader("Upload Lecturer Data (CSV)", type=["csv"])
     student_file = st.file_uploader("Upload Student Data (CSV)", type=["csv"])
     
+    # Input field for teaching hours per week
+    teaching_hours_per_week = st.number_input("Enter Number of Teaching Hours per Week", min_value=1, max_value=40, value=12, step=1)
+    
     if lecturer_file and student_file:
         df_lecturers = pd.read_csv(lecturer_file)
         df_students = pd.read_csv(student_file)
@@ -17,8 +20,8 @@ def main():
         # Define credit-hour mapping (credits: hours per week)
         credit_hours_map = {20: 8, 15: 6, 10: 5}
         
-        # Calculate total hours needed per module per term (weekly hours * 12 weeks * number of sections)
-        df_students["Total Hours Needed"] = df_students["Credits"].map(credit_hours_map).fillna(0) * 12 * df_students["Sections"]
+        # Calculate total hours needed per module per term (weekly hours * dynamic weeks * number of sections)
+        df_students["Total Hours Needed"] = df_students["Credits"].map(credit_hours_map).fillna(0) * teaching_hours_per_week * 12 * df_students["Sections"]
         
         # Initialize workload tracker
         lecturer_hours = {name: 0 for name in df_lecturers["Teacher's name"]}
