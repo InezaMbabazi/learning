@@ -1,3 +1,7 @@
+import pandas as pd
+import streamlit as st
+import io
+
 # Streamlit UI
 def main():
     st.title("Lecturer Workload Automation")
