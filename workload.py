@@ -1,4 +1,4 @@
-import pandas as pd
+import pandas as pd 
 import streamlit as st
 import io
 
@@ -91,18 +91,22 @@ def main():
         workload_df = pd.DataFrame(lecturer_workload)
         lecturer_summary = pd.DataFrame(list(lecturer_hours.items()), columns=["Lecturer", "Total Hours Assigned"])
 
-        # Aggregate sections per lecturer
+        # Merge lecturer summary with Total Workload using unique "Lecturer's name"
+        lecturer_summary = pd.merge(lecturer_summary, df_lecturers[["Teacher's name", "Total Workload"]], 
+                                    left_on="Lecturer", right_on="Teacher's name", how="left")
+
+        # Calculate the difference between assigned hours and total workload using the unique lecturer identifier
+        lecturer_summary["Workload Difference"] = lecturer_summary["Total Hours Assigned"] - lecturer_summary["Total Workload"]
+
+        # Remove the extra "Teacher's name" column after merging
+        lecturer_summary = lecturer_summary.drop(columns=["Teacher's name"])
+
+        # Aggregate sections per lecturer using the unique "Lecturer" identifier
         section_summary = pd.DataFrame(lecturer_workload)
         section_summary = section_summary.groupby("Lecturer")["Sections Assigned"].sum().reset_index()
         section_summary = section_summary.rename(columns={"Sections Assigned": "Total Sections Assigned"})
 
-        # Merge lecturer summary with Total Workload
-        lecturer_summary = pd.merge(lecturer_summary, df_lecturers[["Teacher's name", "Total Workload"]], left_on="Lecturer", right_on="Teacher's name", how="left")
-
-        # Calculate the difference between assigned hours and total workload
-        lecturer_summary["Workload Difference"] = lecturer_summary["Total Hours Assigned"] - lecturer_summary["Total Workload"]
-
-        # Merge section summary with lecturer summary
+        # Merge the section summary with lecturer summary, ensuring unique lecturer mapping
         lecturer_summary = pd.merge(lecturer_summary, section_summary, on="Lecturer", how="left")
 
         # Display outputs
