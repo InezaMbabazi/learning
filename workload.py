@@ -89,13 +89,15 @@ def main():
 
         # Convert results to DataFrames
         workload_df = pd.DataFrame(lecturer_workload)
+
+        # Lecturer workload summary (based on unique "Lecturer's name")
         lecturer_summary = pd.DataFrame(list(lecturer_hours.items()), columns=["Lecturer", "Total Hours Assigned"])
 
-        # Merge lecturer summary with Total Workload using unique "Lecturer's name"
+        # Merge with the lecturer database to get the "Total Workload" from the database
         lecturer_summary = pd.merge(lecturer_summary, df_lecturers[["Teacher's name", "Total Workload"]], 
                                     left_on="Lecturer", right_on="Teacher's name", how="left")
 
-        # Calculate the difference between assigned hours and total workload using the unique lecturer identifier
+        # Calculate the difference between assigned hours and total workload
         lecturer_summary["Workload Difference"] = lecturer_summary["Total Hours Assigned"] - lecturer_summary["Total Workload"]
 
         # Remove the extra "Teacher's name" column after merging
