@@ -22,49 +22,65 @@ def main():
         
         # Initialize workload tracker
         lecturer_hours = {name: 0 for name in df_lecturers["Teacher's name"]}
-        lecturer_total_workload = {name: workload for name, workload in zip(df_lecturers["Teacher's name"], df_lecturers["Term Workload"])}
         lecturer_workload = []
         unassigned_modules = []
         
-        # Assign modules to lecturers
+        # Assign modules to lecturers based on their available workload
         for _, row in df_students.iterrows():
             module_code = row["Code"]
             module_name = row["Module Name"]
             hours_needed = row["Total Hours Needed"]
-            sections = row["Sections"]
+            sections_needed = row["Sections"]
+            
+            remaining_sections = sections_needed  # Sections to be assigned
             
             # Filter lecturers qualified to teach this module
             available_lecturers = df_lecturers[df_lecturers["Module Code"] == module_code].copy()
             available_lecturers["Current Load"] = available_lecturers["Teacher's name"].map(lecturer_hours)
             available_lecturers = available_lecturers.sort_values(by="Current Load")
-            
-            assigned = False
+
+            # Distribute sections across lecturers
             for _, lecturer in available_lecturers.iterrows():
                 lecturer_name = lecturer["Teacher's name"]
-                term_workload = lecturer_total_workload[lecturer_name]
+                term_workload = lecturer["Term Workload"]
+                max_hours_available = term_workload - lecturer_hours[lecturer_name]
                 
-                if lecturer_hours[lecturer_name] + hours_needed <= term_workload:
-                    lecturer_workload.append({
-                        "Lecturer": lecturer_name,
-                        "Module Code": module_code,
-                        "Module Name": module_name,
-                        "Hours Assigned": hours_needed
-                    })
-                    lecturer_hours[lecturer_name] += hours_needed
-                    assigned = True
-                    break  # Assign to only one lecturer per module
-            
-            if not assigned:
+                if max_hours_available > 0:
+                    # Calculate max sections this lecturer can handle
+                    max_sections = max_hours_available // (hours_needed / sections_needed)
+                    sections_assigned = min(remaining_sections, max_sections)
+                    
+                    if sections_assigned > 0:
+                        # Assign the sections to the lecturer
+                        hours_assigned = sections_assigned * (hours_needed / sections_needed)
+                        lecturer_workload.append({
+                            "Lecturer": lecturer_name,
+                            "Module Code": module_code,
+                            "Module Name": module_name,
+                            "Sections Assigned": sections_assigned,
+                            "Hours Assigned": hours_assigned
+                        })
+                        
+                        # Update the lecturer's total assigned hours
+                        lecturer_hours[lecturer_name] += hours_assigned
+                        remaining_sections -= sections_assigned
+                
+                # If no more sections are left to assign, break
+                if remaining_sections == 0:
+                    break
+
+            # If some sections are unassigned, add them to the unassigned list
+            if remaining_sections > 0:
                 unassigned_modules.append({
                     "Module Code": module_code,
                     "Module Name": module_name,
-                    "Hours Needed": hours_needed
+                    "Sections Remaining": remaining_sections
                 })
         
         # Convert results to DataFrames
         workload_df = pd.DataFrame(lecturer_workload)
         unassigned_df = pd.DataFrame(unassigned_modules)
-        lecturer_summary = pd.DataFrame([{ "Lecturer": name, "Total Hours Assigned": hours, "Total Workload": lecturer_total_workload[name] } for name, hours in lecturer_hours.items()])
+        lecturer_summary = pd.DataFrame(list(lecturer_hours.items()), columns=["Lecturer", "Total Hours Assigned"])
         
         # Display outputs
         st.write("### Assigned Workload")
