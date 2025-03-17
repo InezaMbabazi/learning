@@ -19,7 +19,8 @@ def main():
         df_students = pd.read_csv(student_file)
 
         # Define credit-hour mapping (credits: hours per week)
-        credit_hours_map = {20: 8, 15: 6, 10: 5}  # Example of credits to hours mapping
+        credit_hours_map = {20: 8, 15: 6, 10: 5}
+
         # Calculate total hours needed per module per term
         df_students["Total Hours Needed"] = df_students["Credits"].map(credit_hours_map).fillna(0) * 12 * df_students["Sections"]
 
@@ -42,7 +43,7 @@ def main():
             available_lecturers["Current Load"] = available_lecturers["Teacher's name"].map(lecturer_hours)
             available_lecturers = available_lecturers.sort_values(by="Current Load")
 
-            # Calculate the number of sections based on weekly hours and course credits
+            # Distribute sections across lecturers
             for _, lecturer in available_lecturers.iterrows():
                 lecturer_name = lecturer["Teacher's name"]
                 term_workload = lecturer["Term Workload"]
@@ -52,14 +53,13 @@ def main():
                 max_hours_available = total_workload - lecturer_hours[lecturer_name]
 
                 if max_hours_available > 0:
-                    # Calculate max sections this lecturer can handle (based on credits and hours)
-                    hours_per_section = credit_hours_map.get(row["Credits"], 0)  # Calculate hours per section
-                    max_sections = max_hours_available // hours_per_section
+                    # Calculate max sections this lecturer can handle
+                    max_sections = max_hours_available // (hours_needed / sections_needed)
                     sections_assigned = min(remaining_sections, max_sections)
 
                     if sections_assigned > 0:
                         # Assign the sections to the lecturer
-                        hours_assigned = sections_assigned * hours_per_section
+                        hours_assigned = sections_assigned * (hours_needed / sections_needed)
                         
                         # Prevent exceeding term workload or total workload
                         if lecturer_hours[lecturer_name] + hours_assigned > total_workload:
