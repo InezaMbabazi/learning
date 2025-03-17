@@ -111,19 +111,14 @@ def main():
         # Merge the section summary with lecturer summary, ensuring unique lecturer mapping
         lecturer_summary = pd.merge(lecturer_summary, section_summary, on="Lecturer", how="left")
 
-        # Remove duplicates by grouping by "Lecturer" and summing values
-        lecturer_summary = lecturer_summary.groupby("Lecturer", as_index=False).agg({
-            "Total Hours Assigned": "sum",
-            "Total Workload": "sum",
-            "Workload Difference": "sum",
-            "Total Sections Assigned": "sum"
-        })
+        # Remove duplication: Ensure one row per lecturer
+        lecturer_summary = lecturer_summary.drop_duplicates(subset=["Lecturer"])
 
         # Display outputs
         st.write("### Assigned Workload")
         st.dataframe(workload_df)
 
-        st.write("### Lecturer Workload Summary (No Duplicates)")
+        st.write("### Lecturer Workload Summary")
         st.dataframe(lecturer_summary)
 
         # Display unassigned modules
