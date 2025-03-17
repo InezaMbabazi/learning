@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import io
 
 # Streamlit UI
 def main():
@@ -13,37 +14,38 @@ def main():
         df_lecturers = pd.read_csv(lecturer_file)
         df_students = pd.read_csv(student_file)
         
-        # Define credit-hour mapping
+        # Define credit-hour mapping (credits: hours per week)
         credit_hours_map = {20: 6, 15: 5, 10: 4}
         
-        # Calculate total hours needed per module (per term)
-        df_students["Total Hours Needed"] = df_students["Credits"].map(credit_hours_map) * 12
+        # Calculate total hours needed per module per term (weekly hours * 12 weeks * number of sections)
+        df_students["Total Hours Needed"] = df_students["Credits"].map(credit_hours_map).fillna(0) * 12 * df_students["Sections"]
         
         # Initialize workload tracker
         lecturer_hours = {name: 0 for name in df_lecturers["Teacher's name"]}
         lecturer_workload = []
         unassigned_modules = []
         
-        # Assign modules to lecturers ensuring fair distribution
+        # Assign modules to lecturers
         for _, row in df_students.iterrows():
             module_code = row["Code"]
+            module_name = row["Module Name"]
             hours_needed = row["Total Hours Needed"]
             
-            available_lecturers = df_lecturers[df_lecturers["Module Code"] == module_code]
-            
-            # Sort lecturers by current workload for fair distribution
-            available_lecturers = available_lecturers.sort_values(by=["Teacher's name"], key=lambda x: x.map(lecturer_hours))
+            # Filter lecturers qualified to teach this module
+            available_lecturers = df_lecturers[df_lecturers["Module Code"] == module_code].copy()
+            available_lecturers["Current Load"] = available_lecturers["Teacher's name"].map(lecturer_hours)
+            available_lecturers = available_lecturers.sort_values(by="Current Load")
             
             assigned = False
             for _, lecturer in available_lecturers.iterrows():
                 lecturer_name = lecturer["Teacher's name"]
                 term_workload = lecturer["Term Workload"]
                 
-                # Ensure workload constraints
-                if lecturer_hours[lecturer_name] + hours_needed <= term_workload and (hours_needed / 12) <= 12:
+                if lecturer_hours[lecturer_name] + hours_needed <= term_workload:
                     lecturer_workload.append({
                         "Lecturer": lecturer_name,
                         "Module Code": module_code,
+                        "Module Name": module_name,
                         "Hours Assigned": hours_needed
                     })
                     lecturer_hours[lecturer_name] += hours_needed
@@ -53,23 +55,22 @@ def main():
             if not assigned:
                 unassigned_modules.append({
                     "Module Code": module_code,
+                    "Module Name": module_name,
                     "Hours Needed": hours_needed
                 })
         
         # Convert results to DataFrames
         workload_df = pd.DataFrame(lecturer_workload)
         unassigned_df = pd.DataFrame(unassigned_modules)
+        lecturer_summary = pd.DataFrame(list(lecturer_hours.items()), columns=["Lecturer", "Total Hours Assigned"])
         
-        # Display assigned workload
+        # Display outputs
         st.write("### Assigned Workload")
         st.dataframe(workload_df)
         
-        # Display total assigned hours per lecturer
-        lecturer_summary = pd.DataFrame(list(lecturer_hours.items()), columns=["Lecturer", "Total Hours Assigned"])
         st.write("### Lecturer Workload Summary")
         st.dataframe(lecturer_summary)
         
-        # Display unassigned modules if any
         if not unassigned_df.empty:
             st.write("### Unassigned Modules")
             st.dataframe(unassigned_df)
@@ -80,7 +81,7 @@ def main():
                 mime="text/csv"
             )
         
-        # Provide download links
+        # Provide CSV download buttons
         st.download_button(
             label="Download Workload CSV",
             data=workload_df.to_csv(index=False).encode("utf-8"),
@@ -94,14 +95,44 @@ def main():
             file_name="lecturer_summary.csv",
             mime="text/csv"
         )
-        
-    # Provide template download buttons
-    st.write("### Download Templates")
-    lecturer_template = "Teacher's name,Module Code,Module Name,Term Workload\nElisa Hakizamungu,ETH82102,Business Ethics and Corporate Governance,144"
-    student_template = "Cohort,Number of Students,Module Name,Code,Sections,Credits\n2024,60,Business Ethics,ETH82102,3,20"
     
-    st.download_button("Download Lecturer Template", lecturer_template.encode("utf-8"), "lecturer_template.csv", "text/csv")
-    st.download_button("Download Student Template", student_template.encode("utf-8"), "student_template.csv", "text/csv")
+    # Provide templates for users
+    st.write("### Download Templates")
+    
+    # Updated Lecturer Template with Total Workload
+    lecturer_template = io.StringIO()
+    lecturer_template_df = pd.DataFrame({
+        "Teacher's name": ["Elisa Hakizamungu", "Jean Claude"],
+        "Module Code": ["ETH82102", "MGT81201"],
+        "Module Name": ["Business Ethics and Corporate Governance", "Strategic Management"],
+        "Term Workload": [144, 144],  # Example total workload
+        "Total Workload": [288, 288]  # Example total workload per year (or for two terms)
+    })
+    lecturer_template_df.to_csv(lecturer_template, index=False)
+    st.download_button(
+        "Download Lecturer Template",
+        data=lecturer_template.getvalue().encode("utf-8"),
+        file_name="lecturer_template.csv",
+        mime="text/csv"
+    )
+    
+    # Student Template
+    student_template = io.StringIO()
+    student_template_df = pd.DataFrame({
+        "Cohort": [2024],
+        "Number of Students": [60],
+        "Module Name": ["Business Ethics"],
+        "Code": ["ETH82102"],
+        "Sections": [3],
+        "Credits": [20]
+    })
+    student_template_df.to_csv(student_template, index=False)
+    st.download_button(
+        "Download Student Template",
+        data=student_template.getvalue().encode("utf-8"),
+        file_name="student_template.csv",
+        mime="text/csv"
+    )
 
 if __name__ == "__main__":
     main()
