@@ -5,7 +5,7 @@ import streamlit as st
 def main():
     st.title("Lecturer Workload Automation")
     
-    # File uploader for lecturer data
+    # File uploader for lecturer and student data
     lecturer_file = st.file_uploader("Upload Lecturer Data (CSV)", type=["csv"])
     student_file = st.file_uploader("Upload Student Data (CSV)", type=["csv"])
     
@@ -13,11 +13,14 @@ def main():
         df_lecturers = pd.read_csv(lecturer_file)
         df_students = pd.read_csv(student_file)
         
-        # Calculate total hours needed per module
-        df_students["Total Hours Needed"] = df_students["Sections"] * 4
+        # Define credit-hour mapping
+        credit_hours_map = {20: 6, 15: 5, 10: 4}
+        
+        # Calculate total hours needed per module (per term)
+        df_students["Total Hours Needed"] = df_students["Credits"].map(credit_hours_map) * 12
         
         # Initialize workload tracker
-        lecturer_hours = {name: 0 for name in df_lecturers["Teacher's Name"]}
+        lecturer_hours = {name: 0 for name in df_lecturers["Teacher's name"]}
         lecturer_workload = []
         unassigned_modules = []
         
@@ -28,15 +31,16 @@ def main():
             
             available_lecturers = df_lecturers[df_lecturers["Module Code"] == module_code]
             
-            # Sort lecturers by current workload (ascending) for fair distribution
-            available_lecturers = available_lecturers.sort_values(by=["Teacher's Name"], key=lambda x: x.map(lecturer_hours))
+            # Sort lecturers by current workload for fair distribution
+            available_lecturers = available_lecturers.sort_values(by=["Teacher's name"], key=lambda x: x.map(lecturer_hours))
             
             assigned = False
             for _, lecturer in available_lecturers.iterrows():
-                lecturer_name = lecturer["Teacher's Name"]
+                lecturer_name = lecturer["Teacher's name"]
+                term_workload = lecturer["Term Workload"]
                 
-                # Check if lecturer has capacity
-                if lecturer_hours[lecturer_name] + hours_needed <= 12:
+                # Ensure workload constraints
+                if lecturer_hours[lecturer_name] + hours_needed <= term_workload and (hours_needed / 12) <= 12:
                     lecturer_workload.append({
                         "Lecturer": lecturer_name,
                         "Module Code": module_code,
@@ -93,8 +97,8 @@ def main():
         
     # Provide template download buttons
     st.write("### Download Templates")
-    lecturer_template = "Teacher's Name,Module Code,Module Name\nElisa Hakizamungu,ETH82102,Business Ethics and Corporate Governance"
-    student_template = "Cohort,Number of Students,Code,Sections\n2024,60,ETH82102,3"
+    lecturer_template = "Teacher's name,Module Code,Module Name,Term Workload\nElisa Hakizamungu,ETH82102,Business Ethics and Corporate Governance,144"
+    student_template = "Cohort,Number of Students,Module Name,Code,Sections,Credits\n2024,60,Business Ethics,ETH82102,3,20"
     
     st.download_button("Download Lecturer Template", lecturer_template.encode("utf-8"), "lecturer_template.csv", "text/csv")
     st.download_button("Download Student Template", student_template.encode("utf-8"), "student_template.csv", "text/csv")
