@@ -25,7 +25,7 @@ def main():
         df_students["Total Hours Needed"] = df_students["Credits"].map(credit_hours_map).fillna(0) * 12 * df_students["Sections"]
 
         # Initialize workload tracker
-        lecturer_hours = {name: 0 for name in df_lecturers["Teacher's name"]}
+        lecturer_hours = {name: 0 for name in df_lecturers["Teacher's name"].unique()}
         lecturer_workload = []
         unassigned_modules = []
 
