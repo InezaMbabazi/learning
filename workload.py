@@ -22,6 +22,7 @@ def main():
         
         # Initialize workload tracker
         lecturer_hours = {name: 0 for name in df_lecturers["Teacher's name"]}
+        lecturer_total_workload = {name: workload for name, workload in zip(df_lecturers["Teacher's name"], df_lecturers["Term Workload"])}
         lecturer_workload = []
         unassigned_modules = []
         
@@ -30,7 +31,7 @@ def main():
             module_code = row["Code"]
             module_name = row["Module Name"]
             hours_needed = row["Total Hours Needed"]
-            sections_remaining = row["Sections"]
+            sections = row["Sections"]
             
             # Filter lecturers qualified to teach this module
             available_lecturers = df_lecturers[df_lecturers["Module Code"] == module_code].copy()
@@ -40,28 +41,18 @@ def main():
             assigned = False
             for _, lecturer in available_lecturers.iterrows():
                 lecturer_name = lecturer["Teacher's name"]
-                term_workload = lecturer["Term Workload"]
-                available_hours = term_workload - lecturer_hours[lecturer_name]
+                term_workload = lecturer_total_workload[lecturer_name]
                 
-                if available_hours > 0:
-                    hours_to_assign = min(hours_needed, available_hours)
-                    sections_to_assign = min(sections_remaining, hours_to_assign // (credit_hours_map[row["Credits"]] * 12))
-                    
-                    if sections_to_assign > 0:
-                        lecturer_workload.append({
-                            "Lecturer": lecturer_name,
-                            "Module Code": module_code,
-                            "Module Name": module_name,
-                            "Hours Assigned": hours_to_assign,
-                            "Sections Assigned": sections_to_assign
-                        })
-                        lecturer_hours[lecturer_name] += hours_to_assign
-                        hours_needed -= hours_to_assign
-                        sections_remaining -= sections_to_assign
-                        
-                    if hours_needed <= 0:
-                        assigned = True
-                        break
+                if lecturer_hours[lecturer_name] + hours_needed <= term_workload:
+                    lecturer_workload.append({
+                        "Lecturer": lecturer_name,
+                        "Module Code": module_code,
+                        "Module Name": module_name,
+                        "Hours Assigned": hours_needed
+                    })
+                    lecturer_hours[lecturer_name] += hours_needed
+                    assigned = True
+                    break  # Assign to only one lecturer per module
             
             if not assigned:
                 unassigned_modules.append({
@@ -73,11 +64,7 @@ def main():
         # Convert results to DataFrames
         workload_df = pd.DataFrame(lecturer_workload)
         unassigned_df = pd.DataFrame(unassigned_modules)
-        
-        # Create Lecturer Summary with Total Workload
-        lecturer_summary = df_lecturers[["Teacher's name", "Term Workload"]].copy()
-        lecturer_summary = lecturer_summary.rename(columns={"Term Workload": "Total Workload"})
-        lecturer_summary["Total Hours Assigned"] = lecturer_summary["Teacher's name"].map(lecturer_hours).fillna(0)
+        lecturer_summary = pd.DataFrame([{ "Lecturer": name, "Total Hours Assigned": hours, "Total Workload": lecturer_total_workload[name] } for name, hours in lecturer_hours.items()])
         
         # Display outputs
         st.write("### Assigned Workload")
@@ -120,7 +107,7 @@ def main():
         "Teacher's name": ["Elisa Hakizamungu", "Jean Claude"],
         "Module Code": ["ETH82102", "MGT81201"],
         "Module Name": ["Business Ethics and Corporate Governance", "Strategic Management"],
-        "Term Workload": [144, 144],
+        "Term Workload": [144, 144],  # Example total workload
         "Total Workload": [288, 288]  # Example total workload per year (or for two terms)
     })
     lecturer_template_df.to_csv(lecturer_template, index=False)
