@@ -46,11 +46,9 @@ def main():
             # Distribute sections across lecturers
             for _, lecturer in available_lecturers.iterrows():
                 lecturer_name = lecturer["Teacher's name"]
-                term_workload = lecturer["Term Workload"]
-                total_workload = lecturer["Total Workload"]
 
-                # Calculate how many hours the lecturer can still take
-                max_hours_available = total_workload - lecturer_hours[lecturer_name]
+                # Maximum hours this lecturer can take
+                max_hours_available = max_term_workload - lecturer_hours[lecturer_name]
 
                 if max_hours_available > 0:
                     # Calculate max sections this lecturer can handle
@@ -60,10 +58,10 @@ def main():
                     if sections_assigned > 0:
                         # Assign the sections to the lecturer
                         hours_assigned = sections_assigned * (hours_needed / sections_needed)
-                        
-                        # Prevent exceeding term workload or total workload
-                        if lecturer_hours[lecturer_name] + hours_assigned > total_workload:
-                            continue  # Skip if it exceeds max total workload
+
+                        # Prevent exceeding term workload
+                        if lecturer_hours[lecturer_name] + hours_assigned > max_term_workload:
+                            continue  # Skip if it exceeds max workload
 
                         lecturer_workload.append({
                             "Lecturer": lecturer_name,
