@@ -1,4 +1,4 @@
-import pandas as pd 
+import pandas as pd
 import streamlit as st
 import io
 
@@ -9,7 +9,10 @@ def main():
     # File uploader for lecturer and student data
     lecturer_file = st.file_uploader("Upload Lecturer Data (CSV)", type=["csv"])
     student_file = st.file_uploader("Upload Student Data (CSV)", type=["csv"])
-    
+
+    # Weekly teaching hours input
+    weekly_hours = st.slider("Set Weekly Teaching Hours:", min_value=6, max_value=20, value=12, step=1)
+
     if lecturer_file and student_file:
         df_lecturers = pd.read_csv(lecturer_file)
         df_students = pd.read_csv(student_file)
@@ -18,8 +21,8 @@ def main():
         credit_hours_map = {20: 8, 15: 6, 10: 5}
         
         # Calculate total hours needed per module per term (weekly hours * 12 weeks * number of sections)
-        df_students["Total Hours Needed"] = df_students["Credits"].map(credit_hours_map).fillna(0) * 12 * df_students["Sections"]
-        
+        df_students["Total Hours Needed"] = df_students["Credits"].map(credit_hours_map).fillna(0) * weekly_hours * df_students["Sections"]
+
         # Initialize workload tracker
         lecturer_hours = {name: 0 for name in df_lecturers["Teacher's name"]}
         lecturer_workload = []
@@ -91,6 +94,10 @@ def main():
         # Merge both summaries: total hours and total sections
         lecturer_summary = pd.merge(lecturer_summary, section_summary, on="Lecturer", how="left")
 
+        # Check if any lecturer exceeds total workload
+        df_lecturers["Total Workload Assigned"] = df_lecturers["Teacher's name"].map(lecturer_hours)
+        df_lecturers["Exceeds Limit?"] = df_lecturers["Total Workload Assigned"] > df_lecturers["Term Workload"]
+
         # Display outputs
         st.write("### Assigned Workload")
         st.dataframe(workload_df)
@@ -98,8 +105,12 @@ def main():
         st.write("### Lecturer Workload Summary")
         st.dataframe(lecturer_summary)
 
-        # If some sections are unassigned, add them to the unassigned list
-        if unassigned_modules:  # Check if there are any unassigned modules
+        # Highlight lecturers exceeding workload
+        st.write("### Lecturers Exceeding Workload")
+        st.dataframe(df_lecturers[df_lecturers["Exceeds Limit?"]])
+
+        # If some sections are unassigned, display them
+        if unassigned_modules:
             unassigned_df = pd.DataFrame(unassigned_modules)
             st.write("### Unassigned Modules")
             st.dataframe(unassigned_df)
