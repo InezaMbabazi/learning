@@ -19,7 +19,7 @@ def main():
         df_students = pd.read_csv(student_file)
 
         # Define credit-hour mapping (credits: hours per week)
-        credit_hours_map = {20: 8, 15: 6, 10: 5}
+        credit_hours_map = {20: 8, 15: 6, 10: 5}  # Adjust as per your system
 
         # Calculate total hours needed per module per term
         df_students["Total Hours Needed"] = df_students["Credits"].map(credit_hours_map).fillna(0) * 12 * df_students["Sections"]
@@ -49,33 +49,29 @@ def main():
                 term_workload = lecturer["Term Workload"]
                 total_workload = lecturer["Total Workload"]
 
-                # Calculate how many hours the lecturer can still take
-                max_hours_available = total_workload - lecturer_hours[lecturer_name]
+                # Calculate how many hours the lecturer can still take based on weekly limit
+                max_hours_per_week = weekly_hours
+                hours_assigned_per_section = hours_needed / sections_needed
+                total_hours_this_module = hours_assigned_per_section * remaining_sections
 
-                if max_hours_available > 0:
-                    # Calculate max sections this lecturer can handle
-                    max_sections = max_hours_available // (hours_needed / sections_needed)
-                    sections_assigned = min(remaining_sections, max_sections)
+                # Check if the workload exceeds the lecturer's weekly limit
+                if total_hours_this_module > max_hours_per_week:
+                    # If the total hours needed exceeds the weekly limit, assign only the remaining hours
+                    total_hours_this_module = max_hours_per_week
 
-                    if sections_assigned > 0:
-                        # Assign the sections to the lecturer
-                        hours_assigned = sections_assigned * (hours_needed / sections_needed)
-                        
-                        # Prevent exceeding term workload or total workload
-                        if lecturer_hours[lecturer_name] + hours_assigned > total_workload:
-                            continue  # Skip if it exceeds max total workload
+                # Assign the sections to the lecturer
+                if lecturer_hours[lecturer_name] + total_hours_this_module <= total_workload:
+                    lecturer_workload.append({
+                        "Lecturer": lecturer_name,
+                        "Module Code": module_code,
+                        "Module Name": module_name,
+                        "Sections Assigned": remaining_sections,
+                        "Hours Assigned": total_hours_this_module
+                    })
 
-                        lecturer_workload.append({
-                            "Lecturer": lecturer_name,
-                            "Module Code": module_code,
-                            "Module Name": module_name,
-                            "Sections Assigned": sections_assigned,
-                            "Hours Assigned": hours_assigned
-                        })
-
-                        # Update lecturer's total assigned hours
-                        lecturer_hours[lecturer_name] += hours_assigned
-                        remaining_sections -= sections_assigned
+                    # Update lecturer's total assigned hours
+                    lecturer_hours[lecturer_name] += total_hours_this_module
+                    remaining_sections -= 1  # Decrease remaining sections by 1
 
                 # If no more sections left to assign, break
                 if remaining_sections == 0:
@@ -100,6 +96,9 @@ def main():
 
         # Merge workload summary
         lecturer_summary = pd.merge(lecturer_summary, section_summary, on="Lecturer", how="left")
+
+        # Calculate the difference between Total Workload and Workload Assigned
+        lecturer_summary["Workload Difference"] = lecturer_summary["Total Hours Assigned"] - lecturer_summary["Total Workload"]
 
         # Display outputs
         st.write("### Assigned Workload")
