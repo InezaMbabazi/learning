@@ -58,7 +58,7 @@ def main():
                     if sections_assigned > 0:
                         # Assign the sections to the lecturer
                         hours_assigned = sections_assigned * (hours_needed / sections_needed)
-                        
+
                         # Prevent exceeding term workload
                         if lecturer_hours[lecturer_name] + hours_assigned > max_term_workload:
                             continue  # Skip if it exceeds max workload
