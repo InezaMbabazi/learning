@@ -1,40 +1,44 @@
-import pandas as pd 
+import pandas as pd
 import streamlit as st
 import io
 
 # Streamlit UI
 def main():
     st.title("Lecturer Workload Automation")
-    
+
+    # Weekly teaching hours input (Dynamic)
+    weekly_hours = st.slider("Set Maximum Weekly Teaching Hours", min_value=6, max_value=20, value=12, step=1)
+    max_term_workload = weekly_hours * 12  # Adjusted max workload per term
+
     # File uploader for lecturer and student data
     lecturer_file = st.file_uploader("Upload Lecturer Data (CSV)", type=["csv"])
     student_file = st.file_uploader("Upload Student Data (CSV)", type=["csv"])
-    
+
     if lecturer_file and student_file:
         df_lecturers = pd.read_csv(lecturer_file)
         df_students = pd.read_csv(student_file)
-        
+
         # Define credit-hour mapping (credits: hours per week)
         credit_hours_map = {20: 8, 15: 6, 10: 5}
-        
-        # Calculate total hours needed per module per term (weekly hours * 12 weeks * number of sections)
+
+        # Calculate total hours needed per module per term
         df_students["Total Hours Needed"] = df_students["Credits"].map(credit_hours_map).fillna(0) * 12 * df_students["Sections"]
-        
+
         # Initialize workload tracker
         lecturer_hours = {name: 0 for name in df_lecturers["Teacher's name"]}
         lecturer_workload = []
         unassigned_modules = []
-        
-        # Assign modules to lecturers based on their available workload
+
+        # Assign modules to lecturers based on available workload
         for _, row in df_students.iterrows():
             module_code = row["Code"]
             module_name = row["Module Name"]
             hours_needed = row["Total Hours Needed"]
             sections_needed = row["Sections"]
-            
+
             remaining_sections = sections_needed  # Sections to be assigned
-            
-            # Filter lecturers qualified to teach this module
+
+            # Filter lecturers qualified for this module
             available_lecturers = df_lecturers[df_lecturers["Module Code"] == module_code].copy()
             available_lecturers["Current Load"] = available_lecturers["Teacher's name"].map(lecturer_hours)
             available_lecturers = available_lecturers.sort_values(by="Current Load")
@@ -42,17 +46,23 @@ def main():
             # Distribute sections across lecturers
             for _, lecturer in available_lecturers.iterrows():
                 lecturer_name = lecturer["Teacher's name"]
-                term_workload = lecturer["Term Workload"]
-                max_hours_available = term_workload - lecturer_hours[lecturer_name]
-                
+
+                # Maximum hours this lecturer can take
+                max_hours_available = max_term_workload - lecturer_hours[lecturer_name]
+
                 if max_hours_available > 0:
                     # Calculate max sections this lecturer can handle
                     max_sections = max_hours_available // (hours_needed / sections_needed)
                     sections_assigned = min(remaining_sections, max_sections)
-                    
+
                     if sections_assigned > 0:
                         # Assign the sections to the lecturer
                         hours_assigned = sections_assigned * (hours_needed / sections_needed)
+                        
+                        # Prevent exceeding term workload
+                        if lecturer_hours[lecturer_name] + hours_assigned > max_term_workload:
+                            continue  # Skip if it exceeds max workload
+
                         lecturer_workload.append({
                             "Lecturer": lecturer_name,
                             "Module Code": module_code,
@@ -60,12 +70,12 @@ def main():
                             "Sections Assigned": sections_assigned,
                             "Hours Assigned": hours_assigned
                         })
-                        
-                        # Update the lecturer's total assigned hours
+
+                        # Update lecturer's total assigned hours
                         lecturer_hours[lecturer_name] += hours_assigned
                         remaining_sections -= sections_assigned
-                
-                # If no more sections are left to assign, break
+
+                # If no more sections left to assign, break
                 if remaining_sections == 0:
                     break
 
@@ -76,23 +86,18 @@ def main():
                     "Module Name": module_name,
                     "Sections Remaining": remaining_sections
                 })
-        
+
         # Convert results to DataFrames
         workload_df = pd.DataFrame(lecturer_workload)
-
-        # Aggregate total hours and total sections per lecturer
         lecturer_summary = pd.DataFrame(list(lecturer_hours.items()), columns=["Lecturer", "Total Hours Assigned"])
 
-        # Aggregate the total sections assigned to each lecturer
+        # Aggregate sections per lecturer
         section_summary = pd.DataFrame(lecturer_workload)
         section_summary = section_summary.groupby("Lecturer")["Sections Assigned"].sum().reset_index()
         section_summary = section_summary.rename(columns={"Sections Assigned": "Total Sections Assigned"})
 
-        # Merge both summaries: total hours and total sections
+        # Merge workload summary
         lecturer_summary = pd.merge(lecturer_summary, section_summary, on="Lecturer", how="left")
-        
-        # Merge the Total Workload with the lecturer summary
-        lecturer_summary = pd.merge(lecturer_summary, df_lecturers[["Teacher's name", "Total Workload"]], left_on="Lecturer", right_on="Teacher's name", how="left").drop(columns=["Teacher's name"])
 
         # Display outputs
         st.write("### Assigned Workload")
@@ -101,8 +106,8 @@ def main():
         st.write("### Lecturer Workload Summary")
         st.dataframe(lecturer_summary)
 
-        # If some sections are unassigned, add them to the unassigned list
-        if unassigned_modules:  # Check if there are any unassigned modules
+        # Display unassigned modules
+        if unassigned_modules:
             unassigned_df = pd.DataFrame(unassigned_modules)
             st.write("### Unassigned Modules")
             st.dataframe(unassigned_df)
@@ -127,18 +132,18 @@ def main():
             file_name="lecturer_summary.csv",
             mime="text/csv"
         )
-    
+
     # Provide templates for users
     st.write("### Download Templates")
-    
-    # Updated Lecturer Template with Total Workload
+
+    # Lecturer Template
     lecturer_template = io.StringIO()
     lecturer_template_df = pd.DataFrame({
         "Teacher's name": ["Elisa Hakizamungu", "Jean Claude"],
         "Module Code": ["ETH82102", "MGT81201"],
         "Module Name": ["Business Ethics and Corporate Governance", "Strategic Management"],
-        "Term Workload": [144, 144],  # Example total workload
-        "Total Workload": [288, 288]  # Example total workload per year (or for two terms)
+        "Term Workload": [144, 144],
+        "Total Workload": [288, 288]
     })
     lecturer_template_df.to_csv(lecturer_template, index=False)
     st.download_button(
@@ -147,7 +152,7 @@ def main():
         file_name="lecturer_template.csv",
         mime="text/csv"
     )
-    
+
     # Student Template
     student_template = io.StringIO()
     student_template_df = pd.DataFrame({
