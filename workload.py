@@ -8,7 +8,7 @@ def main():
 
     # Weekly teaching hours input (Dynamic)
     weekly_hours = st.slider("Set Maximum Weekly Teaching Hours", min_value=6, max_value=20, value=12, step=1)
-    max_term_workload = weekly_hours * 12  # Adjusted max workload per term
+    max_term_workload = weekly_hours * 12  # Adjusted max workload per term (12 weeks assumed)
 
     # File uploader for lecturer and student data
     lecturer_file = st.file_uploader("Upload Lecturer Data (CSV)", type=["csv"])
@@ -47,8 +47,8 @@ def main():
             for _, lecturer in available_lecturers.iterrows():
                 lecturer_name = lecturer["Teacher's name"]
 
-                # Maximum hours this lecturer can take (based on Total Workload)
-                max_hours_available = lecturer["Total Workload"] - lecturer_hours[lecturer_name]
+                # Maximum hours this lecturer can take (based on Total Workload and weekly limit)
+                max_hours_available = min(lecturer["Total Workload"], max_term_workload) - lecturer_hours[lecturer_name]
 
                 if max_hours_available > 0:
                     # Calculate max sections this lecturer can handle
@@ -60,7 +60,7 @@ def main():
                         hours_assigned = sections_assigned * (hours_needed / sections_needed)
                         
                         # Prevent exceeding total workload
-                        if lecturer_hours[lecturer_name] + hours_assigned > lecturer["Total Workload"]:
+                        if lecturer_hours[lecturer_name] + hours_assigned > max_term_workload:
                             continue  # Skip if it exceeds the lecturer's total workload
 
                         lecturer_workload.append({
