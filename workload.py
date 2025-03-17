@@ -1,4 +1,4 @@
-import pandas as pd
+import pandas as pd 
 import streamlit as st
 import io
 
@@ -79,16 +79,26 @@ def main():
         
         # Convert results to DataFrames
         workload_df = pd.DataFrame(lecturer_workload)
-        unassigned_df = pd.DataFrame(unassigned_modules)
+
+        # Aggregate total hours and total sections per lecturer
         lecturer_summary = pd.DataFrame(list(lecturer_hours.items()), columns=["Lecturer", "Total Hours Assigned"])
-        
+
+        # Aggregate the total sections assigned to each lecturer
+        section_summary = pd.DataFrame(lecturer_workload)
+        section_summary = section_summary.groupby("Lecturer")["Sections Assigned"].sum().reset_index()
+        section_summary = section_summary.rename(columns={"Sections Assigned": "Total Sections Assigned"})
+
+        # Merge both summaries: total hours and total sections
+        lecturer_summary = pd.merge(lecturer_summary, section_summary, on="Lecturer", how="left")
+
         # Display outputs
         st.write("### Assigned Workload")
         st.dataframe(workload_df)
-        
+
         st.write("### Lecturer Workload Summary")
         st.dataframe(lecturer_summary)
-        
+
+        # If some sections are unassigned, add them to the unassigned list
         if not unassigned_df.empty:
             st.write("### Unassigned Modules")
             st.dataframe(unassigned_df)
@@ -98,7 +108,7 @@ def main():
                 file_name="unassigned_modules.csv",
                 mime="text/csv"
             )
-        
+
         # Provide CSV download buttons
         st.download_button(
             label="Download Workload CSV",
@@ -106,7 +116,7 @@ def main():
             file_name="lecturer_workload.csv",
             mime="text/csv"
         )
-        
+
         st.download_button(
             label="Download Lecturer Summary CSV",
             data=lecturer_summary.to_csv(index=False).encode("utf-8"),
