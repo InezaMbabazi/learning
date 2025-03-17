@@ -47,8 +47,8 @@ def main():
             for _, lecturer in available_lecturers.iterrows():
                 lecturer_name = lecturer["Teacher's name"]
 
-                # Maximum hours this lecturer can take
-                max_hours_available = max_term_workload - lecturer_hours[lecturer_name]
+                # Maximum hours this lecturer can take (based on Total Workload)
+                max_hours_available = lecturer["Total Workload"] - lecturer_hours[lecturer_name]
 
                 if max_hours_available > 0:
                     # Calculate max sections this lecturer can handle
@@ -59,9 +59,9 @@ def main():
                         # Assign the sections to the lecturer
                         hours_assigned = sections_assigned * (hours_needed / sections_needed)
                         
-                        # Prevent exceeding term workload
-                        if lecturer_hours[lecturer_name] + hours_assigned > max_term_workload:
-                            continue  # Skip if it exceeds max workload
+                        # Prevent exceeding total workload
+                        if lecturer_hours[lecturer_name] + hours_assigned > lecturer["Total Workload"]:
+                            continue  # Skip if it exceeds the lecturer's total workload
 
                         lecturer_workload.append({
                             "Lecturer": lecturer_name,
@@ -94,7 +94,7 @@ def main():
         lecturer_summary = pd.DataFrame(list(lecturer_hours.items()), columns=["Lecturer", "Total Hours Assigned"])
 
         # Merge with the lecturer database to get the "Total Workload" from the database
-        lecturer_summary = pd.merge(lecturer_summary, df_lecturers[["Teacher's name", "Total Workload"]], 
+        lecturer_summary = pd.merge(lecturer_summary, df_lecturers[["Teacher's name", "Total Workload"]],
                                     left_on="Lecturer", right_on="Teacher's name", how="left")
 
         # Calculate the difference between assigned hours and total workload
