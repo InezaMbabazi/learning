@@ -19,7 +19,7 @@ def main():
         df_students = pd.read_csv(student_file)
 
         # Define credit-hour mapping (credits: hours per week)
-        credit_hours_map = {20: 8, 15: 6, 10: 5}
+        credit_hours_map = {20: 8, 15: 6, 10: 4}
 
         # Calculate total hours needed per module per term
         df_students["Total Hours Needed"] = df_students["Credits"].map(credit_hours_map).fillna(0) * 12 * df_students["Sections"]
