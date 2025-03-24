@@ -147,6 +147,13 @@ if cohort_file and room_file:
     st.write("### Module Allocation Report")
     st.dataframe(allocation_df)
     
-    # Display Weekly Room Assignment Report
+    # Display Weekly Room Assignment Report with Room Details
     st.write("### Weekly Room Assignment Report")
-    st.dataframe(schedule_df)
+    
+    # Create separate columns for room-time assignments
+    room_assignments_split = schedule_df.copy()
+    room_assignments_split["Room Assignments"] = room_assignments_split["Room Assignments and Times"].apply(lambda x: x.split(","))
+    
+    # Display report with separate rooms for each assignment
+    room_assignments_split_expanded = room_assignments_split.explode("Room Assignments")
+    st.dataframe(room_assignments_split_expanded)
