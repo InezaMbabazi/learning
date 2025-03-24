@@ -81,6 +81,7 @@ if cohort_file and room_file:
             assigned_rooms = []
             assigned_times = []
             assigned_days = []
+            sections = []  # List to track the sections
             
             # Try to allocate rooms for each session
             for day in days:
@@ -98,6 +99,7 @@ if cohort_file and room_file:
                             assigned_rooms.append(available_room)
                             assigned_times.append(time)
                             assigned_days.append(day)
+                            sections.append(f"{module_code}_{sections_assigned + 1}")  # Assign section name
                             sections_assigned += 1
                             break  # Proceed to the next session for this module
             
@@ -107,9 +109,11 @@ if cohort_file and room_file:
                     "Cohort": cohort,
                     "Module Code": module_code,
                     "Module Name": module_name,
+                    "Section": sections[i],  # Include the section for each session
                     "Room Name": assigned_rooms[i],
                     "Assigned Day": assigned_days[i],
                     "Assigned Time": assigned_times[i],
+                    "Hours": "2",  # Fixed 2 hours per session
                 })
         
         return pd.DataFrame(allocations)
