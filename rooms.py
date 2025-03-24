@@ -110,22 +110,25 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
                 room_row['Area (m²)']
             )
             
-            # Aggregate data per module (module name)
-            if cohort_row['Module Name'] not in module_results:
-                module_results[cohort_row['Module Name']] = {
+            # Aggregate data per module and cohort (cohort name, module name)
+            cohort_module_key = (cohort_row['Cohort Name'], cohort_row['Module Name'])
+            
+            if cohort_module_key not in module_results:
+                module_results[cohort_module_key] = {
                     'Total Sections Assigned': 0,
                     'Total Square Meters Used': 0,
                     'Total Hours Needed': 0
                 }
             
-            module_results[cohort_row['Module Name']]['Total Sections Assigned'] += rooms_needed
-            module_results[cohort_row['Module Name']]['Total Square Meters Used'] += rooms_needed * room_row['Area (m²)']
-            module_results[cohort_row['Module Name']]['Total Hours Needed'] += total_hours_needed
+            module_results[cohort_module_key]['Total Sections Assigned'] += rooms_needed
+            module_results[cohort_module_key]['Total Square Meters Used'] += rooms_needed * room_row['Area (m²)']
+            module_results[cohort_module_key]['Total Hours Needed'] += total_hours_needed
 
     # Create a DataFrame from the results and display it
     results_list = []
-    for module_name, data in module_results.items():
+    for (cohort_name, module_name), data in module_results.items():
         results_list.append({
+            'Cohort Name': cohort_name,
             'Module Name': module_name,
             'Total Sections Assigned': data['Total Sections Assigned'],
             'Total Square Meters Used': data['Total Square Meters Used'],
