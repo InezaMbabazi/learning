@@ -110,7 +110,7 @@ if cohort_file and room_file:
                     assigned_times.append(assigned_time)
                     assigned_days.append(assigned_day)
                 else:
-                    # Skip if the room is already booked for that time
+                    # If the room is already booked at this time, skip this assignment
                     continue
                 
                 time_slot_index += 1  # Switch to next time slot for the next section
