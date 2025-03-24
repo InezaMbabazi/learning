@@ -58,12 +58,14 @@ if cohort_file and room_file:
     days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]  # Use all weekdays
 
     # Track room-time assignments to avoid conflicts
-    room_time_assignments = {}
+    room_time_assignments = {f"{room['Room Name']}": [] for _, room in room_df.iterrows()}
 
     # Compute Sections, Hours, Square Meters, and Assign Time Slots with Days
     def calculate_allocation(df, rooms):
         results = []
         weekly_schedule = []
+        shortage_report = []
+        
         for _, row in df.iterrows():
             cohort = row["Cohort"]
             students = row["Total Students"]
@@ -83,34 +85,39 @@ if cohort_file and room_file:
             students_per_section = []
             assigned_times = []
             assigned_days = []  # Track the days for each section
-            room_time_assignments = []  # Track the room-time assignments for this module
+            room_time_assignments_for_module = []  # Track the room-time assignments for this module
             
-            # Limit the room assignment to 2 sections per module, 1 room per section, and only 2 time slots per week
+            # Track room usage per time slot to avoid double booking
+            room_usage_count = {f"{room['Room Name']}": {time: 0 for time in time_slots} for _, room in rooms.iterrows()}
+            
+            # Limit the room assignment to 2 sections per module
             time_slot_index = 0  # To switch between time slots for 2 sessions per week
             day_index = 0  # To switch between days (Monday, Tuesday, etc.)
             
             for _, room in sorted_rooms.iterrows():
                 if total_space_needed <= 0 or sections >= 2:  # Only allocate 2 sections per week
                     break
-                sections += 1
-                assigned_rooms.append(room["Room Name"])
-                allocated_students = min(students, room["Square Meters"] // 1.5)
-                students_per_section.append(int(allocated_students))
-                students -= allocated_students
-                total_space_needed -= room["Square Meters"]
-                
-                # Assign time slots and days for each section, ensuring no double-booking
-                assigned_time = time_slots[time_slot_index % len(time_slots)]  # Alternate between available slots
-                assigned_day = days[day_index % len(days)]  # Alternate between days
-                
-                # Check if the room is already booked at the assigned time slot
-                room_key = f"{room['Room Name']}_{assigned_day}_{assigned_time}"
-                if room_key not in room_time_assignments:
-                    room_time_assignments.append(room_key)
+                # If room has space and is available for this time slot, assign it
+                if room_usage_count[room["Room Name"]][time_slots[time_slot_index]] < 2:  # No more than 2 uses per room in same time
+                    sections += 1
+                    assigned_rooms.append(room["Room Name"])
+                    allocated_students = min(students, room["Square Meters"] // 1.5)
+                    students_per_section.append(int(allocated_students))
+                    students -= allocated_students
+                    total_space_needed -= room["Square Meters"]
+                    
+                    # Assign time slots and days for each section
+                    assigned_time = time_slots[time_slot_index % len(time_slots)]
+                    assigned_day = days[day_index % len(days)]
+                    
+                    # Track room-time usage
+                    room_usage_count[room["Room Name"]][assigned_time] += 1
+                    room_time_assignments_for_module.append(f"{room['Room Name']} at {assigned_day} {assigned_time}")
+                    
                     assigned_times.append(assigned_time)
                     assigned_days.append(assigned_day)
                 else:
-                    # If the room is already booked at this time, skip this assignment
+                    # If the room is already booked at this time, try the next available time slot
                     continue
                 
                 time_slot_index += 1  # Switch to next time slot for the next section
@@ -133,15 +140,25 @@ if cohort_file and room_file:
                 "Cohort": cohort,
                 "Module Code": module_code,
                 "Module Name": module_name,
-                "Room Assignments and Times": ", ".join(room_time_assignments),
+                "Room Assignments and Times": ", ".join(room_time_assignments_for_module),
                 "Assigned Days": ", ".join(assigned_days),
                 "Week 1": ", ".join(map(str, students_per_section[:sections])),
                 "Week 2": ", ".join(map(str, students_per_section[sections:])),
                 # Repeat for remaining weeks if needed
             })
-        return pd.DataFrame(results), pd.DataFrame(weekly_schedule)
+            
+            # Track shortages if the available rooms couldn't accommodate all students
+            if total_space_needed > 0:
+                shortage_report.append({
+                    "Cohort": cohort,
+                    "Module Code": module_code,
+                    "Module Name": module_name,
+                    "Shortage (Students)": total_space_needed // 1.5  # Remaining students who couldn't be assigned rooms
+                })
+        
+        return pd.DataFrame(results), pd.DataFrame(weekly_schedule), pd.DataFrame(shortage_report)
     
-    allocation_df, schedule_df = calculate_allocation(cohort_df, room_df)
+    allocation_df, schedule_df, shortage_df = calculate_allocation(cohort_df, room_df)
     
     # Display Module Allocation Report
     st.write("### Module Allocation Report")
@@ -149,11 +166,12 @@ if cohort_file and room_file:
     
     # Display Weekly Room Assignment Report with Room Details
     st.write("### Weekly Room Assignment Report")
-    
-    # Create separate columns for room-time assignments
-    room_assignments_split = schedule_df.copy()
-    room_assignments_split["Room Assignments"] = room_assignments_split["Room Assignments and Times"].apply(lambda x: x.split(","))
-    
-    # Display report with separate rooms for each assignment
-    room_assignments_split_expanded = room_assignments_split.explode("Room Assignments")
+    room_assignments_split_expanded = schedule_df.explode("Room Assignments and Times")
     st.dataframe(room_assignments_split_expanded)
+    
+    # Display Shortage Report
+    st.write("### Room Shortage Report")
+    if len(shortage_df) > 0:
+        st.dataframe(shortage_df)
+    else:
+        st.write("No shortage detected!")
