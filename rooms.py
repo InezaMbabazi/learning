@@ -58,7 +58,7 @@ if cohort_file and room_file:
     days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]  # Use all weekdays
 
     # Track room-time assignments to avoid conflicts
-    room_time_assignments = {f"{room['Room Name']}": [] for _, room in room_df.iterrows()}
+    room_time_assignments = {f"{room['Room Name']}": {time: 0 for time in time_slots} for _, room in room_df.iterrows()}
 
     # Compute Sections, Hours, Square Meters, and Assign Time Slots with Days
     def calculate_allocation(df, rooms):
@@ -98,7 +98,7 @@ if cohort_file and room_file:
                 if total_space_needed <= 0 or sections >= 2:  # Only allocate 2 sections per week
                     break
                 # If room has space and is available for this time slot, assign it
-                if room_usage_count[room["Room Name"]][time_slots[time_slot_index]] < 2:  # No more than 2 uses per room in same time
+                if room_usage_count[room["Room Name"]][time_slots[time_slot_index]] < 1:  # No more than 1 use per room in same time
                     sections += 1
                     assigned_rooms.append(room["Room Name"])
                     allocated_students = min(students, room["Square Meters"] // 1.5)
