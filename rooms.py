@@ -46,9 +46,19 @@ def calculate_room_needs(number_of_students, credits, room_area):
     rooms_needed = math.ceil(number_of_students / students_per_room)
     
     # Calculate total room usage per week (assuming modules are taught twice a week)
-    total_sessions_needed = rooms_needed * 2  # Twice a week
+    # Credits determine the total hours required
+    if credits == 10:
+        hours_per_week = 5  # 10 credits module = 5 hours per week
+    elif credits == 15:
+        hours_per_week = 6  # 15 credits module = 6 hours per week
+    elif credits == 20:
+        hours_per_week = 8  # 20 credits module = 8 hours per week
     
-    return rooms_needed, total_sessions_needed
+    # Each module has 2 sessions per week, so total hours per week for that module
+    total_sessions_needed = 2
+    total_hours_needed = hours_per_week * total_sessions_needed
+    
+    return rooms_needed, total_sessions_needed, total_hours_needed, students_per_room
 
 # Streamlit app
 st.title("Workload Calculation for Room Occupancy")
@@ -94,7 +104,7 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
     for index, cohort_row in df_cohorts.iterrows():
         # Loop through each room to calculate the number of rooms needed
         for _, room_row in df_rooms.iterrows():
-            rooms_needed, total_sessions_needed = calculate_room_needs(
+            rooms_needed, total_sessions_needed, total_hours_needed, students_per_room = calculate_room_needs(
                 cohort_row['Number of Students'], 
                 cohort_row['Credits'], 
                 room_row['Area (m²)']
@@ -104,7 +114,7 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
             total_room_hours_per_week = 8 * 5  # 8 hours per day, 5 days per week
             
             # If the number of sessions exceeds the available room hours, flag a shortage
-            if total_sessions_needed > total_room_hours_per_week:
+            if total_hours_needed > total_room_hours_per_week:
                 shortage_flag = 'Yes'
             else:
                 shortage_flag = 'No'
@@ -116,7 +126,9 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
                 'Room Name': room_row['Room Name'],
                 'Room Area (m²)': room_row['Area (m²)'],
                 'Rooms Needed': rooms_needed,
-                'Total Sessions Needed (per week)': total_sessions_needed,
+                'Total Hours Needed (per week)': total_hours_needed,
+                'Sessions Needed (per week)': total_sessions_needed,
+                'Square Meters Per Student': students_per_room * 1.5,
                 'Shortage': shortage_flag
             })
     
