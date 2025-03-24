@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import io
+import os
 
 # Constants
 sq_m_per_student = 1.5
@@ -43,6 +43,11 @@ def assign_rooms(cohorts, rooms):
         assignments.append(assigned_rooms)
 
     return assignments
+
+# Function to ensure the directory exists
+def ensure_directory_exists(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
 # Streamlit app
 st.title("Room Assignment for Modules")
@@ -88,10 +93,14 @@ def create_template():
 if st.button("Download Data Templates"):
     room_template, cohort_template = create_template()
 
-    # Save templates to CSV
-    room_template_path = "/mnt/data/room_template.csv"
-    cohort_template_path = "/mnt/data/cohort_template.csv"
+    # Define the save directory and file paths
+    save_directory = '/mnt/data'  # This is the correct directory for Streamlit sandbox
+    ensure_directory_exists(save_directory)  # Ensure the directory exists
     
+    room_template_path = os.path.join(save_directory, 'room_template.csv')
+    cohort_template_path = os.path.join(save_directory, 'cohort_template.csv')
+    
+    # Save templates to CSV
     room_template.to_csv(room_template_path, index=False)
     cohort_template.to_csv(cohort_template_path, index=False)
 
