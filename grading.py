@@ -14,26 +14,43 @@ openai.api_key = st.secrets["openai"]["api_key"]
 
 st.set_page_config(page_title="Kepler College Grading System", page_icon="📚", layout="wide")
 
+# Function to fetch submissions from Canvas
 def get_submissions(course_id, assignment_id):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     response = requests.get(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions", headers=headers)
-    return response.json() if response.status_code == 200 else []
+    
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error(f"Failed to retrieve submissions. Status Code: {response.status_code}")
+        return []
 
+# Function to download submission file
 def download_submission_file(file_url):
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     response = requests.get(file_url, headers=headers)
+    
     return response.content if response.status_code == 200 else None
 
+# Function to submit feedback and grade in Canvas
 def submit_feedback(course_id, assignment_id, user_id, feedback, grade):
     headers = {"Authorization": f"Bearer {API_TOKEN}", "Content-Type": "application/json"}
     payload = {
         "comment": {"text_comment": feedback},
-        "submission": {"posted_grade": grade}
+        "submission": {"posted_grade": grade}  # Ensure grade remains numeric (0 or 1)
     }
+
     url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}"
     response = requests.put(url, headers=headers, json=payload)
+    
+    # Debugging: Show API response
+    st.write(f"**Debugging Info:** Submitting feedback for User ID {user_id}")
+    st.write(f"Status Code: {response.status_code}")
+    st.write(f"Response: {response.text}")
+
     return response.status_code in [200, 201]
 
+# Function to generate AI-based feedback
 def generate_feedback(submission_text, proposed_answer):
     """
     Generate feedback based on the similarity of the submission to the proposed answer.
@@ -42,10 +59,10 @@ def generate_feedback(submission_text, proposed_answer):
         return "No proposed answer provided. Unable to give feedback.", 0
 
     comparison_prompt = (
-        f"Compare the following user submission to the proposed answer and provide constructive feedback.\n\n"
-        f"**Proposed Answer**:\n{proposed_answer}\n\n"
-        f"**User Submission**:\n{submission_text}\n\n"
-        f"Provide actionable feedback."
+        f"Compare the following user submission to the proposed answer. If there are similarities, "
+        f"highlight areas to improve and correct. If there are no similarities, provide feedback asking the student "
+        f"to revise their response completely.\n\n**Proposed Answer**:\n{proposed_answer}\n\n"
+        f"**User Submission**:\n{submission_text}\n\nProvide clear, actionable feedback."
     )
 
     try:
@@ -55,24 +72,25 @@ def generate_feedback(submission_text, proposed_answer):
         )
         feedback_message = feedback_response['choices'][0]['message']['content']
         grade = 1 if "improve" in feedback_message.lower() or "correct" in feedback_message.lower() else 0
-    except Exception:
-        feedback_message = "An error occurred while generating feedback."
+    except Exception as e:
+        feedback_message = "An error occurred while generating feedback. Please try again."
         grade = 0
 
     return feedback_message, grade
 
 # Streamlit UI
-st.title("Kepler College Grading System")
+st.title("📚 Kepler College Grading System")
 
+# Input Fields for Course & Assignment
 course_id = st.number_input("Enter Course ID:", min_value=1, step=1)
 assignment_id = st.number_input("Enter Assignment ID:", min_value=1, step=1)
 proposed_answer = st.text_area("Enter the proposed answer for evaluation:")
 
-if st.button("Download and Grade Submissions"):
+# Button to Download and Grade Submissions
+if st.button("📥 Download and Grade Submissions"):
     submissions = get_submissions(course_id, assignment_id)
-    feedback_data = {}
-
     if submissions:
+        all_feedback = []
         for submission in submissions:
             user_id = submission['user_id']
             user_name = submission.get('user', {}).get('name', f"User {user_id}")
@@ -87,32 +105,30 @@ if st.button("Download and Grade Submissions"):
 
             if submission_text:
                 st.subheader(f"Submission by {user_name} (User ID: {user_id})")
-                st.text_area("User Submission:", submission_text, height=200, disabled=True)
+                st.text_area("User Submission:", submission_text, height=200)
 
                 feedback, grade = generate_feedback(submission_text, proposed_answer)
-                default_grade = "Pass" if grade == 1 else "Revise and Resubmit"
+                st.text_area(f"Generated Feedback for {user_name}:", feedback, height=200)
+                st.write(f"Suggested Grade: {'✅ Pass' if grade == 1 else '❌ Revise and Resubmit'}")
+                
+                # Editable Feedback & Grade
+                editable_feedback = st.text_area(f"Edit Feedback for {user_name}:", feedback, key=f"feedback_{user_id}")
+                editable_grade = st.radio(
+                    f"Select Grade for {user_name}:", 
+                    [("✅ Pass", 1), ("❌ Revise and Resubmit", 0)], 
+                    index=grade, key=f"grade_{user_id}", 
+                    format_func=lambda x: x[0]
+                )
 
-                # Store default values in session state
-                if f"feedback_{user_id}" not in st.session_state:
-                    st.session_state[f"feedback_{user_id}"] = feedback
-                if f"grade_{user_id}" not in st.session_state:
-                    st.session_state[f"grade_{user_id}"] = default_grade
+                # Store feedback for bulk submission
+                all_feedback.append((user_id, editable_feedback, editable_grade[1]))
 
-                # Editable feedback & grade selection
-                feedback_data[user_id] = {
-                    "name": user_name,
-                    "feedback": st.text_area(f"Edit Feedback for {user_name}:", value=st.session_state[f"feedback_{user_id}"], key=f"feedback_{user_id}"),
-                    "grade": st.selectbox(f"Edit Grade for {user_name}:", ["Pass", "Revise and Resubmit"], index=1 if default_grade == "Revise and Resubmit" else 0, key=f"grade_{user_id}")
-                }
+        # Submit all feedback with a single button
+        if st.button("🚀 Submit All Feedback"):
+            for user_id, feedback, grade in all_feedback:
+                success = submit_feedback(course_id, assignment_id, user_id, feedback, grade)
+                if success:
+                    st.success(f"✅ Feedback submitted for {user_id}")
+                else:
+                    st.error(f"❌ Failed to submit feedback for {user_id}")
 
-    # Single submit button for all feedback
-    if feedback_data and st.button("Submit All Feedback"):
-        all_success = True
-        for user_id, data in feedback_data.items():
-            success = submit_feedback(course_id, assignment_id, user_id, data["feedback"], "1" if data["grade"] == "Pass" else "0")
-            if not success:
-                all_success = False
-                st.error(f"Failed to submit feedback for {data['name']}.")
-
-        if all_success:
-            st.success("All feedback submitted successfully!")
