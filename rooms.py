@@ -12,7 +12,6 @@ def create_cohort_template():
         'Module Name': ['Introduction to Programming', 'Business Strategy', 'Data Science Basics'],
         'Credits': [10, 15, 20],
         'Term Offered': ['Spring 2025', 'Fall 2025', 'Spring 2025'],
-        'Sessions Per Week': [2, 2, 2]  # Modules are taught twice a week
     }
     df = pd.DataFrame(data)
     
@@ -27,7 +26,6 @@ def create_cohort_template():
 def create_room_template():
     data = {
         'Room Name': ['Room 101', 'Room 102', 'Room 103'],
-        'Capacity': [0, 0, 0],  # Will be calculated
         'Area (m²)': [100, 150, 200]  # Area in square meters
     }
     df = pd.DataFrame(data)
@@ -39,30 +37,18 @@ def create_room_template():
     
     return csv_buffer.getvalue()
 
-# Function to calculate total hours and rooms needed based on room area and number of students
-def calculate_room_needs(number_of_students, credits, room_area, sessions_per_week):
-    # Calculate total hours per student for the module
-    if credits == 10:
-        hours_per_week = 5
-    elif credits == 15:
-        hours_per_week = 6
-    elif credits == 20:
-        hours_per_week = 8
-    else:
-        hours_per_week = 0  # Invalid credits, no calculation
+# Function to calculate the rooms and sessions required for a cohort based on room capacity
+def calculate_room_needs(number_of_students, credits, room_area):
+    # Calculate capacity per room based on square meters (1.5 m² per student)
+    students_per_room = room_area // 1.5
     
-    total_hours = hours_per_week * 12  # 12 weeks in a trimester
-
-    # Calculate the capacity of the room based on the square meters
-    students_per_room = room_area // 1.5  # 1.5 m² per student
-
-    # Calculate number of rooms needed per session
-    rooms_needed_per_session = math.ceil(number_of_students / students_per_room)  # Ceiling division
-
-    # Calculate total room usage per week
-    total_room_usage = rooms_needed_per_session * sessions_per_week  # Twice per week
-
-    return total_hours, rooms_needed_per_session, total_room_usage, students_per_room
+    # Calculate how many rooms are needed for the cohort
+    rooms_needed = math.ceil(number_of_students / students_per_room)
+    
+    # Calculate total room usage per week (assuming modules are taught twice a week)
+    total_sessions_needed = rooms_needed * 2  # Twice a week
+    
+    return rooms_needed, total_sessions_needed
 
 # Streamlit app
 st.title("Workload Calculation for Room Occupancy")
@@ -106,26 +92,19 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
     # Loop through each row in the cohort table to calculate room needs for each module
     results = []
     for index, cohort_row in df_cohorts.iterrows():
-        # Find the corresponding room based on room area
+        # Loop through each room to calculate the number of rooms needed
         for _, room_row in df_rooms.iterrows():
-            # Calculate number of rooms needed for this cohort
-            total_hours, rooms_needed, total_room_usage, students_per_room = calculate_room_needs(
+            rooms_needed, total_sessions_needed = calculate_room_needs(
                 cohort_row['Number of Students'], 
                 cohort_row['Credits'], 
-                room_row['Area (m²)'], 
-                cohort_row['Sessions Per Week']
+                room_row['Area (m²)']
             )
-
-            # Determine if a room is enough, or if multiple rooms are needed
-            rooms_needed = math.ceil(cohort_row['Number of Students'] / students_per_room)  # Divide students among rooms
-            room_usage_per_day = 8  # Available room hours per day (8 hours)
-
-            # Assign sessions to rooms within the available hours
-            available_slots_per_day = room_usage_per_day
-            total_sessions_needed = rooms_needed * cohort_row['Sessions Per Week']
             
-            # Assign rooms based on availability
-            if total_sessions_needed > available_slots_per_day:
+            # Each room is available for 8 hours a day, 5 days a week (excluding lunch)
+            total_room_hours_per_week = 8 * 5  # 8 hours per day, 5 days per week
+            
+            # If the number of sessions exceeds the available room hours, flag a shortage
+            if total_sessions_needed > total_room_hours_per_week:
                 shortage_flag = 'Yes'
             else:
                 shortage_flag = 'No'
@@ -136,9 +115,8 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
                 'Term Offered': cohort_row['Term Offered'],
                 'Room Name': room_row['Room Name'],
                 'Room Area (m²)': room_row['Area (m²)'],
-                'Total Hours (12 weeks)': total_hours,
-                'Rooms Needed Per Session': rooms_needed,
-                'Total Room Usage (per week)': total_room_usage,
+                'Rooms Needed': rooms_needed,
+                'Total Sessions Needed (per week)': total_sessions_needed,
                 'Shortage': shortage_flag
             })
     
@@ -147,7 +125,7 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
     st.write(result_df)
 
     # Optional: Create a bar chart to visualize the room occupancy
-    st.bar_chart(result_df['Rooms Needed Per Session'])
+    st.bar_chart(result_df['Rooms Needed'])
 
 # Add instructions on the sidebar for the user
 st.sidebar.header('Instructions')
@@ -155,6 +133,5 @@ st.sidebar.write("""
 1. Download the **Cohort Template** and **Room Template**.
 2. Fill in the required data in each template and save them as CSV files.
 3. Upload the CSV files with your data.
-4. The app will calculate the total hours required for each module and the number of rooms needed.
-5. The app will also flag any room shortages based on the capacity.
+4. The app will calculate the rooms needed for each cohort and flag any room shortages.
 """)
