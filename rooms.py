@@ -46,7 +46,6 @@ def calculate_room_needs(number_of_students, credits, room_area):
     rooms_needed = math.ceil(number_of_students / students_per_room)
     
     # Calculate total room usage per week (assuming modules are taught twice a week)
-    # Credits determine the total hours required
     if credits == 10:
         hours_per_week = 5  # 10 credits module = 5 hours per week
     elif credits == 15:
@@ -54,14 +53,14 @@ def calculate_room_needs(number_of_students, credits, room_area):
     elif credits == 20:
         hours_per_week = 8  # 20 credits module = 8 hours per week
     
-    # Each module has 2 sessions per week, so total hours per week for that module
+    # Each module has 2 sessions per week
     total_sessions_needed = 2
     total_hours_needed = hours_per_week * total_sessions_needed
     
     return rooms_needed, total_sessions_needed, total_hours_needed, students_per_room
 
 # Streamlit app
-st.title("Workload Calculation for Room Occupancy")
+st.title("Room Assignment Report for Modules and Cohorts")
 st.subheader("Step 1: Download the Templates")
 
 # Provide download links for the templates
@@ -97,7 +96,7 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
     st.subheader("Rooms Table:")
     st.write(df_rooms)
 
-    st.subheader("Workload Calculation Results:")
+    st.subheader("Room Assignment Report:")
 
     # Loop through each row in the cohort table to calculate room needs for each module
     results = []
