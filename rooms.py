@@ -53,8 +53,9 @@ if cohort_file and room_file:
     
     # Time Slots (assuming 2 time slots per day: Morning and Afternoon)
     time_slots = ["08:00 AM - 10:00 AM", "10:30 AM - 12:30 PM", "01:30 PM - 03:30 PM", "04:00 PM - 06:00 PM"]
+    days = ["Monday", "Wednesday", "Friday", "Tuesday", "Thursday"]  # Assume classes are spread across 2 days per week
 
-    # Compute Sections, Hours, Square Meters, and Assign Time Slots
+    # Compute Sections, Hours, Square Meters, and Assign Time Slots with Days
     def calculate_allocation(df, rooms):
         results = []
         weekly_schedule = []
@@ -76,10 +77,12 @@ if cohort_file and room_file:
             assigned_rooms = []
             students_per_section = []
             assigned_times = []
+            assigned_days = []  # Track the days for each section
             room_time_assignments = []
             
             # Limit the room assignment to 2 sections per module, 1 room per section, and only 2 time slots per week
             time_slot_index = 0  # To switch between time slots for 2 sessions per week
+            day_index = 0  # To switch between days (Monday, Wednesday, etc.)
             
             for _, room in sorted_rooms.iterrows():
                 if total_space_needed <= 0 or sections >= 2:  # Only allocate 2 sections per week
@@ -91,11 +94,16 @@ if cohort_file and room_file:
                 students -= allocated_students
                 total_space_needed -= room["Square Meters"]
                 
-                # Assign time slots for each section (2 time slots per week)
+                # Assign time slots and days for each section
                 assigned_time = time_slots[time_slot_index % len(time_slots)]  # Alternate between available slots
+                assigned_day = days[day_index % len(days)]  # Alternate between days
+                
                 assigned_times.append(assigned_time)
-                room_time_assignments.append(f"{room['Room Name']} at {assigned_time}")
+                assigned_days.append(assigned_day)
+                room_time_assignments.append(f"{room['Room Name']} on {assigned_day} at {assigned_time}")
+                
                 time_slot_index += 1  # Switch to next time slot for the next section
+                day_index += 1  # Switch to next day for the next section
             
             results.append({
                 "Cohort": cohort,
@@ -105,7 +113,8 @@ if cohort_file and room_file:
                 "Total Hours": total_hours,
                 "Total Square Meters": students * 1.5,
                 "Assigned Rooms and Times": ", ".join(room_time_assignments),
-                "Students per Section": ", ".join(map(str, students_per_section))
+                "Students per Section": ", ".join(map(str, students_per_section)),
+                "Assigned Days": ", ".join(assigned_days)
             })
             
             # Weekly Schedule per Module (not going into weekly breakdown for simplicity)
@@ -114,6 +123,7 @@ if cohort_file and room_file:
                 "Module Code": module_code,
                 "Module Name": module_name,
                 "Room Assignments and Times": ", ".join(room_time_assignments),
+                "Assigned Days": ", ".join(assigned_days),
                 "Week 1": ", ".join(map(str, students_per_section[:sections])),
                 "Week 2": ", ".join(map(str, students_per_section[sections:])),
                 # Repeat for remaining weeks if needed
