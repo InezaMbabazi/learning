@@ -7,7 +7,7 @@ import math
 def create_cohort_template():
     data = {
         'Cohort Name': ['Computer Science', 'Business Admin', 'Data Science'],
-        'Number of Students': [200, 120, 60],
+        'Number of Students': [200, 150, 100],
         'Module Code': ['CS101', 'BUS202', 'DS301'],
         'Module Name': ['Introduction to Programming', 'Business Strategy', 'Data Science Basics'],
         'Credits': [10, 15, 20],
@@ -62,7 +62,7 @@ def calculate_room_needs(number_of_students, credits, room_area, sessions_per_we
     # Calculate total room usage per week
     total_room_usage = rooms_needed_per_session * sessions_per_week  # Twice per week
 
-    return total_hours, rooms_needed_per_session, total_room_usage
+    return total_hours, rooms_needed_per_session, total_room_usage, students_per_room
 
 # Streamlit app
 st.title("Workload Calculation for Room Occupancy")
@@ -106,44 +106,48 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
     # Loop through each row in the cohort table to calculate room needs for each module
     results = []
     for index, cohort_row in df_cohorts.iterrows():
-        # Loop through each room to check how many are needed
-        remaining_students = cohort_row['Number of Students']
-        room_assignments = []
-        
+        # Find the corresponding room based on room area
         for _, room_row in df_rooms.iterrows():
-            # Calculate number of rooms needed for this cohort in this room
-            total_hours, rooms_needed, total_room_usage = calculate_room_needs(
-                remaining_students, 
+            # Calculate number of rooms needed for this cohort
+            total_hours, rooms_needed, total_room_usage, students_per_room = calculate_room_needs(
+                cohort_row['Number of Students'], 
                 cohort_row['Credits'], 
                 room_row['Area (m²)'], 
                 cohort_row['Sessions Per Week']
             )
-            
-            # Check how many students will be assigned to this room
-            if rooms_needed <= remaining_students // room_row['Capacity']:
-                room_assignments.append(f"{rooms_needed} rooms in {room_row['Room Name']}")
-                remaining_students -= rooms_needed * room_row['Capacity']
-            else:
-                # Assign the remaining students to this room
-                room_assignments.append(f"{remaining_students} students in {room_row['Room Name']}")
-                remaining_students = 0
-                break
 
-        shortage_flag = 'Yes' if remaining_students > 0 else 'No'
-        results.append({
-            'Cohort/Program': cohort_row['Cohort Name'],
-            'Module Name': cohort_row['Module Name'],
-            'Term Offered': cohort_row['Term Offered'],
-            'Room Assignments': ', '.join(room_assignments),
-            'Shortage': shortage_flag
-        })
+            # Determine if a room is enough, or if multiple rooms are needed
+            rooms_needed = math.ceil(cohort_row['Number of Students'] / students_per_room)  # Divide students among rooms
+            room_usage_per_day = 8  # Available room hours per day (8 hours)
+
+            # Assign sessions to rooms within the available hours
+            available_slots_per_day = room_usage_per_day
+            total_sessions_needed = rooms_needed * cohort_row['Sessions Per Week']
+            
+            # Assign rooms based on availability
+            if total_sessions_needed > available_slots_per_day:
+                shortage_flag = 'Yes'
+            else:
+                shortage_flag = 'No'
+            
+            results.append({
+                'Cohort/Program': cohort_row['Cohort Name'],
+                'Module Name': cohort_row['Module Name'],
+                'Term Offered': cohort_row['Term Offered'],
+                'Room Name': room_row['Room Name'],
+                'Room Area (m²)': room_row['Area (m²)'],
+                'Total Hours (12 weeks)': total_hours,
+                'Rooms Needed Per Session': rooms_needed,
+                'Total Room Usage (per week)': total_room_usage,
+                'Shortage': shortage_flag
+            })
     
     # Create a DataFrame from the results and display it
     result_df = pd.DataFrame(results)
     st.write(result_df)
 
     # Optional: Create a bar chart to visualize the room occupancy
-    st.bar_chart(result_df['Shortage'])
+    st.bar_chart(result_df['Rooms Needed Per Session'])
 
 # Add instructions on the sidebar for the user
 st.sidebar.header('Instructions')
