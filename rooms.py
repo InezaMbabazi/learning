@@ -60,7 +60,7 @@ def calculate_room_needs(number_of_students, credits, room_area):
     return rooms_needed, total_sessions_needed, total_hours_needed, students_per_room
 
 # Streamlit app
-st.title("Room Assignment Report for Modules and Cohorts")
+st.title("Module Room Allocation Report")
 st.subheader("Step 1: Download the Templates")
 
 # Provide download links for the templates
@@ -96,10 +96,11 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
     st.subheader("Rooms Table:")
     st.write(df_rooms)
 
-    st.subheader("Room Assignment Report:")
+    st.subheader("Module Allocation Report:")
 
     # Loop through each row in the cohort table to calculate room needs for each module
-    results = []
+    module_results = {}
+    
     for index, cohort_row in df_cohorts.iterrows():
         # Loop through each room to calculate the number of rooms needed
         for _, room_row in df_rooms.iterrows():
@@ -109,34 +110,33 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
                 room_row['Area (m²)']
             )
             
-            # Each room is available for 8 hours a day, 5 days a week (excluding lunch)
-            total_room_hours_per_week = 8 * 5  # 8 hours per day, 5 days per week
+            # Aggregate data per module (module name)
+            if cohort_row['Module Name'] not in module_results:
+                module_results[cohort_row['Module Name']] = {
+                    'Total Sections Assigned': 0,
+                    'Total Square Meters Used': 0,
+                    'Total Hours Needed': 0
+                }
             
-            # If the number of sessions exceeds the available room hours, flag a shortage
-            if total_hours_needed > total_room_hours_per_week:
-                shortage_flag = 'Yes'
-            else:
-                shortage_flag = 'No'
-            
-            results.append({
-                'Cohort/Program': cohort_row['Cohort Name'],
-                'Module Name': cohort_row['Module Name'],
-                'Term Offered': cohort_row['Term Offered'],
-                'Room Name': room_row['Room Name'],
-                'Room Area (m²)': room_row['Area (m²)'],
-                'Rooms Needed': rooms_needed,
-                'Total Hours Needed (per week)': total_hours_needed,
-                'Sessions Needed (per week)': total_sessions_needed,
-                'Square Meters Per Student': students_per_room * 1.5,
-                'Shortage': shortage_flag
-            })
-    
+            module_results[cohort_row['Module Name']]['Total Sections Assigned'] += rooms_needed
+            module_results[cohort_row['Module Name']]['Total Square Meters Used'] += rooms_needed * room_row['Area (m²)']
+            module_results[cohort_row['Module Name']]['Total Hours Needed'] += total_hours_needed
+
     # Create a DataFrame from the results and display it
-    result_df = pd.DataFrame(results)
+    results_list = []
+    for module_name, data in module_results.items():
+        results_list.append({
+            'Module Name': module_name,
+            'Total Sections Assigned': data['Total Sections Assigned'],
+            'Total Square Meters Used': data['Total Square Meters Used'],
+            'Total Hours Needed': data['Total Hours Needed']
+        })
+    
+    result_df = pd.DataFrame(results_list)
     st.write(result_df)
 
-    # Optional: Create a bar chart to visualize the room occupancy
-    st.bar_chart(result_df['Rooms Needed'])
+    # Optional: Create a bar chart to visualize the total sections assigned
+    st.bar_chart(result_df['Total Sections Assigned'])
 
 # Add instructions on the sidebar for the user
 st.sidebar.header('Instructions')
@@ -144,5 +144,5 @@ st.sidebar.write("""
 1. Download the **Cohort Template** and **Room Template**.
 2. Fill in the required data in each template and save them as CSV files.
 3. Upload the CSV files with your data.
-4. The app will calculate the rooms needed for each cohort and flag any room shortages.
+4. The app will calculate the total sections assigned, square meters used, and total hours needed for each module.
 """)
