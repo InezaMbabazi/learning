@@ -10,15 +10,12 @@ def calculate_required_space(students, credits):
 
 # Room assignment function
 def assign_rooms(cohorts, rooms):
-    assignments = []
-
-    # Check the column names
-    st.write("Cohorts Columns:", cohorts.columns)  # Print column names to debug
+    assignments = []  # List to store assignments
 
     for idx, cohort in cohorts.iterrows():
         if 'total_students' not in cohort:
             st.error("Column 'total_students' is missing in the cohort data.")
-            return []
+            return pd.DataFrame()  # Return empty DataFrame on error
 
         module_students = cohort['total_students']
         module_credits = cohort['credits']
@@ -41,14 +38,22 @@ def assign_rooms(cohorts, rooms):
                 assigned_rooms.append({'room_name': room['room_name'], 'students_assigned': room_capacity})
                 remaining_students -= room_capacity
         
-        # If not all students are assigned, find another room
+        # If not all students are assigned, find another room (optional logic)
         if remaining_students > 0:
-            # Handle assigning to additional rooms if necessary
+            # Handle additional room assignment if needed
             pass
+        
+        # Append the assignment to the list
+        for assigned_room in assigned_rooms:
+            assignments.append({
+                'Cohort': cohort['cohort'],
+                'Module': module_name,
+                'Room Assigned': assigned_room['room_name'],
+                'Students Assigned': assigned_room['students_assigned']
+            })
 
-        assignments.append(assigned_rooms)
-
-    return assignments
+    # Return assignments as a DataFrame
+    return pd.DataFrame(assignments)
 
 # Streamlit app
 st.title("Room Assignment for Modules")
@@ -73,9 +78,13 @@ if uploaded_cohort_file is not None:
 
     # Run room assignment if both files are uploaded
     if uploaded_room_file is not None and uploaded_cohort_file is not None:
-        assignments = assign_rooms(cohorts, rooms)
-        st.subheader("Room Assignment Results")
-        st.write(assignments)
+        assignments_df = assign_rooms(cohorts, rooms)
+        
+        if not assignments_df.empty:
+            st.subheader("Room Assignment Results")
+            st.dataframe(assignments_df)  # Display the room assignment results as a table
+        else:
+            st.error("No room assignments were made. Please check the input data.")
 
 # Provide a downloadable template
 def create_template():
