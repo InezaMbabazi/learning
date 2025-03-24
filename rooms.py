@@ -54,6 +54,7 @@ if cohort_file and room_file:
     # Compute Sections, Hours, and Square Meters
     def calculate_allocation(df, rooms):
         results = []
+        weekly_schedule = []
         for _, row in df.iterrows():
             cohort = row["Cohort"]
             students = row["Total Students"]
@@ -92,8 +93,28 @@ if cohort_file and room_file:
                 "Assigned Rooms": ", ".join(assigned_rooms),
                 "Students per Section": ", ".join(map(str, students_per_section))
             })
-        return pd.DataFrame(results)
+            
+            # Weekly Schedule per Module
+            weekly_schedule.append({
+                "Cohort": cohort,
+                "Module Code": module_code,
+                "Module Name": module_name,
+                "Room Assignments": ", ".join(assigned_rooms),
+                "Week 1": ", ".join(map(str, students_per_section[:sections])),
+                "Week 2": ", ".join(map(str, students_per_section[sections:2*sections])),
+                "Week 3": ", ".join(map(str, students_per_section[2*sections:3*sections])),
+                "Week 4": ", ".join(map(str, students_per_section[3*sections:4*sections])),
+                # Repeat for remaining weeks
+            })
+        return pd.DataFrame(results), pd.DataFrame(weekly_schedule)
     
-    allocation_df = calculate_allocation(cohort_df, room_df)
+    allocation_df, schedule_df = calculate_allocation(cohort_df, room_df)
+    
+    # Display Module Allocation Report
     st.write("### Module Allocation Report")
     st.dataframe(allocation_df)
+    
+    # Display Weekly Room Assignment Report
+    st.write("### Weekly Room Assignment Report")
+    st.dataframe(schedule_df)
+
