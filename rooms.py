@@ -1,126 +1,101 @@
+import streamlit as st
 import pandas as pd
 import io
-import streamlit as st
 
-# Function to create templates for Cohort and Room
-def create_module_template():
-    data = {"Cohort": [], "Total Students": [], "Module Code": [], "Module Name": [], "Credits": []}
-    df = pd.DataFrame(data)
-    return df
+# Constants
+sq_m_per_student = 1.5
 
-def create_room_template():
-    data = {"Room Name": [], "Capacity": []}
-    df = pd.DataFrame(data)
-    return df
+# Function to calculate required square meters
+def calculate_required_space(students, credits):
+    return students * sq_m_per_student
 
-def download_template(df, filename):
-    output = io.BytesIO()
-    df.to_csv(output, index=False)
-    output.seek(0)
-    return output
+# Room assignment function
+def assign_rooms(cohorts, rooms):
+    assignments = []
 
-# Streamlit interface
-st.title("Classroom Allocation System")
-
-# Download templates for cohort and room
-if st.button("Download Cohort Template"):
-    st.download_button(
-        label="Download Cohort Template",
-        data=download_template(create_module_template(), "cohort_template.csv"),
-        file_name="cohort_template.csv",
-        mime="text/csv"
-    )
-
-if st.button("Download Room Template"):
-    st.download_button(
-        label="Download Room Template",
-        data=download_template(create_room_template(), "room_template.csv"),
-        file_name="room_template.csv",
-        mime="text/csv"
-    )
-
-# Upload cohort and room data
-cohort_file = st.file_uploader("Upload Cohort Data", type=["csv"])
-room_file = st.file_uploader("Upload Room Data", type=["csv"])
-
-# Time Slots and Days
-time_slots = [
-    "08:00 AM - 10:00 AM", 
-    "10:30 AM - 12:30 PM", 
-    "03:00 PM - 05:00 PM", 
-    "05:00 PM - 06:00 PM"
-]
-days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-
-if cohort_file and room_file:
-    cohort_df = pd.read_csv(cohort_file)
-    room_df = pd.read_csv(room_file)
-    
-    # Display uploaded data
-    st.write("### Cohort Data")
-    st.dataframe(cohort_df)
-    st.write("### Room Data")
-    st.dataframe(room_df)
-    
-    # Track room usage per time slot (initialize for each room)
-    room_usage = {room: {time: 0 for time in time_slots} for room in room_df["Room Name"]}
-    
-    # Function to allocate rooms
-    def allocate_rooms(cohort_df, room_df, time_slots, days):
-        allocations = []
-        for _, row in cohort_df.iterrows():
-            cohort = row["Cohort"]
-            students = row["Total Students"]
-            module_code = row["Module Code"]
-            module_name = row["Module Name"]
-            credits = row["Credits"]
-            
-            # Each module is taught twice per week, assigned to two different time slots
-            sessions_per_week = 2
-            sections_assigned = 0
-            assigned_rooms = []
-            assigned_times = []
-            assigned_days = []
-            sections = []  # List to track the sections
-            
-            # Try to allocate rooms for each session
-            for day in days:
-                if sections_assigned < sessions_per_week:
-                    for time in time_slots:
-                        # Check for available room
-                        available_room = None
-                        for _, room in room_df.iterrows():
-                            if room_usage[room["Room Name"]][time] == 0:  # Room not booked for this time slot
-                                available_room = room["Room Name"]
-                                room_usage[room["Room Name"]][time] += 1  # Mark room as booked
-                                break
-                        
-                        if available_room:
-                            assigned_rooms.append(available_room)
-                            assigned_times.append(time)
-                            assigned_days.append(day)
-                            sections.append(f"{module_code}_{sections_assigned + 1}")  # Assign section name
-                            sections_assigned += 1
-                            break  # Proceed to the next session for this module
-            
-            # Store allocation data for each session
-            for i in range(sections_assigned):
-                allocations.append({
-                    "Cohort": cohort,
-                    "Module Code": module_code,
-                    "Module Name": module_name,
-                    "Section": sections[i],  # Include the section for each session
-                    "Room Name": assigned_rooms[i],
-                    "Assigned Day": assigned_days[i],
-                    "Assigned Time": assigned_times[i],
-                    "Hours": "2",  # Fixed 2 hours per session
-                })
+    for idx, cohort in cohorts.iterrows():
+        module_students = cohort['total_students']
+        module_credits = cohort['credits']
+        required_sq_meters = calculate_required_space(module_students, module_credits)
+        module_name = cohort['module_name']
         
-        return pd.DataFrame(allocations)
+        # Find rooms with enough space
+        available_rooms = rooms[rooms['capacity'] >= required_sq_meters]
+        
+        # Assign rooms
+        assigned_rooms = []
+        remaining_students = module_students
+        for _, room in available_rooms.iterrows():
+            room_capacity = room['capacity'] // sq_m_per_student  # Calculate number of students the room can handle
+            if remaining_students <= room_capacity:
+                assigned_rooms.append({'room_name': room['room_name'], 'students_assigned': remaining_students})
+                remaining_students = 0
+                break
+            else:
+                assigned_rooms.append({'room_name': room['room_name'], 'students_assigned': room_capacity})
+                remaining_students -= room_capacity
+        
+        # If not all students are assigned, find another room
+        if remaining_students > 0:
+            # Handle assigning to additional rooms if necessary
+            pass
 
-    # Perform room allocation
-    allocation_df = allocate_rooms(cohort_df, room_df, time_slots, days)
+        assignments.append(assigned_rooms)
+
+    return assignments
+
+# Streamlit app
+st.title("Room Assignment for Modules")
+
+# File uploader for room data
+uploaded_room_file = st.file_uploader("Upload Room Data (CSV)", type=["csv"])
+if uploaded_room_file is not None:
+    rooms = pd.read_csv(uploaded_room_file)
+    st.subheader("Room Data")
+    st.write(rooms)
+
+# File uploader for cohort data
+uploaded_cohort_file = st.file_uploader("Upload Cohort Data (CSV)", type=["csv"])
+if uploaded_cohort_file is not None:
+    cohorts = pd.read_csv(uploaded_cohort_file)
+    st.subheader("Cohort Data")
+    st.write(cohorts)
+
+    # Run room assignment if both files are uploaded
+    if uploaded_room_file is not None and uploaded_cohort_file is not None:
+        assignments = assign_rooms(cohorts, rooms)
+        st.subheader("Room Assignment Results")
+        st.write(assignments)
+
+# Provide a downloadable template
+def create_template():
+    room_template = pd.DataFrame({
+        'room_name': ['Room A', 'Room B', 'Room C'],
+        'capacity': [50, 80, 60]
+    })
+
+    cohort_template = pd.DataFrame({
+        'cohort': ['Cohort 1', 'Cohort 2'],
+        'module_name': ['Module 1', 'Module 2'],
+        'module_code': ['M101', 'M102'],
+        'credits': [10, 20],
+        'total_students': [40, 60]
+    })
+
+    return room_template, cohort_template
+
+# Download template button
+if st.button("Download Data Templates"):
+    room_template, cohort_template = create_template()
+
+    # Save templates to CSV
+    room_template_path = "/mnt/data/room_template.csv"
+    cohort_template_path = "/mnt/data/cohort_template.csv"
     
-    # Display room allocation report
-    st.write("### Room Allocation Report")
-    st.dataframe(allocation_df)
+    room_template.to_csv(room_template_path, index=False)
+    cohort_template.to_csv(cohort_template_path, index=False)
+
+    # Provide download links
+    st.markdown(f"[Download Room Template](sandbox:/mnt/data/room_template.csv)")
+    st.markdown(f"[Download Cohort Template](sandbox:/mnt/data/cohort_template.csv)")
+
