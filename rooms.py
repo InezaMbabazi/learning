@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import math
+import io
 
 # Database Initialization (Stored in Session State)
 if "cohort_db" not in st.session_state:
@@ -8,6 +9,12 @@ if "cohort_db" not in st.session_state:
 
 if "room_db" not in st.session_state:
     st.session_state.room_db = pd.DataFrame(columns=["Room Name", "Area (m²)"])
+
+# Function to generate CSV template
+def generate_csv_template(df, filename):
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False)
+    return csv_buffer.getvalue()
 
 # Function to calculate sections, total hours, and square meters used
 def calculate_room_needs(number_of_students, credits, room_area, weeks=12):
@@ -20,9 +27,42 @@ def calculate_room_needs(number_of_students, credits, room_area, weeks=12):
     return sections_needed, total_hours_needed, students_per_room
 
 # Streamlit UI
-st.title("Module Room Allocation Report")
+st.title("Module Room Allocation System")
 
-# Upload cohort data
+# **Download Templates**
+st.subheader("Download Data Entry Templates")
+col1, col2 = st.columns(2)
+
+# Cohort Template
+with col1:
+    cohort_template = pd.DataFrame({
+        "Cohort": ["Example BsBA 2024"],
+        "Students": [50],
+        "Module Code": ["BSA82102"],
+        "Module Name": ["Python for Business Analytics"],
+        "Credits": [15]
+    })
+    st.download_button(
+        label="Download Cohort Template",
+        data=generate_csv_template(cohort_template, "cohort_template.csv"),
+        file_name="cohort_template.csv",
+        mime="text/csv"
+    )
+
+# Room Template
+with col2:
+    room_template = pd.DataFrame({
+        "Room Name": ["Room 101"],
+        "Area (m²)": [150]
+    })
+    st.download_button(
+        label="Download Room Template",
+        data=generate_csv_template(room_template, "room_template.csv"),
+        file_name="room_template.csv",
+        mime="text/csv"
+    )
+
+# **Upload Cohort Data**
 st.subheader("Upload Cohort Data")
 uploaded_cohort = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
 
@@ -33,10 +73,10 @@ if uploaded_cohort:
         df_cohort = pd.read_excel(uploaded_cohort)
     
     st.session_state.cohort_db = df_cohort  # Store in session state
-    st.write("Cohort Data Updated ✅")
+    st.success("✅ Cohort Data Uploaded Successfully!")
     st.write(df_cohort.head())
 
-# Upload room data
+# **Upload Room Data**
 st.subheader("Upload Room Data")
 uploaded_room = st.file_uploader("Upload Room Capacity CSV or Excel", type=["csv", "xlsx"])
 
@@ -47,10 +87,10 @@ if uploaded_room:
         df_room = pd.read_excel(uploaded_room)
     
     st.session_state.room_db = df_room  # Store in session state
-    st.write("Room Data Updated ✅")
+    st.success("✅ Room Data Uploaded Successfully!")
     st.write(df_room.head())
 
-# Generate report if both databases exist
+# **Generate Report if Data is Available**
 if not st.session_state.cohort_db.empty and not st.session_state.room_db.empty:
     st.subheader("Generating Room Allocation Report...")
 
@@ -104,7 +144,7 @@ if not st.session_state.cohort_db.empty and not st.session_state.room_db.empty:
     st.subheader("Room Allocation Report")
     st.write(result_df)
 
-    # Option to download report
+    # **Download Report**
     st.download_button(
         label="Download Report as CSV",
         data=result_df.to_csv(index=False),
