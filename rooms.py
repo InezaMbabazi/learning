@@ -1,7 +1,8 @@
-import streamlit as st
 import pandas as pd
+import streamlit as st
 import io
 
+# Helper functions to create templates
 def create_module_template():
     data = {"Cohort": [], "Total Students": [], "Module Code": [], "Module Name": [], "Credits": []}
     df = pd.DataFrame(data)
@@ -18,6 +19,7 @@ def download_template(df, filename):
     output.seek(0)
     return output
 
+# Streamlit interface
 st.title("Classroom Allocation System")
 
 # Download templates
