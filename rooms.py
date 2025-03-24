@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-# Example function that returns room assignments based on some logic (you already have this)
+# Function to assign rooms
 def assign_rooms(cohorts, rooms):
     assignments = []  # List to store room assignment results
     
