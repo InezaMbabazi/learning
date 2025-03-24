@@ -1,38 +1,25 @@
 import streamlit as st
 import pandas as pd
-import math
+import io
 
-# Function to calculate the number of rooms and total hours for a module
-def calculate_room_needs(number_of_students, credit_hours, room_capacity):
-    hours_per_week = (credit_hours / 10) * 5  # Calculate weekly hours based on credit
-    total_hours = hours_per_week * 12  # 12 weeks in a trimester
-    
-    # Calculate the number of rooms needed for the given number of students
-    rooms_needed = math.ceil(number_of_students / room_capacity)
-    
-    return total_hours, rooms_needed
-
-# Streamlit file uploader
-st.title("Workload Calculation for Room Occupancy")
-st.subheader("Step 1: Download the Templates")
-
-# Provide download links for the templates
-@st.cache
+# Function to generate the module template as an in-memory CSV
 def create_module_template():
-    # Define column names and sample data
     data = {
         'Module Code': ['CS101', 'BUS202', 'DS301'],
         'Module Name': ['Introduction to Programming', 'Business Strategy', 'Data Science Basics'],
         'Credit Hours': [10, 15, 20]
     }
     df = pd.DataFrame(data)
-    file_path = '/mnt/data/module_template.csv'
-    df.to_csv(file_path, index=False)
-    return file_path
+    
+    # Save the DataFrame to a StringIO object
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False)
+    csv_buffer.seek(0)
+    
+    return csv_buffer.getvalue()
 
-@st.cache
+# Function to generate the cohort template as an in-memory CSV
 def create_cohort_template():
-    # Define column names and sample data
     data = {
         'Cohort Name': ['Computer Science', 'Business Admin', 'Data Science'],
         'Module Code': ['CS101', 'BUS202', 'DS301'],
@@ -40,23 +27,34 @@ def create_cohort_template():
         'Term Offered': ['Spring 2025', 'Fall 2025', 'Spring 2025']
     }
     df = pd.DataFrame(data)
-    file_path = '/mnt/data/cohort_template.csv'
-    df.to_csv(file_path, index=False)
-    return file_path
+    
+    # Save the DataFrame to a StringIO object
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False)
+    csv_buffer.seek(0)
+    
+    return csv_buffer.getvalue()
 
-@st.cache
+# Function to generate the room template as an in-memory CSV
 def create_room_template():
-    # Define column names and sample data
     data = {
         'Room Name': ['Room 101', 'Room 102', 'Room 103'],
         'Capacity': [30, 40, 50]
     }
     df = pd.DataFrame(data)
-    file_path = '/mnt/data/room_template.csv'
-    df.to_csv(file_path, index=False)
-    return file_path
+    
+    # Save the DataFrame to a StringIO object
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False)
+    csv_buffer.seek(0)
+    
+    return csv_buffer.getvalue()
 
-# Buttons to download templates
+# Streamlit app
+st.title("Workload Calculation for Room Occupancy")
+st.subheader("Step 1: Download the Templates")
+
+# Provide download links for the templates
 st.download_button(
     label="Download Module Template",
     data=create_module_template(),
