@@ -116,17 +116,17 @@ if cohort_file and room_file:
                 time_slot_index += 1  # Switch to next time slot for the next section
                 day_index += 1  # Switch to next day for the next section
             
-            results.append({
-                "Cohort": cohort,
-                "Module Code": module_code,
-                "Module Name": module_name,
-                "Sections": sections,
-                "Total Hours": total_hours,
-                "Total Square Meters": students * 1.5,
-                "Assigned Rooms and Times": ", ".join(room_time_assignments),
-                "Students per Section": ", ".join(map(str, students_per_section)),
-                "Assigned Days": ", ".join(assigned_days)
-            })
+            # Now assign each room and time slot separately
+            for i in range(sections):
+                results.append({
+                    "Cohort": cohort,
+                    "Module Code": module_code,
+                    "Module Name": module_name,
+                    "Room Name": assigned_rooms[i],
+                    "Assigned Time": assigned_times[i],
+                    "Assigned Day": assigned_days[i],
+                    "Students per Section": students_per_section[i]
+                })
             
             # Weekly Schedule per Module (not going into weekly breakdown for simplicity)
             weekly_schedule.append({
