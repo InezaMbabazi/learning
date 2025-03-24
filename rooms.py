@@ -51,7 +51,10 @@ if cohort_file and room_file:
     st.write("### Room Data")
     st.dataframe(room_df)
     
-    # Compute Sections, Hours, and Square Meters
+    # Time Slots (assuming 2 time slots per day: Morning and Afternoon)
+    time_slots = ["08:00 AM - 10:00 AM", "10:30 AM - 12:30 PM", "01:30 PM - 03:30 PM", "04:00 PM - 06:00 PM"]
+
+    # Compute Sections, Hours, Square Meters, and Assign Time Slots
     def calculate_allocation(df, rooms):
         results = []
         weekly_schedule = []
@@ -72,6 +75,7 @@ if cohort_file and room_file:
             sections = 0
             assigned_rooms = []
             students_per_section = []
+            assigned_times = []
             
             for _, room in sorted_rooms.iterrows():
                 if total_space_needed <= 0:
@@ -82,6 +86,9 @@ if cohort_file and room_file:
                 students_per_section.append(int(allocated_students))
                 students -= allocated_students
                 total_space_needed -= room["Square Meters"]
+                
+                # Assign time slots for each section (2 time slots per day)
+                assigned_times.append(time_slots[sections % len(time_slots)])
             
             results.append({
                 "Cohort": cohort,
@@ -91,7 +98,8 @@ if cohort_file and room_file:
                 "Total Hours": total_hours,
                 "Total Square Meters": students * 1.5,
                 "Assigned Rooms": ", ".join(assigned_rooms),
-                "Students per Section": ", ".join(map(str, students_per_section))
+                "Students per Section": ", ".join(map(str, students_per_section)),
+                "Assigned Times": ", ".join(assigned_times)
             })
             
             # Weekly Schedule per Module
@@ -100,6 +108,7 @@ if cohort_file and room_file:
                 "Module Code": module_code,
                 "Module Name": module_name,
                 "Room Assignments": ", ".join(assigned_rooms),
+                "Assigned Times": ", ".join(assigned_times),
                 "Week 1": ", ".join(map(str, students_per_section[:sections])),
                 "Week 2": ", ".join(map(str, students_per_section[sections:2*sections])),
                 "Week 3": ", ".join(map(str, students_per_section[2*sections:3*sections])),
@@ -117,4 +126,3 @@ if cohort_file and room_file:
     # Display Weekly Room Assignment Report
     st.write("### Weekly Room Assignment Report")
     st.dataframe(schedule_df)
-
