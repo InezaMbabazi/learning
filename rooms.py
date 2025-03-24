@@ -55,7 +55,7 @@ if cohort_file and room_file:
     
     # Time Slots (assuming 2 time slots per day: Morning and Afternoon)
     time_slots = ["08:00 AM - 10:00 AM", "10:30 AM - 12:30 PM", "01:30 PM - 03:30 PM", "04:00 PM - 06:00 PM"]
-    days = ["Monday", "Wednesday", "Friday", "Tuesday", "Thursday"]  # Assume classes are spread across 2 days per week
+    days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]  # Use all weekdays
 
     # Track room-time assignments to avoid conflicts
     room_time_assignments = {}
@@ -87,7 +87,7 @@ if cohort_file and room_file:
             
             # Limit the room assignment to 2 sections per module, 1 room per section, and only 2 time slots per week
             time_slot_index = 0  # To switch between time slots for 2 sessions per week
-            day_index = 0  # To switch between days (Monday, Wednesday, etc.)
+            day_index = 0  # To switch between days (Monday, Tuesday, etc.)
             
             for _, room in sorted_rooms.iterrows():
                 if total_space_needed <= 0 or sections >= 2:  # Only allocate 2 sections per week
