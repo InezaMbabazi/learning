@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import os
 
 # Constants
 sq_m_per_student = 1.5
