@@ -1,63 +1,90 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import io
 
-def create_cohort_template():
-    data = {
-        "Cohort": ["BsBA 2024"],
-        "Total_Students": [49],
-        "Module_Code": ["BSA82102"],
-        "Module_Name": ["Python for Business Analytics"],
-        "Credits": [15]
-    }
+def create_module_template():
+    data = {"Cohort": [], "Total Students": [], "Module Code": [], "Module Name": [], "Credits": []}
     df = pd.DataFrame(data)
-    df.to_csv("cohort_template.csv", index=False)
     return df
 
 def create_room_template():
-    data = {
-        "Room_Name": ["Room A"],
-        "Square_Meters": [100]
-    }
+    data = {"Room Name": [], "Square Meters": []}
     df = pd.DataFrame(data)
-    df.to_csv("room_template.csv", index=False)
     return df
 
-# Load Data
+def download_template(df, filename):
+    output = io.BytesIO()
+    df.to_csv(output, index=False)
+    output.seek(0)
+    return output
+
 st.title("Classroom Allocation System")
 
-st.subheader("Upload Cohort Data")
-cohort_file = st.file_uploader("Upload cohort CSV", type=["csv"])
-if cohort_file is not None:
-    df_cohort = pd.read_csv(cohort_file)
-else:
-    df_cohort = create_cohort_template()
+# Download templates
+if st.button("Download Cohort Template"):
+    st.download_button(
+        label="Download Cohort Template",
+        data=download_template(create_module_template(), "cohort_template.csv"),
+        file_name="cohort_template.csv",
+        mime="text/csv"
+    )
 
-st.subheader("Upload Room Data")
-room_file = st.file_uploader("Upload room CSV", type=["csv"])
-if room_file is not None:
-    df_room = pd.read_csv(room_file)
-else:
-    df_room = create_room_template()
+if st.button("Download Room Template"):
+    st.download_button(
+        label="Download Room Template",
+        data=download_template(create_room_template(), "room_template.csv"),
+        file_name="room_template.csv",
+        mime="text/csv"
+    )
 
-# Classroom Calculation
-square_meters_per_student = 1.5
-def calculate_allocation(df_cohort, df_room):
-    df_cohort["Total_Hours"] = df_cohort["Credits"].apply(lambda x: (6 if x == 15 else (8 if x == 20 else 5)) * 12)
-    df_cohort["Hours_per_Week"] = df_cohort["Total_Hours"] // 12
-    df_cohort["Sections"] = df_cohort.apply(lambda row: max(1, int(np.ceil(row["Total_Students"] / 
-                                            max(df_room["Square_Meters"] // square_meters_per_student)))), axis=1)
-    df_cohort["Total_Square_Meters"] = df_cohort["Total_Students"] * square_meters_per_student
-    return df_cohort
+# Upload data
+cohort_file = st.file_uploader("Upload Cohort Data", type=["csv"])
+room_file = st.file_uploader("Upload Room Data", type=["csv"])
 
-result_df = calculate_allocation(df_cohort, df_room)
-
-# Display Data
-st.subheader("Cohort Data")
-st.dataframe(df_cohort)
-
-st.subheader("Room Data")
-st.dataframe(df_room)
-
-st.subheader("Classroom Allocation Report")
-st.dataframe(result_df)
+if cohort_file and room_file:
+    cohort_df = pd.read_csv(cohort_file)
+    room_df = pd.read_csv(room_file)
+    
+    # Display full tables
+    st.write("### Cohort Data")
+    st.dataframe(cohort_df)
+    st.write("### Room Data")
+    st.dataframe(room_df)
+    
+    # Compute Sections, Hours, and Square Meters
+    def calculate_allocation(df, rooms):
+        results = []
+        for _, row in df.iterrows():
+            cohort = row["Cohort"]
+            students = row["Total Students"]
+            module_code = row["Module Code"]
+            module_name = row["Module Name"]
+            credits = row["Credits"]
+            
+            # Calculate hours per week
+            hours_per_week = 5 if credits == 10 else 6 if credits == 15 else 8
+            total_hours = hours_per_week * 12
+            
+            # Calculate sections based on room sizes
+            total_space_needed = students * 1.5
+            sorted_rooms = rooms.sort_values(by="Square Meters", ascending=False)
+            sections = 0
+            for _, room in sorted_rooms.iterrows():
+                if total_space_needed <= 0:
+                    break
+                sections += 1
+                total_space_needed -= room["Square Meters"]
+            
+            results.append({
+                "Cohort": cohort,
+                "Module Code": module_code,
+                "Module Name": module_name,
+                "Sections": sections,
+                "Total Hours": total_hours,
+                "Total Square Meters": students * 1.5
+            })
+        return pd.DataFrame(results)
+    
+    allocation_df = calculate_allocation(cohort_df, room_df)
+    st.write("### Module Allocation Report")
+    st.dataframe(allocation_df)
