@@ -2,108 +2,112 @@ import streamlit as st
 import pandas as pd
 import math
 
-# Function to calculate the required sections and total hours for each module
+# Database Initialization (Stored in Session State)
+if "cohort_db" not in st.session_state:
+    st.session_state.cohort_db = pd.DataFrame(columns=["Cohort", "Students", "Module Code", "Module Name", "Credits"])
+
+if "room_db" not in st.session_state:
+    st.session_state.room_db = pd.DataFrame(columns=["Room Name", "Area (m²)"])
+
+# Function to calculate sections, total hours, and square meters used
 def calculate_room_needs(number_of_students, credits, room_area, weeks=12):
     students_per_room = room_area // 1.5  # Each student requires 1.5 m²
     sections_needed = math.ceil(number_of_students / students_per_room)
 
-    if credits == 10:
-        hours_per_week = 5  # 10 credits = 5 hours per week
-    elif credits == 15:
-        hours_per_week = 5  # 15 credits = 5 hours per week
-    elif credits == 20:
-        hours_per_week = 8  # 20 credits = 8 hours per week
-    else:
-        hours_per_week = 0  # Default to 0 if credits are not standard
-
+    hours_per_week = (credits // 5) * 2  # 10 credits = 5 hrs/week, 15 credits = 5 hrs/week, 20 credits = 8 hrs/week
     total_hours_needed = hours_per_week * weeks
+
     return sections_needed, total_hours_needed, students_per_room
 
 # Streamlit UI
 st.title("Module Room Allocation Report")
 
-# File uploader
-uploaded_file = st.file_uploader("Upload your cohort data (CSV or Excel)", type=["csv", "xlsx"])
+# Upload cohort data
+st.subheader("Upload Cohort Data")
+uploaded_cohort = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
 
-if uploaded_file:
-    # Read file into DataFrame
-    if uploaded_file.name.endswith('.csv'):
-        df = pd.read_csv(uploaded_file)
+if uploaded_cohort:
+    if uploaded_cohort.name.endswith('.csv'):
+        df_cohort = pd.read_csv(uploaded_cohort)
     else:
-        df = pd.read_excel(uploaded_file)
-
-    # Expected columns: Cohort, Students, Module Code, Module Name, Credits
-    st.write("### Uploaded Data Preview:")
-    st.write(df.head())
-
-    # Upload room information
-    room_file = st.file_uploader("Upload room capacity data (CSV or Excel)", type=["csv", "xlsx"])
+        df_cohort = pd.read_excel(uploaded_cohort)
     
-    if room_file:
-        if room_file.name.endswith('.csv'):
-            rooms_df = pd.read_csv(room_file)
-        else:
-            rooms_df = pd.read_excel(room_file)
+    st.session_state.cohort_db = df_cohort  # Store in session state
+    st.write("Cohort Data Updated ✅")
+    st.write(df_cohort.head())
 
-        # Expected columns: Room Name, Area (m²)
-        st.write("### Uploaded Room Data Preview:")
-        st.write(rooms_df.head())
+# Upload room data
+st.subheader("Upload Room Data")
+uploaded_room = st.file_uploader("Upload Room Capacity CSV or Excel", type=["csv", "xlsx"])
 
-        # Process each module
-        results_list = []
+if uploaded_room:
+    if uploaded_room.name.endswith('.csv'):
+        df_room = pd.read_csv(uploaded_room)
+    else:
+        df_room = pd.read_excel(uploaded_room)
+    
+    st.session_state.room_db = df_room  # Store in session state
+    st.write("Room Data Updated ✅")
+    st.write(df_room.head())
 
-        for _, row in df.iterrows():
-            cohort_name = row["Cohort"]
-            num_students = row["Students"]
-            module_code = row["Module Code"]
-            module_name = row["Module Name"]
-            credits = row["Credits"]
+# Generate report if both databases exist
+if not st.session_state.cohort_db.empty and not st.session_state.room_db.empty:
+    st.subheader("Generating Room Allocation Report...")
 
-            # Assign room based on first available room in the list
-            assigned_rooms = []
-            total_square_meters_used = 0
-            total_sections = 0
-            total_hours = 0
+    results_list = []
 
-            for _, room_row in rooms_df.iterrows():
-                room_name = room_row["Room Name"]
-                room_area = room_row["Area (m²)"]
+    for _, row in st.session_state.cohort_db.iterrows():
+        cohort_name = row["Cohort"]
+        num_students = row["Students"]
+        module_code = row["Module Code"]
+        module_name = row["Module Name"]
+        credits = row["Credits"]
 
-                sections_needed, total_hours_needed, students_per_room = calculate_room_needs(
-                    num_students, credits, room_area
-                )
+        # Assign room based on first available room
+        assigned_rooms = []
+        total_square_meters_used = 0
+        total_sections = 0
+        total_hours = 0
 
-                total_sections += sections_needed
-                total_hours += total_hours_needed
-                total_square_meters_used += sections_needed * room_area
-                assigned_rooms.append(room_name)
+        for _, room_row in st.session_state.room_db.iterrows():
+            room_name = room_row["Room Name"]
+            room_area = room_row["Area (m²)"]
 
-                # Break once we have assigned the required sections
-                if total_sections >= sections_needed:
-                    break
+            sections_needed, total_hours_needed, students_per_room = calculate_room_needs(
+                num_students, credits, room_area
+            )
 
-            # Store results
-            results_list.append({
-                "Cohort": cohort_name,
-                "Module Code": module_code,
-                "Module Name": module_name,
-                "Total Sections Assigned": total_sections,
-                "Total Square Meters Used": total_square_meters_used,
-                "Total Hours Needed (Term)": total_hours,
-                "Assigned Rooms": ', '.join(assigned_rooms[:total_sections])
-            })
+            total_sections += sections_needed
+            total_hours += total_hours_needed
+            total_square_meters_used += sections_needed * room_area
+            assigned_rooms.append(room_name)
 
-        # Convert results to DataFrame
-        result_df = pd.DataFrame(results_list)
+            # Stop when enough sections are assigned
+            if total_sections >= sections_needed:
+                break
 
-        # Display results
-        st.subheader("Room Allocation Report")
-        st.write(result_df)
+        # Store results
+        results_list.append({
+            "Cohort": cohort_name,
+            "Module Code": module_code,
+            "Module Name": module_name,
+            "Total Sections Assigned": total_sections,
+            "Total Square Meters Used": total_square_meters_used,
+            "Total Hours Needed (Term)": total_hours,
+            "Assigned Rooms": ', '.join(assigned_rooms[:total_sections])
+        })
 
-        # Option to download report
-        st.download_button(
-            label="Download Report as CSV",
-            data=result_df.to_csv(index=False),
-            file_name="room_allocation_report.csv",
-            mime="text/csv"
-        )
+    # Convert results to DataFrame
+    result_df = pd.DataFrame(results_list)
+
+    # Display results
+    st.subheader("Room Allocation Report")
+    st.write(result_df)
+
+    # Option to download report
+    st.download_button(
+        label="Download Report as CSV",
+        data=result_df.to_csv(index=False),
+        file_name="room_allocation_report.csv",
+        mime="text/csv"
+    )
