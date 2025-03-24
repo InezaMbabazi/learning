@@ -62,17 +62,19 @@ if cohort_file and room_file:
             credits = row["Credits"]
             
             # Calculate hours per week
-            hours_per_week = 5 if credits == 10 else 6 if credits == 15 else 8
+            hours_per_week = (credits // 3) * 2  # Each 3 credits = 2 hours per week
             total_hours = hours_per_week * 12
             
             # Calculate sections based on room sizes
             total_space_needed = students * 1.5
             sorted_rooms = rooms.sort_values(by="Square Meters", ascending=False)
             sections = 0
+            assigned_rooms = []
             for _, room in sorted_rooms.iterrows():
                 if total_space_needed <= 0:
                     break
                 sections += 1
+                assigned_rooms.append(room["Room Name"])
                 total_space_needed -= room["Square Meters"]
             
             results.append({
@@ -81,7 +83,8 @@ if cohort_file and room_file:
                 "Module Name": module_name,
                 "Sections": sections,
                 "Total Hours": total_hours,
-                "Total Square Meters": students * 1.5
+                "Total Square Meters": students * 1.5,
+                "Assigned Rooms": ", ".join(assigned_rooms)
             })
         return pd.DataFrame(results)
     
