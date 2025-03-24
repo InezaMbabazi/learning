@@ -55,6 +55,9 @@ if cohort_file and room_file:
     time_slots = ["08:00 AM - 10:00 AM", "10:30 AM - 12:30 PM", "01:30 PM - 03:30 PM", "04:00 PM - 06:00 PM"]
     days = ["Monday", "Wednesday", "Friday", "Tuesday", "Thursday"]  # Assume classes are spread across 2 days per week
 
+    # Track room-time assignments to avoid conflicts
+    room_time_assignments = {}
+
     # Compute Sections, Hours, Square Meters, and Assign Time Slots with Days
     def calculate_allocation(df, rooms):
         results = []
@@ -78,7 +81,7 @@ if cohort_file and room_file:
             students_per_section = []
             assigned_times = []
             assigned_days = []  # Track the days for each section
-            room_time_assignments = []
+            room_time_assignments = []  # Track the room-time assignments for this module
             
             # Limit the room assignment to 2 sections per module, 1 room per section, and only 2 time slots per week
             time_slot_index = 0  # To switch between time slots for 2 sessions per week
@@ -94,13 +97,19 @@ if cohort_file and room_file:
                 students -= allocated_students
                 total_space_needed -= room["Square Meters"]
                 
-                # Assign time slots and days for each section
+                # Assign time slots and days for each section, ensuring no double-booking
                 assigned_time = time_slots[time_slot_index % len(time_slots)]  # Alternate between available slots
                 assigned_day = days[day_index % len(days)]  # Alternate between days
                 
-                assigned_times.append(assigned_time)
-                assigned_days.append(assigned_day)
-                room_time_assignments.append(f"{room['Room Name']} on {assigned_day} at {assigned_time}")
+                # Check if the room is already booked at the assigned time slot
+                room_key = f"{room['Room Name']}_{assigned_day}_{assigned_time}"
+                if room_key not in room_time_assignments:
+                    room_time_assignments.append(room_key)
+                    assigned_times.append(assigned_time)
+                    assigned_days.append(assigned_day)
+                else:
+                    # Skip if the room is already booked for that time
+                    continue
                 
                 time_slot_index += 1  # Switch to next time slot for the next section
                 day_index += 1  # Switch to next day for the next section
