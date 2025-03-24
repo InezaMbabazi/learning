@@ -14,16 +14,29 @@ openai.api_key = st.secrets["openai"]["api_key"]
 
 st.set_page_config(page_title="Kepler College Grading System", page_icon="📚", layout="wide")
 
-# Function to fetch submissions from Canvas
+# Function to fetch submissions from Canvas with pagination handling
 def get_submissions(course_id, assignment_id):
-    headers = {"Authorization": f"Bearer {API_TOKEN}"}
-    response = requests.get(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions", headers=headers)
-    
-    if response.status_code == 200:
-        return response.json()
-    else:
-        st.error(f"Failed to retrieve submissions. Status Code: {response.status_code}")
-        return []
+    submissions = []
+    page = 1
+
+    while True:
+        headers = {"Authorization": f"Bearer {API_TOKEN}"}
+        response = requests.get(f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions?page={page}", headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            submissions.extend(data)  # Add submissions from this page to the list
+            
+            # Check if there's a next page
+            if 'next' in response.links:
+                page += 1
+            else:
+                break  # No more pages, exit the loop
+        else:
+            st.error(f"Failed to retrieve submissions. Status Code: {response.status_code}")
+            break
+
+    return submissions
 
 # Function to download submission file
 def download_submission_file(file_url):
