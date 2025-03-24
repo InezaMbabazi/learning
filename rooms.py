@@ -76,6 +76,7 @@ if cohort_file and room_file:
             assigned_rooms = []
             students_per_section = []
             assigned_times = []
+            room_time_assignments = []
             
             for _, room in sorted_rooms.iterrows():
                 if total_space_needed <= 0:
@@ -88,7 +89,9 @@ if cohort_file and room_file:
                 total_space_needed -= room["Square Meters"]
                 
                 # Assign time slots for each section (2 time slots per day)
-                assigned_times.append(time_slots[sections % len(time_slots)])
+                assigned_time = time_slots[sections % len(time_slots)]
+                assigned_times.append(assigned_time)
+                room_time_assignments.append(f"{room['Room Name']} at {assigned_time}")
             
             results.append({
                 "Cohort": cohort,
@@ -97,9 +100,8 @@ if cohort_file and room_file:
                 "Sections": sections,
                 "Total Hours": total_hours,
                 "Total Square Meters": students * 1.5,
-                "Assigned Rooms": ", ".join(assigned_rooms),
-                "Students per Section": ", ".join(map(str, students_per_section)),
-                "Assigned Times": ", ".join(assigned_times)
+                "Assigned Rooms and Times": ", ".join(room_time_assignments),
+                "Students per Section": ", ".join(map(str, students_per_section))
             })
             
             # Weekly Schedule per Module
@@ -107,13 +109,12 @@ if cohort_file and room_file:
                 "Cohort": cohort,
                 "Module Code": module_code,
                 "Module Name": module_name,
-                "Room Assignments": ", ".join(assigned_rooms),
-                "Assigned Times": ", ".join(assigned_times),
+                "Room Assignments and Times": ", ".join(room_time_assignments),
                 "Week 1": ", ".join(map(str, students_per_section[:sections])),
                 "Week 2": ", ".join(map(str, students_per_section[sections:2*sections])),
                 "Week 3": ", ".join(map(str, students_per_section[2*sections:3*sections])),
                 "Week 4": ", ".join(map(str, students_per_section[3*sections:4*sections])),
-                # Repeat for remaining weeks
+                # Repeat for remaining weeks if needed
             })
         return pd.DataFrame(results), pd.DataFrame(weekly_schedule)
     
