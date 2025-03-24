@@ -103,12 +103,16 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
     
     for index, cohort_row in df_cohorts.iterrows():
         # Loop through each room to calculate the number of rooms needed
+        assigned_rooms = []  # List to track assigned room names for each module
         for _, room_row in df_rooms.iterrows():
             rooms_needed, total_sessions_needed, total_hours_needed, students_per_room = calculate_room_needs(
                 cohort_row['Number of Students'], 
                 cohort_row['Credits'], 
                 room_row['Area (m²)']
             )
+            
+            # Add room name to the assigned rooms list for the module
+            assigned_rooms.extend([room_row['Room Name']] * rooms_needed)
             
             # Aggregate data per module and cohort (cohort name, module name)
             cohort_module_key = (cohort_row['Cohort Name'], cohort_row['Module Name'])
@@ -117,12 +121,14 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
                 module_results[cohort_module_key] = {
                     'Total Sections Assigned': 0,
                     'Total Square Meters Used': 0,
-                    'Total Hours Needed': 0
+                    'Total Hours Needed': 0,
+                    'Assigned Rooms': []  # List to store assigned rooms
                 }
             
             module_results[cohort_module_key]['Total Sections Assigned'] += rooms_needed
             module_results[cohort_module_key]['Total Square Meters Used'] += rooms_needed * room_row['Area (m²)']
             module_results[cohort_module_key]['Total Hours Needed'] += total_hours_needed
+            module_results[cohort_module_key]['Assigned Rooms'] = list(set(assigned_rooms))  # Ensure unique room names
 
     # Create a DataFrame from the results and display it
     results_list = []
@@ -132,7 +138,8 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
             'Module Name': module_name,
             'Total Sections Assigned': data['Total Sections Assigned'],
             'Total Square Meters Used': data['Total Square Meters Used'],
-            'Total Hours Needed': data['Total Hours Needed']
+            'Total Hours Needed': data['Total Hours Needed'],
+            'Assigned Rooms': ', '.join(data['Assigned Rooms'])  # Concatenate room names into a single string
         })
     
     result_df = pd.DataFrame(results_list)
@@ -147,5 +154,5 @@ st.sidebar.write("""
 1. Download the **Cohort Template** and **Room Template**.
 2. Fill in the required data in each template and save them as CSV files.
 3. Upload the CSV files with your data.
-4. The app will calculate the total sections assigned, square meters used, and total hours needed for each module.
+4. The app will calculate the total sections assigned, square meters used, total hours needed, and assigned rooms for each module.
 """)
