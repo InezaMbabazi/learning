@@ -38,26 +38,28 @@ def create_room_template():
     return csv_buffer.getvalue()
 
 # Function to calculate the rooms and sessions required for a cohort based on room capacity
-def calculate_room_needs(number_of_students, credits, room_area):
+def calculate_room_needs(number_of_students, credits, room_area, weeks=12):
     # Calculate capacity per room based on square meters (1.5 m² per student)
     students_per_room = room_area // 1.5
     
     # Calculate how many rooms are needed for the cohort
     rooms_needed = math.ceil(number_of_students / students_per_room)
     
-    # Calculate total room usage for one week (assuming modules are taught twice a week)
+    # Calculate total room usage for one module (hours per week times number of weeks)
     if credits == 10:
         hours_per_week = 5  # 10 credits module = 5 hours per week
     elif credits == 15:
-        hours_per_week = 6  # 15 credits module = 6 hours per week
+        hours_per_week = 5  # 15 credits module = 5 hours per week
     elif credits == 20:
         hours_per_week = 8  # 20 credits module = 8 hours per week
     
-    # Each module has 2 sessions per week
-    total_sessions_needed = 2
-    total_hours_needed = hours_per_week * total_sessions_needed
+    # Calculate total hours for the module over the course of the term (weeks)
+    total_hours_needed = hours_per_week * weeks
     
-    return rooms_needed, total_sessions_needed, total_hours_needed, students_per_room
+    # If one class is enough for the students
+    total_sections_needed = 1 if rooms_needed == 1 else rooms_needed
+    
+    return total_sections_needed, total_hours_needed, students_per_room, rooms_needed
 
 # Streamlit app
 st.title("One Week Module Room Allocation Report")
@@ -105,7 +107,7 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
         # Loop through each room to calculate the number of rooms needed for one week
         assigned_rooms = []  # List to track assigned room names for each module
         for _, room_row in df_rooms.iterrows():
-            rooms_needed, total_sessions_needed, total_hours_needed, students_per_room = calculate_room_needs(
+            total_sections_needed, total_hours_needed, students_per_room, rooms_needed = calculate_room_needs(
                 cohort_row['Number of Students'], 
                 cohort_row['Credits'], 
                 room_row['Area (m²)']
@@ -125,7 +127,7 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
                     'Assigned Rooms': []  # List to store assigned rooms
                 }
             
-            module_results[cohort_module_key]['Total Sections Assigned'] += rooms_needed
+            module_results[cohort_module_key]['Total Sections Assigned'] += total_sections_needed
             module_results[cohort_module_key]['Total Square Meters Used'] += rooms_needed * room_row['Area (m²)']
             module_results[cohort_module_key]['Total Hours Needed'] += total_hours_needed
             module_results[cohort_module_key]['Assigned Rooms'] = list(set(assigned_rooms))  # Ensure unique room names
@@ -138,7 +140,7 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
             'Module Name': module_name,
             'Total Sections Assigned': data['Total Sections Assigned'],
             'Total Square Meters Used': data['Total Square Meters Used'],
-            'Total Hours Needed (One Week)': data['Total Hours Needed'],
+            'Total Hours Needed (Term)': data['Total Hours Needed'],
             'Assigned Rooms': ', '.join(data['Assigned Rooms'])  # Concatenate room names into a single string
         })
     
@@ -154,5 +156,5 @@ st.sidebar.write("""
 1. Download the **Cohort Template** and **Room Template**.
 2. Fill in the required data in each template and save them as CSV files.
 3. Upload the CSV files with your data.
-4. The app will calculate the total sections assigned, square meters used, total hours needed for one week, and assigned rooms for each module.
+4. The app will calculate the total sections assigned, square meters used, total hours needed for the term (not just one week), and assigned rooms for each module.
 """)
