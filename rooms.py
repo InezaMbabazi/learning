@@ -70,11 +70,16 @@ if cohort_file and room_file:
             sorted_rooms = rooms.sort_values(by="Square Meters", ascending=False)
             sections = 0
             assigned_rooms = []
+            students_per_section = []
+            
             for _, room in sorted_rooms.iterrows():
                 if total_space_needed <= 0:
                     break
                 sections += 1
                 assigned_rooms.append(room["Room Name"])
+                allocated_students = min(students, room["Square Meters"] // 1.5)
+                students_per_section.append(int(allocated_students))
+                students -= allocated_students
                 total_space_needed -= room["Square Meters"]
             
             results.append({
@@ -84,7 +89,8 @@ if cohort_file and room_file:
                 "Sections": sections,
                 "Total Hours": total_hours,
                 "Total Square Meters": students * 1.5,
-                "Assigned Rooms": ", ".join(assigned_rooms)
+                "Assigned Rooms": ", ".join(assigned_rooms),
+                "Students per Section": ", ".join(map(str, students_per_section))
             })
         return pd.DataFrame(results)
     
