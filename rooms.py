@@ -25,7 +25,8 @@ def create_cohort_template():
 def create_room_template():
     data = {
         'Room Name': ['Room 101', 'Room 102', 'Room 103'],
-        'Capacity': [30, 40, 50]
+        'Capacity': [0, 0, 0],  # Will be calculated
+        'Area (m²)': [100, 150, 200]  # Area in square meters
     }
     df = pd.DataFrame(data)
     
@@ -36,8 +37,8 @@ def create_room_template():
     
     return csv_buffer.getvalue()
 
-# Function to calculate total hours and rooms needed for a module
-def calculate_room_needs(number_of_students, credits, room_capacity):
+# Function to calculate total hours and rooms needed based on room area and number of students
+def calculate_room_needs(number_of_students, credits, room_area):
     # Calculate total hours per student for the module
     if credits == 10:
         hours_per_week = 5
@@ -49,9 +50,12 @@ def calculate_room_needs(number_of_students, credits, room_capacity):
         hours_per_week = 0  # Invalid credits, no calculation
     
     total_hours = hours_per_week * 12  # 12 weeks in a trimester
-    
+
+    # Calculate the capacity of the room based on the square meters
+    students_per_room = room_area // 1.5  # 1.5 m² per student
+
     # Calculate number of rooms needed
-    rooms_needed = (number_of_students + room_capacity - 1) // room_capacity  # Ceiling division
+    rooms_needed = (number_of_students + students_per_room - 1) // students_per_room  # Ceiling division
     return total_hours, rooms_needed
 
 # Streamlit app
@@ -96,18 +100,19 @@ if uploaded_file_cohort is not None and uploaded_file_room is not None:
     # Loop through each row in the cohort table to calculate room needs for each module
     results = []
     for index, cohort_row in df_cohorts.iterrows():
-        # Find the corresponding room capacity
-        room_row = df_rooms[df_rooms['Capacity'] >= cohort_row['Number of Students']].iloc[0]
-        
-        total_hours, rooms_needed = calculate_room_needs(cohort_row['Number of Students'], cohort_row['Credits'], room_row['Capacity'])
-        
-        results.append({
-            'Cohort/Program': cohort_row['Cohort Name'],
-            'Module Name': cohort_row['Module Name'],
-            'Term Offered': cohort_row['Term Offered'],
-            'Total Hours (12 weeks)': total_hours,
-            'Rooms Needed': rooms_needed
-        })
+        # Find the corresponding room based on room area
+        for _, room_row in df_rooms.iterrows():
+            # Calculate number of rooms needed for this cohort
+            total_hours, rooms_needed = calculate_room_needs(cohort_row['Number of Students'], cohort_row['Credits'], room_row['Area (m²)'])
+            results.append({
+                'Cohort/Program': cohort_row['Cohort Name'],
+                'Module Name': cohort_row['Module Name'],
+                'Term Offered': cohort_row['Term Offered'],
+                'Room Name': room_row['Room Name'],
+                'Room Area (m²)': room_row['Area (m²)'],
+                'Total Hours (12 weeks)': total_hours,
+                'Rooms Needed': rooms_needed
+            })
     
     # Create a DataFrame from the results and display it
     result_df = pd.DataFrame(results)
