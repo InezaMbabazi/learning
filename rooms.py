@@ -1,8 +1,8 @@
 import pandas as pd
-import streamlit as st
 import io
+import streamlit as st
 
-# Helper function to create templates for Cohort and Room
+# Function to create templates for Cohort and Room
 def create_module_template():
     data = {"Cohort": [], "Total Students": [], "Module Code": [], "Module Name": [], "Credits": []}
     df = pd.DataFrame(data)
@@ -22,7 +22,7 @@ def download_template(df, filename):
 # Streamlit interface
 st.title("Classroom Allocation System")
 
-# Download templates
+# Download templates for cohort and room
 if st.button("Download Cohort Template"):
     st.download_button(
         label="Download Cohort Template",
@@ -39,7 +39,7 @@ if st.button("Download Room Template"):
         mime="text/csv"
     )
 
-# Upload data
+# Upload cohort and room data
 cohort_file = st.file_uploader("Upload Cohort Data", type=["csv"])
 room_file = st.file_uploader("Upload Room Data", type=["csv"])
 
@@ -62,10 +62,10 @@ if cohort_file and room_file:
     st.write("### Room Data")
     st.dataframe(room_df)
     
-    # Track room usage per time slot
+    # Track room usage per time slot (initialize for each room)
     room_usage = {room: {time: 0 for time in time_slots} for room in room_df["Room Name"]}
     
-    # Function to assign rooms and time slots
+    # Function to allocate rooms
     def allocate_rooms(cohort_df, room_df, time_slots, days):
         allocations = []
         for _, row in cohort_df.iterrows():
@@ -75,25 +75,21 @@ if cohort_file and room_file:
             module_name = row["Module Name"]
             credits = row["Credits"]
             
-            # Determine the number of sessions per week (2 sessions per week for each module)
+            # Each module is taught twice per week, assigned to two different time slots
             sessions_per_week = 2
-            hours_per_week = (credits // 3) * 2  # Each 3 credits = 2 hours per week
-            total_space_needed = students * 1.5  # Assume each student requires 1.5 m²
-            
-            # Track assigned rooms and times
+            sections_assigned = 0
             assigned_rooms = []
             assigned_times = []
             assigned_days = []
-            sections_assigned = 0
             
+            # Try to allocate rooms for each session
             for day in days:
                 if sections_assigned < sessions_per_week:
-                    # Try to assign the module to a room during this day
                     for time in time_slots:
                         # Check for available room
                         available_room = None
                         for _, room in room_df.iterrows():
-                            if room_usage[room["Room Name"]][time] == 0:  # Room is not booked
+                            if room_usage[room["Room Name"]][time] == 0:  # Room not booked for this time slot
                                 available_room = room["Room Name"]
                                 room_usage[room["Room Name"]][time] += 1  # Mark room as booked
                                 break
@@ -103,9 +99,9 @@ if cohort_file and room_file:
                             assigned_times.append(time)
                             assigned_days.append(day)
                             sections_assigned += 1
-                            break  # Proceed to next session
-                        
-            # Store allocation data
+                            break  # Proceed to the next session for this module
+            
+            # Store allocation data for each session
             for i in range(sections_assigned):
                 allocations.append({
                     "Cohort": cohort,
@@ -121,6 +117,6 @@ if cohort_file and room_file:
     # Perform room allocation
     allocation_df = allocate_rooms(cohort_df, room_df, time_slots, days)
     
-    # Display allocation report
+    # Display room allocation report
     st.write("### Room Allocation Report")
     st.dataframe(allocation_df)
