@@ -1,120 +1,98 @@
 import streamlit as st
 import pandas as pd
 
-# Constants
-sq_m_per_student = 1.5
+st.set_page_config(page_title="Workload Management System", layout="wide")
 
-# Function to calculate required square meters
-def calculate_required_space(students, credits):
-    return students * sq_m_per_student
+st.title("📚 Automated Workload Management System")
 
-# Room assignment function
-def assign_rooms(cohorts, rooms):
-    assignments = []  # List to store assignments
+# Upload datasets
+st.sidebar.header("Upload Datasets")
+lecturer_file = st.sidebar.file_uploader("Upload Lecturers Dataset", type=["csv", "xlsx"])
+module_file = st.sidebar.file_uploader("Upload Modules Dataset", type=["csv", "xlsx"])
 
-    for idx, cohort in cohorts.iterrows():
-        if 'total_students' not in cohort:
-            st.error("Column 'total_students' is missing in the cohort data.")
-            return pd.DataFrame()  # Return empty DataFrame on error
+if lecturer_file and module_file:
+    # Read data
+    if lecturer_file.name.endswith('.csv'):
+        lecturers_df = pd.read_csv(lecturer_file)
+    else:
+        lecturers_df = pd.read_excel(lecturer_file)
 
-        module_students = cohort['total_students']
-        module_credits = cohort['credits']
-        required_sq_meters = calculate_required_space(module_students, module_credits)
-        module_name = cohort['module_name']
-        
-        # Find rooms with enough space
-        available_rooms = rooms[rooms['capacity'] >= required_sq_meters]
-        
-        # Assign rooms
-        assigned_rooms = []
-        remaining_students = module_students
-        for _, room in available_rooms.iterrows():
-            room_capacity = room['capacity'] // sq_m_per_student  # Calculate number of students the room can handle
-            if remaining_students <= room_capacity:
-                assigned_rooms.append({'room_name': room['room_name'], 'students_assigned': remaining_students})
-                remaining_students = 0
+    if module_file.name.endswith('.csv'):
+        modules_df = pd.read_csv(module_file)
+    else:
+        modules_df = pd.read_excel(module_file)
+
+    # Standardize column names
+    lecturers_df.columns = lecturers_df.columns.str.strip()
+    modules_df.columns = modules_df.columns.str.strip()
+
+    # Trimester selection
+    trimester_options = modules_df["When to Take Place"].dropna().unique()
+    selected_trimester = st.selectbox("📅 Select When to Take Place (Trimester)", sorted(trimester_options))
+
+    # Filter modules
+    filtered_modules = modules_df[modules_df["When to Take Place"] == selected_trimester].copy()
+
+    # Calculate weekly hours
+    def get_weekly_hours(credits):
+        return 6 if credits == 20 else 4 if credits in [10, 15] else 0
+
+    filtered_modules["Weekly Hours"] = filtered_modules["Credits"].apply(get_weekly_hours)
+
+    # Prepare lecturer assignments
+    lecturers_df["Remaining Workload"] = lecturers_df["Weekly Workload"]
+
+    assignments = []
+
+    for _, module in filtered_modules.iterrows():
+        module_code = module["Code"]
+        hours_needed = module["Weekly Hours"]
+
+        # Find matching lecturers by module code
+        matching_lecturers = lecturers_df[lecturers_df["Module Code"] == module_code].sort_values(by="Remaining Workload", ascending=False)
+
+        assigned = False
+        for i, lecturer in matching_lecturers.iterrows():
+            if lecturer["Remaining Workload"] >= hours_needed:
+                # Assign module to this lecturer
+                assignments.append({
+                    "Lecturer": lecturer["Teacher's name"],
+                    "Module Code": module_code,
+                    "Module Name": module["Module Name"],
+                    "Credits": module["Credits"],
+                    "Cohort": module["Cohort"],
+                    "Programme": module["Programme"],
+                    "Weekly Hours": hours_needed,
+                    "Trimester": selected_trimester
+                })
+                # Update remaining workload
+                lecturers_df.at[i, "Remaining Workload"] -= hours_needed
+                assigned = True
                 break
-            else:
-                assigned_rooms.append({'room_name': room['room_name'], 'students_assigned': room_capacity})
-                remaining_students -= room_capacity
-        
-        # If not all students are assigned, find another room (optional logic)
-        if remaining_students > 0:
-            # Handle additional room assignment if needed
-            pass
-        
-        # Append the assignment to the list
-        for assigned_room in assigned_rooms:
+
+        if not assigned:
             assignments.append({
-                'Cohort': cohort['cohort'],
-                'Module': module_name,
-                'Room Assigned': assigned_room['room_name'],
-                'Students Assigned': assigned_room['students_assigned']
+                "Lecturer": "❌ Not Assigned",
+                "Module Code": module_code,
+                "Module Name": module["Module Name"],
+                "Credits": module["Credits"],
+                "Cohort": module["Cohort"],
+                "Programme": module["Programme"],
+                "Weekly Hours": hours_needed,
+                "Trimester": selected_trimester
             })
 
-    # Return assignments as a DataFrame
-    return pd.DataFrame(assignments)
+    result_df = pd.DataFrame(assignments)
 
-# Streamlit app
-st.title("Room Assignment for Modules")
+    st.subheader("✅ Workload Assignment Results")
+    st.dataframe(result_df, use_container_width=True)
 
-# File uploader for room data
-uploaded_room_file = st.file_uploader("Upload Room Data (CSV)", type=["csv"])
-if uploaded_room_file is not None:
-    rooms = pd.read_csv(uploaded_room_file)
-    st.subheader("Room Data")
-    st.write(rooms)
+    # Download
+    csv = result_df.to_csv(index=False).encode("utf-8")
+    st.download_button("⬇️ Download Assignment Results as CSV", csv, "workload_assignments.csv", "text/csv")
 
-# File uploader for cohort data
-uploaded_cohort_file = st.file_uploader("Upload Cohort Data (CSV)", type=["csv"])
-if uploaded_cohort_file is not None:
-    cohorts = pd.read_csv(uploaded_cohort_file)
+    st.subheader("📊 Lecturer Remaining Workload")
+    st.dataframe(lecturers_df[["Teacher's name", "Module Code", "Remaining Workload"]], use_container_width=True)
 
-    # Clean up column names by stripping spaces
-    cohorts.columns = cohorts.columns.str.strip()
-
-    st.subheader("Cohort Data")
-    st.write(cohorts)
-
-    # Run room assignment if both files are uploaded
-    if uploaded_room_file is not None and uploaded_cohort_file is not None:
-        assignments_df = assign_rooms(cohorts, rooms)
-        
-        if not assignments_df.empty:
-            st.subheader("Room Assignment Results")
-            st.dataframe(assignments_df)  # Display the room assignment results as a table
-        else:
-            st.error("No room assignments were made. Please check the input data.")
-
-# Provide a downloadable template
-def create_template():
-    room_template = pd.DataFrame({
-        'room_name': ['Room A', 'Room B', 'Room C'],
-        'capacity': [50, 80, 60]
-    })
-
-    cohort_template = pd.DataFrame({
-        'cohort': ['Cohort 1', 'Cohort 2'],
-        'module_name': ['Module 1', 'Module 2'],
-        'module_code': ['M101', 'M102'],
-        'credits': [10, 20],
-        'total_students': [40, 60]
-    })
-
-    return room_template, cohort_template
-
-# Download template button
-if st.button("Download Data Templates"):
-    room_template, cohort_template = create_template()
-
-    # Define the save directory and file paths in the /mnt/data directory
-    room_template_path = '/mnt/data/room_template.csv'
-    cohort_template_path = '/mnt/data/cohort_template.csv'
-    
-    # Save templates to CSV
-    room_template.to_csv(room_template_path, index=False)
-    cohort_template.to_csv(cohort_template_path, index=False)
-
-    # Provide download links
-    st.markdown(f"[Download Room Template](sandbox:/mnt/data/room_template.csv)")
-    st.markdown(f"[Download Cohort Template](sandbox:/mnt/data/cohort_template.csv)")
+else:
+    st.info("👈 Please upload both the lecturers and modules datasets to get started.")
