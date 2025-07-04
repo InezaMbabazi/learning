@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import math
 
 st.set_page_config(page_title="Workload Management System", layout="wide")
 
@@ -46,50 +47,64 @@ if lecturer_file and module_file:
 
     for _, module in filtered_modules.iterrows():
         module_code = module["Code"]
+        total_students = int(module["Number of Students"])
+        max_students_per_group = 70
+        num_groups = math.ceil(total_students / max_students_per_group)
         hours_needed = module["Weekly Hours"]
 
-        # Find all lecturers who can teach this module
-        matching_lecturers = lecturers_df[lecturers_df["Module Code"] == module_code].copy()
+        for group_index in range(num_groups):
+            group_size = (
+                max_students_per_group
+                if group_index < num_groups - 1
+                else total_students - max_students_per_group * (num_groups - 1)
+            )
 
-        # Init hours if not already
-        for name in matching_lecturers["Teacher's name"].unique():
-            if name not in lecturer_hours:
-                lecturer_hours[name] = 0
+            # Find all lecturers who can teach this module
+            matching_lecturers = lecturers_df[lecturers_df["Module Code"] == module_code].copy()
 
-        # Calculate available hours and sort
-        matching_lecturers["Assigned Hours"] = matching_lecturers["Teacher's name"].map(lecturer_hours)
-        matching_lecturers["Remaining"] = 18 - matching_lecturers["Assigned Hours"]
-        matching_lecturers = matching_lecturers.sort_values(by="Remaining", ascending=False)
+            # Init hours if not already
+            for name in matching_lecturers["Teacher's name"].unique():
+                if name not in lecturer_hours:
+                    lecturer_hours[name] = 0
 
-        assigned = False
-        for _, lecturer in matching_lecturers.iterrows():
-            name = lecturer["Teacher's name"]
-            if lecturer_hours[name] + hours_needed <= 18:
+            # Calculate available hours and sort
+            matching_lecturers["Assigned Hours"] = matching_lecturers["Teacher's name"].map(lecturer_hours)
+            matching_lecturers["Remaining"] = 18 - matching_lecturers["Assigned Hours"]
+            matching_lecturers = matching_lecturers.sort_values(by="Remaining", ascending=False)
+
+            assigned = False
+            for _, lecturer in matching_lecturers.iterrows():
+                name = lecturer["Teacher's name"]
+                if lecturer_hours[name] + hours_needed <= 18:
+                    assignments.append({
+                        "Lecturer": name,
+                        "Module Code": module_code,
+                        "Module Name": module["Module Name"],
+                        "Credits": module["Credits"],
+                        "Cohort": module["Cohort"],
+                        "Programme": module["Programme"],
+                        "Weekly Hours": hours_needed,
+                        "Group Size": group_size,
+                        "Group Number": group_index + 1,
+                        "Trimester": selected_trimester
+                    })
+                    lecturer_hours[name] += hours_needed
+                    assigned = True
+                    break
+
+            if not assigned:
                 assignments.append({
-                    "Lecturer": name,
+                    "Lecturer": "❌ Not Assigned",
                     "Module Code": module_code,
                     "Module Name": module["Module Name"],
                     "Credits": module["Credits"],
                     "Cohort": module["Cohort"],
                     "Programme": module["Programme"],
                     "Weekly Hours": hours_needed,
+                    "Group Size": group_size,
+                    "Group Number": group_index + 1,
                     "Trimester": selected_trimester
                 })
-                lecturer_hours[name] += hours_needed
-                assigned = True
-                break
-
-        if not assigned:
-            assignments.append({
-                "Lecturer": "❌ Not Assigned",
-                "Module Code": module_code,
-                "Module Name": module["Module Name"],
-                "Credits": module["Credits"],
-                "Cohort": module["Cohort"],
-                "Programme": module["Programme"],
-                "Weekly Hours": hours_needed,
-                "Trimester": selected_trimester
-            })
 
     # Results table
     result_df = pd.DataFrame(assignments)
