@@ -26,6 +26,9 @@ if lecturer_file and module_file:
     lecturers_df.columns = lecturers_df.columns.str.strip()
     modules_df.columns = modules_df.columns.str.strip()
 
+    # Cap the weekly workload to 18 hours max per lecturer
+    lecturers_df["Remaining Workload"] = lecturers_df["Weekly Workload"].clip(upper=18)
+
     # Trimester selection
     trimester_options = modules_df["When to Take Place"].dropna().unique()
     selected_trimester = st.selectbox("📅 Select When to Take Place (Trimester)", sorted(trimester_options))
@@ -40,8 +43,6 @@ if lecturer_file and module_file:
     filtered_modules["Weekly Hours"] = filtered_modules["Credits"].apply(get_weekly_hours)
 
     # Prepare lecturer assignments
-    lecturers_df["Remaining Workload"] = lecturers_df["Weekly Workload"]
-
     assignments = []
 
     for _, module in filtered_modules.iterrows():
