@@ -11,6 +11,25 @@ st.sidebar.header("Upload Datasets")
 lecturer_file = st.sidebar.file_uploader("Upload Lecturers Dataset", type=["csv", "xlsx"])
 module_file = st.sidebar.file_uploader("Upload Modules Dataset", type=["csv", "xlsx"])
 
+# Function to split students fairly between 30–70
+def split_students(total, min_size=30, max_size=70):
+    if total <= max_size:
+        return [total]
+    best_split = None
+    for group_count in range(1, total + 1):
+        base = total // group_count
+        remainder = total % group_count
+
+        if base > max_size:
+            continue
+        if base < min_size:
+            break
+
+        sizes = [base + 1 if i < remainder else base for i in range(group_count)]
+        if all(min_size <= g <= max_size for g in sizes):
+            best_split = sizes
+    return best_split if best_split else [total]
+
 if lecturer_file and module_file:
     # Read uploaded files
     if lecturer_file.name.endswith('.csv'):
@@ -48,27 +67,8 @@ if lecturer_file and module_file:
     for _, module in filtered_modules.iterrows():
         module_code = module["Code"]
         total_students = int(module["Number of Students"])
-        max_students_per_group = 70
-        min_students_per_group = 30
         hours_needed = module["Weekly Hours"]
-
-        # Determine number of groups ensuring no group < 30
-        if total_students <= max_students_per_group:
-            group_sizes = [total_students]
-        else:
-            best_group_count = math.ceil(total_students / max_students_per_group)
-
-            # Recalculate if last group is too small
-            while best_group_count > 1:
-                avg_size = total_students / best_group_count
-                if avg_size >= min_students_per_group:
-                    break
-                best_group_count -= 1
-
-            # Now distribute students evenly across groups
-            base = total_students // best_group_count
-            remainder = total_students % best_group_count
-            group_sizes = [base + 1 if i < remainder else base for i in range(best_group_count)]
+        group_sizes = split_students(total_students)
 
         for group_index, group_size in enumerate(group_sizes):
             # Find all lecturers who can teach this module
