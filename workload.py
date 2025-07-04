@@ -30,7 +30,7 @@ if lecturer_file and module_file:
     trimester_options = modules_df["When to Take Place"].dropna().unique()
     selected_trimester = st.selectbox("📅 Select When to Take Place (Trimester)", sorted(trimester_options))
 
-    # Filter modules for the selected trimester
+    # Filter modules by trimester
     filtered_modules = modules_df[modules_df["When to Take Place"] == selected_trimester].copy()
 
     # Calculate weekly hours for modules
@@ -39,24 +39,34 @@ if lecturer_file and module_file:
 
     filtered_modules["Weekly Hours"] = filtered_modules["Credits"].apply(get_weekly_hours)
 
-    # 🔁 Reset remaining workload to 18 hours max
-    lecturers_df["Remaining Workload"] = lecturers_df["Weekly Workload"].clip(upper=18)
+    # 🔁 Reset: track assigned hours per lecturer name (not per row)
+    lecturer_hours = {}
 
-    # Assignment logic
     assignments = []
 
     for _, module in filtered_modules.iterrows():
         module_code = module["Code"]
         hours_needed = module["Weekly Hours"]
 
-        # Match by module code, sorted by highest remaining workload
-        matching_lecturers = lecturers_df[lecturers_df["Module Code"] == module_code].sort_values(by="Remaining Workload", ascending=False)
+        # Find all lecturers who can teach this module
+        matching_lecturers = lecturers_df[lecturers_df["Module Code"] == module_code].copy()
+
+        # Init hours if not already
+        for name in matching_lecturers["Teacher's name"].unique():
+            if name not in lecturer_hours:
+                lecturer_hours[name] = 0
+
+        # Calculate available hours and sort
+        matching_lecturers["Assigned Hours"] = matching_lecturers["Teacher's name"].map(lecturer_hours)
+        matching_lecturers["Remaining"] = 18 - matching_lecturers["Assigned Hours"]
+        matching_lecturers = matching_lecturers.sort_values(by="Remaining", ascending=False)
 
         assigned = False
-        for i, lecturer in matching_lecturers.iterrows():
-            if lecturer["Remaining Workload"] >= hours_needed:
+        for _, lecturer in matching_lecturers.iterrows():
+            name = lecturer["Teacher's name"]
+            if lecturer_hours[name] + hours_needed <= 18:
                 assignments.append({
-                    "Lecturer": lecturer["Teacher's name"],
+                    "Lecturer": name,
                     "Module Code": module_code,
                     "Module Name": module["Module Name"],
                     "Credits": module["Credits"],
@@ -65,7 +75,7 @@ if lecturer_file and module_file:
                     "Weekly Hours": hours_needed,
                     "Trimester": selected_trimester
                 })
-                lecturers_df.at[i, "Remaining Workload"] -= hours_needed
+                lecturer_hours[name] += hours_needed
                 assigned = True
                 break
 
@@ -81,24 +91,22 @@ if lecturer_file and module_file:
                 "Trimester": selected_trimester
             })
 
-    # Assignment result
+    # Results table
     result_df = pd.DataFrame(assignments)
 
     st.subheader("✅ Workload Assignment Results")
     st.dataframe(result_df, use_container_width=True)
 
-    # Download as CSV
+    # Download
     csv = result_df.to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Download Assignment Results as CSV", csv, "workload_assignments.csv", "text/csv")
 
-    # 🎯 Unique lecturer summary
-    assigned_df = result_df[result_df["Lecturer"] != "❌ Not Assigned"]
-    summary = assigned_df.groupby("Lecturer")["Weekly Hours"].sum().reset_index()
-    summary.columns = ["Lecturer", "Total Assigned Hours"]
+    # Summary
+    summary = pd.DataFrame(list(lecturer_hours.items()), columns=["Lecturer", "Total Assigned Hours"])
     summary["Remaining Workload"] = 18 - summary["Total Assigned Hours"]
 
     st.subheader("📊 Lecturer Remaining Workload Summary")
-    st.dataframe(summary, use_container_width=True)
+    st.dataframe(summary.sort_values(by="Remaining Workload", ascending=True), use_container_width=True)
 
 else:
     st.info("👈 Please upload both the lecturers and modules datasets to get started.")
