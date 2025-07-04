@@ -40,7 +40,7 @@ if lecturer_file and module_file:
 
     filtered_modules["Weekly Hours"] = filtered_modules["Credits"].apply(get_weekly_hours)
 
-    # 🔁 Reset: track assigned hours per lecturer name (not per row)
+    # Reset tracking of hours assigned
     lecturer_hours = {}
 
     assignments = []
@@ -49,16 +49,28 @@ if lecturer_file and module_file:
         module_code = module["Code"]
         total_students = int(module["Number of Students"])
         max_students_per_group = 70
-        num_groups = math.ceil(total_students / max_students_per_group)
+        min_students_per_group = 30
         hours_needed = module["Weekly Hours"]
 
-        for group_index in range(num_groups):
-            group_size = (
-                max_students_per_group
-                if group_index < num_groups - 1
-                else total_students - max_students_per_group * (num_groups - 1)
-            )
+        # Determine number of groups ensuring no group < 30
+        if total_students <= max_students_per_group:
+            group_sizes = [total_students]
+        else:
+            best_group_count = math.ceil(total_students / max_students_per_group)
 
+            # Recalculate if last group is too small
+            while best_group_count > 1:
+                avg_size = total_students / best_group_count
+                if avg_size >= min_students_per_group:
+                    break
+                best_group_count -= 1
+
+            # Now distribute students evenly across groups
+            base = total_students // best_group_count
+            remainder = total_students % best_group_count
+            group_sizes = [base + 1 if i < remainder else base for i in range(best_group_count)]
+
+        for group_index, group_size in enumerate(group_sizes):
             # Find all lecturers who can teach this module
             matching_lecturers = lecturers_df[lecturers_df["Module Code"] == module_code].copy()
 
