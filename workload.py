@@ -11,24 +11,36 @@ st.sidebar.header("Upload Datasets")
 lecturer_file = st.sidebar.file_uploader("Upload Lecturers Dataset", type=["csv", "xlsx"])
 module_file = st.sidebar.file_uploader("Upload Modules Dataset", type=["csv", "xlsx"])
 
-# Function to split students fairly between 30–70
+# FINAL SPLITTING FUNCTION
 def split_students(total, min_size=30, max_size=70):
+    """
+    Split total students into the **minimum number of groups** between min_size and max_size,
+    making group sizes as balanced as possible.
+    """
     if total <= max_size:
         return [total]
-    best_split = None
+
+    valid_splits = []
+
     for group_count in range(1, total + 1):
         base = total // group_count
         remainder = total % group_count
 
-        if base > max_size:
+        if base > max_size or base < min_size:
             continue
-        if base < min_size:
-            break
 
-        sizes = [base + 1 if i < remainder else base for i in range(group_count)]
-        if all(min_size <= g <= max_size for g in sizes):
-            best_split = sizes
-    return best_split if best_split else [total]
+        group_sizes = [base + 1 if i < remainder else base for i in range(group_count)]
+
+        if all(min_size <= g <= max_size for g in group_sizes):
+            valid_splits.append(group_sizes)
+
+    # Return the one with the fewest groups (and most balanced if tie)
+    if valid_splits:
+        valid_splits.sort(key=lambda g: (len(g), max(g) - min(g)))
+        return valid_splits[0]
+
+    # Fallback
+    return [total]
 
 if lecturer_file and module_file:
     # Read uploaded files
