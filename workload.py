@@ -9,7 +9,7 @@ st.sidebar.header("Upload Datasets")
 lecturer_file = st.sidebar.file_uploader("Upload Lecturers Dataset", type=["csv", "xlsx"])
 module_file = st.sidebar.file_uploader("Upload Modules Dataset", type=["csv", "xlsx"])
 
-# Split logic
+# Helper to split students into fair groups
 def split_students(total, min_size=30, max_size=70):
     if total <= max_size:
         return [total]
@@ -27,7 +27,8 @@ def split_students(total, min_size=30, max_size=70):
         return valid_splits[0]
     return [total]
 
-def show_trimester_summary(result_df, lecturers_df):
+# Pivot table summary across all trimesters
+def show_trimester_summary(result_df, lecturers_df, all_trimesters):
     if not result_df.empty:
         pivot = pd.pivot_table(
             result_df[result_df["Lecturer"] != "❌ Not Assigned"],
@@ -37,20 +38,28 @@ def show_trimester_summary(result_df, lecturers_df):
             aggfunc='sum',
             fill_value=0
         )
-        pivot['Total Hours'] = pivot.sum(axis=1)
+
+        for t in all_trimesters:
+            if t not in pivot.columns:
+                pivot[t] = 0
+
+        pivot = pivot[[t for t in sorted(all_trimesters)]]
+        pivot["Total Hours"] = pivot.sum(axis=1)
+
         st.subheader("📊 Lecturer Workload Summary by Trimester")
         st.dataframe(pivot.style.format("{:.1f}"), use_container_width=True)
 
+# App begins
 if lecturer_file and module_file:
     lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
     modules_df = pd.read_csv(module_file) if module_file.name.endswith('.csv') else pd.read_excel(module_file)
 
-    # Clean columns
+    # Clean column names
     lecturers_df.columns = lecturers_df.columns.str.strip()
     modules_df.columns = modules_df.columns.str.strip()
 
-    trimester_options = modules_df["When to Take Place"].dropna().unique()
-    selected_trimester = st.selectbox("📅 Select When to Take Place (Trimester)", sorted(trimester_options))
+    all_trimesters = sorted(modules_df["When to Take Place"].dropna().unique())
+    selected_trimester = st.selectbox("📅 Select When to Take Place (Trimester)", all_trimesters)
     filtered_modules = modules_df[modules_df["When to Take Place"] == selected_trimester].copy()
 
     def get_weekly_hours(credits):
@@ -175,8 +184,8 @@ if lecturer_file and module_file:
             st.subheader("📈 Updated Lecturer Remaining Workload Summary")
             st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
-            # Show trimester workload summary pivot table after reassignment
-            show_trimester_summary(result_df, lecturers_df)
+            # Show updated trimester pivot
+            show_trimester_summary(result_df, lecturers_df, all_trimesters)
 
             csv = result_df.to_csv(index=False).encode("utf-8")
             st.download_button("⬇️ Download Updated Assignment CSV", csv, "updated_workload.csv", "text/csv")
@@ -187,8 +196,8 @@ if lecturer_file and module_file:
         st.subheader("📈 Lecturer Remaining Workload Summary")
         st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
-        # Show trimester workload summary pivot table initially
-        show_trimester_summary(result_df, lecturers_df)
+        # Show initial trimester pivot
+        show_trimester_summary(result_df, lecturers_df, all_trimesters)
 
         csv = result_df.to_csv(index=False).encode("utf-8")
         st.download_button("⬇️ Download Initial Assignment CSV", csv, "initial_workload.csv", "text/csv")
