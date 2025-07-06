@@ -9,7 +9,7 @@ st.sidebar.header("Upload Datasets")
 lecturer_file = st.sidebar.file_uploader("Upload Lecturers Dataset", type=["csv", "xlsx"])
 module_file = st.sidebar.file_uploader("Upload Modules Dataset", type=["csv", "xlsx"])
 
-# Student group splitting
+# Split students function
 def split_students(total, min_size=30, max_size=70):
     if total <= max_size:
         return [total]
@@ -28,9 +28,11 @@ def split_students(total, min_size=30, max_size=70):
     return [total]
 
 if lecturer_file and module_file:
+    # Read datasets
     lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
     modules_df = pd.read_csv(module_file) if module_file.name.endswith('.csv') else pd.read_excel(module_file)
 
+    # Clean columns
     lecturers_df.columns = lecturers_df.columns.str.strip()
     modules_df.columns = modules_df.columns.str.strip()
 
@@ -98,22 +100,32 @@ if lecturer_file and module_file:
 
     result_df = pd.DataFrame(assignments)
 
+    # Show initial workload assignment
     st.subheader("✅ Initial Workload Assignment")
     st.dataframe(result_df, use_container_width=True)
 
+    # Lecturer workload summary
     summary = pd.DataFrame(list(lecturer_hours.items()), columns=["Lecturer", "Total Assigned Hours"])
     summary["Remaining Workload"] = 18 - summary["Total Assigned Hours"]
+
     st.subheader("📈 Lecturer Remaining Workload Summary")
     st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
+    # Download button for initial assignment
     csv = result_df.to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Download Initial Assignment CSV", csv, "initial_workload.csv", "text/csv")
 
-    # REASSIGNMENT SECTION BELOW
-    with st.expander("✏️ Reassign Lecturers (Optional)", expanded=False):
-        st.markdown("You can manually reassign modules to different lecturers below. "
-                    "The system will ensure no one exceeds 18 hours per week.")
+    st.markdown("---")  # separator line
 
+    # Reassignment in an expander (collapsed by default)
+    with st.expander("✏️ Reassign Lecturers (Optional) — Click to expand"):
+        st.write(
+            """
+            Use the dropdowns below to reassign modules to different lecturers.
+            Lecturers cannot exceed 18 hours per week.  
+            After making changes, click **Apply Reassignments** to update the workload.
+            """
+        )
         new_lecturers = []
         updated_lecturer_hours = lecturer_hours.copy()
 
@@ -128,7 +140,7 @@ if lecturer_file and module_file:
                 eligible.append(current)
 
             selected = st.selectbox(
-                f"🔄 {label}",
+                f"➡️ {label} | Current: {current}",
                 options=["❌ Not Assigned"] + sorted(eligible),
                 index=(["❌ Not Assigned"] + sorted(eligible)).index(current) if current in eligible else 0,
                 key=f"reassign_{i}"
@@ -136,6 +148,7 @@ if lecturer_file and module_file:
             new_lecturers.append(selected)
 
         if st.button("🔁 Apply Reassignments"):
+            errors = False
             for i in range(len(result_df)):
                 old = result_df.loc[i, "Lecturer"]
                 new = new_lecturers[i]
@@ -148,11 +161,16 @@ if lecturer_file and module_file:
                         updated_lecturer_hours[new] = updated_lecturer_hours.get(new, 0) + hours
                         result_df.loc[i, "Lecturer"] = new
                     else:
-                        st.warning(f"⚠️ {new} would exceed 18h — can't assign {result_df.loc[i, 'Module Name']} (Group {result_df.loc[i, 'Group Number']})")
+                        st.warning(
+                            f"⚠️ Cannot assign {result_df.loc[i, 'Module Name']} (Group {result_df.loc[i, 'Group Number']}) "
+                            f"to {new}: would exceed 18 hours limit."
+                        )
+                        errors = True
 
-            st.success("✅ Reassignments applied.")
+            if not errors:
+                st.success("✅ Reassignments applied successfully!")
 
-            # Refresh updated results
+            # Show updated results and summary after reassignment
             st.subheader("📊 Updated Workload Assignment Results")
             st.dataframe(result_df, use_container_width=True)
 
@@ -163,11 +181,12 @@ if lecturer_file and module_file:
 
             summary = pd.DataFrame(list(final_hours.items()), columns=["Lecturer", "Total Assigned Hours"])
             summary["Remaining Workload"] = 18 - summary["Total Assigned Hours"]
+
             st.subheader("📈 Updated Lecturer Remaining Workload Summary")
             st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
-            csv = result_df.to_csv(index=False).encode("utf-8")
-            st.download_button("⬇️ Download Updated Assignment CSV", csv, "updated_workload.csv", "text/csv")
+            csv_updated = result_df.to_csv(index=False).encode("utf-8")
+            st.download_button("⬇️ Download Updated Assignment CSV", csv_updated, "updated_workload.csv", "text/csv")
 
 else:
     st.info("👈 Please upload both the lecturers and modules datasets to begin.")
