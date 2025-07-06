@@ -27,6 +27,20 @@ def split_students(total, min_size=30, max_size=70):
         return valid_splits[0]
     return [total]
 
+def show_trimester_summary(result_df, lecturers_df):
+    if not result_df.empty:
+        pivot = pd.pivot_table(
+            result_df[result_df["Lecturer"] != "❌ Not Assigned"],
+            index="Lecturer",
+            columns="Trimester",
+            values="Weekly Hours",
+            aggfunc='sum',
+            fill_value=0
+        )
+        pivot['Total Hours'] = pivot.sum(axis=1)
+        st.subheader("📊 Lecturer Workload Summary by Trimester")
+        st.dataframe(pivot.style.format("{:.1f}"), use_container_width=True)
+
 if lecturer_file and module_file:
     lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
     modules_df = pd.read_csv(module_file) if module_file.name.endswith('.csv') else pd.read_excel(module_file)
@@ -102,7 +116,6 @@ if lecturer_file and module_file:
     st.subheader("✅ Initial Workload Assignment")
     st.dataframe(result_df, use_container_width=True)
 
-    # Checkbox to toggle reassignment section
     show_reassign = st.checkbox("✏️ Show Reassign Lecturers (Optional)")
 
     if show_reassign:
@@ -134,11 +147,9 @@ if lecturer_file and module_file:
                 new = new_lecturers[i]
                 hours = result_df.loc[i, "Weekly Hours"]
 
-                # Remove workload from old lecturer only if assigned
                 if old != "❌ Not Assigned":
                     updated_lecturer_hours[old] -= hours
 
-                # Add workload to new lecturer only if assigned
                 if new != "❌ Not Assigned":
                     if updated_lecturer_hours.get(new, 0) + hours <= 18:
                         updated_lecturer_hours[new] = updated_lecturer_hours.get(new, 0) + hours
@@ -146,16 +157,13 @@ if lecturer_file and module_file:
                     else:
                         st.warning(f"⚠️ {new} would exceed 18h — can't assign {result_df.loc[i, 'Module Name']} (Group {result_df.loc[i, 'Group Number']})")
                 else:
-                    # New assignment is "Not Assigned" → clear assignment
                     result_df.loc[i, "Lecturer"] = "❌ Not Assigned"
 
             st.success("✅ Reassignments applied.")
 
-            # Show updated assignment table
             st.subheader("📊 Updated Workload Assignment Results")
             st.dataframe(result_df, use_container_width=True)
 
-            # Updated workload summary
             final_hours = {name: 0 for name in lecturers_df["Teacher's name"].unique()}
             for _, row in result_df.iterrows():
                 if row["Lecturer"] != "❌ Not Assigned":
@@ -167,18 +175,21 @@ if lecturer_file and module_file:
             st.subheader("📈 Updated Lecturer Remaining Workload Summary")
             st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
-            # Download updated assignments CSV
+            # Show trimester workload summary pivot table after reassignment
+            show_trimester_summary(result_df, lecturers_df)
+
             csv = result_df.to_csv(index=False).encode("utf-8")
             st.download_button("⬇️ Download Updated Assignment CSV", csv, "updated_workload.csv", "text/csv")
 
     else:
-        # Show initial workload summary if reassignment hidden/not done
         summary = pd.DataFrame(list(lecturer_hours.items()), columns=["Lecturer", "Total Assigned Hours"])
         summary["Remaining Workload"] = 18 - summary["Total Assigned Hours"]
         st.subheader("📈 Lecturer Remaining Workload Summary")
         st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
-        # Download initial assignments CSV
+        # Show trimester workload summary pivot table initially
+        show_trimester_summary(result_df, lecturers_df)
+
         csv = result_df.to_csv(index=False).encode("utf-8")
         st.download_button("⬇️ Download Initial Assignment CSV", csv, "initial_workload.csv", "text/csv")
 
