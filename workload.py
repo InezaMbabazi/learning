@@ -130,6 +130,29 @@ if lecturer_file and module_file:
     st.subheader("✅ Workload Assignment for Selected Trimester")
     st.dataframe(result_df, use_container_width=True)
 
+    # Reassign Section
+    if st.checkbox("✏️ Show Reassign Lecturers (Optional)"):
+        new_lecturers = []
+        st.subheader("🔁 Reassign Modules")
+        for i, row in result_df.iterrows():
+            module_code = row["Module Code"]
+            current_lecturer = row["Lecturer"]
+            eligible_lecturers = lecturers_df[lecturers_df["Module Code"] == module_code]["Teacher's name"].unique().tolist()
+            if current_lecturer not in eligible_lecturers and current_lecturer != "❌ Not Assigned":
+                eligible_lecturers.append(current_lecturer)
+            selected = st.selectbox(
+                f"Module: {row['Module Name']} (Group {row['Group Number']}) - Current: {current_lecturer}",
+                options=["❌ Not Assigned"] + sorted(eligible_lecturers),
+                index=( ["❌ Not Assigned"] + sorted(eligible_lecturers) ).index(current_lecturer),
+                key=f"reassign_{i}"
+            )
+            new_lecturers.append(selected)
+
+        if st.button("Apply Reassignments"):
+            for i in range(len(result_df)):
+                result_df.at[i, "Lecturer"] = new_lecturers[i]
+            st.success("✅ Reassignments applied.")
+
     # Summary (all trimesters)
     show_trimester_summary(st.session_state.all_results_df, lecturers_df, all_trimesters)
 
