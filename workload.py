@@ -151,7 +151,16 @@ if lecturer_file and module_file:
         if st.button("Apply Reassignments"):
             for i in range(len(result_df)):
                 result_df.at[i, "Lecturer"] = new_lecturers[i]
-            st.success("✅ Reassignments applied.")
+
+            # Update session state with reassigned results
+            st.session_state.all_results_df = pd.concat([
+                st.session_state.all_results_df[
+                    st.session_state.all_results_df["Trimester"] != selected_trimester
+                ],
+                result_df
+            ], ignore_index=True)
+
+            st.success("✅ Reassignments applied and summary updated.")
 
     # Summary (all trimesters)
     show_trimester_summary(st.session_state.all_results_df, lecturers_df, all_trimesters)
