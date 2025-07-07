@@ -34,7 +34,6 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
     lecturer_hours = {}
     assignments = []
 
-    # Get maximum workload per lecturer (use first occurrence only)
     lecturer_limits_df = lecturers_df.drop_duplicates(subset=["Teacher's name"])[["Teacher's name", "Weekly Workload"]]
     lecturer_limits_df = lecturer_limits_df.set_index("Teacher's name")
     lecturer_limits = lecturer_limits_df["Weekly Workload"].to_dict()
@@ -180,6 +179,10 @@ if lecturer_file and module_file:
 
     st.subheader("📈 Lecturer Remaining Workload Summary")
     st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
+
+    st.subheader("📊 Lecturer Workload by Trimester")
+    workload_stats = st.session_state.assignments.groupby(["Lecturer", "Trimester"])['Weekly Hours'].sum().reset_index()
+    st.dataframe(workload_stats, use_container_width=True)
 
     csv = st.session_state.assignments.to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Download Assignment CSV", csv, "workload_assignment.csv", "text/csv")
