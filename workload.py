@@ -108,10 +108,11 @@ if lecturer_file and module_file:
 
     result_df, lecturer_hours, lecturer_limits = generate_workload_assignment(lecturers_df, modules_df, selected_trimester)
 
-    if "assignments" not in st.session_state:
+    if ("assignments" not in st.session_state) or (st.session_state.get("current_trimester") != selected_trimester):
         st.session_state.assignments = result_df.copy()
         st.session_state.lecturer_hours = lecturer_hours.copy()
         st.session_state.lecturer_limits = lecturer_limits.copy()
+        st.session_state.current_trimester = selected_trimester
 
     show_reassign = st.checkbox("✏️ Show Reassign Lecturers (Optional)")
 
