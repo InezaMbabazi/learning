@@ -34,6 +34,7 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
     lecturer_hours = {}
     assignments = []
 
+    # Get maximum workload per lecturer (use first occurrence only)
     lecturer_limits_df = lecturers_df.drop_duplicates(subset=["Teacher's name"])[["Teacher's name", "Weekly Workload"]]
     lecturer_limits_df = lecturer_limits_df.set_index("Teacher's name")
     lecturer_limits = lecturer_limits_df["Weekly Workload"].to_dict()
@@ -107,23 +108,63 @@ if lecturer_file and module_file:
 
     result_df, lecturer_hours, lecturer_limits = generate_workload_assignment(lecturers_df, modules_df, selected_trimester)
 
-    if "all_assignments" not in st.session_state:
-        st.session_state.all_assignments = pd.DataFrame()
+    if ("assignments" not in st.session_state) or (st.session_state.get("current_trimester") != selected_trimester):
+        st.session_state.assignments = result_df.copy()
+        st.session_state.lecturer_hours = lecturer_hours.copy()
+        st.session_state.lecturer_limits = lecturer_limits.copy()
+        st.session_state.current_trimester = selected_trimester
 
-    st.session_state.all_assignments = pd.concat([
-        st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != selected_trimester],
-        result_df
-    ], ignore_index=True)
+    show_reassign = st.checkbox("✏️ Show Reassign Lecturers (Optional)")
 
-    st.session_state.assignments = result_df.copy()
-    st.session_state.lecturer_hours = lecturer_hours.copy()
-    st.session_state.lecturer_limits = lecturer_limits.copy()
-    st.session_state.current_trimester = selected_trimester
+    if show_reassign:
+        st.subheader("✏️ Reassign Lecturers")
+        new_lecturers = []
+        updated_lecturer_hours = st.session_state.lecturer_hours.copy()
+
+        for i, row in st.session_state.assignments.iterrows():
+            module_code = row["Module Code"]
+            current = row["Lecturer"]
+            hours = row["Weekly Hours"]
+            label = f"{row['Module Name']} (Group {row['Group Number']})"
+
+            eligible = lecturers_df[lecturers_df["Module Code"] == module_code]["Teacher's name"].unique().tolist()
+            if current not in eligible and current != "❌ Not Assigned":
+                eligible.append(current)
+
+            options = ["❌ Not Assigned"] + sorted(eligible)
+            selected = st.selectbox(
+                f"➡️ {label} | Current: {current}",
+                options=options,
+                index=options.index(current) if current in options else 0,
+                key=f"reassign_{i}"
+            )
+            new_lecturers.append(selected)
+
+        if st.button("🔁 Apply Reassignments"):
+            for i in range(len(st.session_state.assignments)):
+                old = st.session_state.assignments.loc[i, "Lecturer"]
+                new = new_lecturers[i]
+                hours = st.session_state.assignments.loc[i, "Weekly Hours"]
+
+                if old != "❌ Not Assigned":
+                    updated_lecturer_hours[old] -= hours
+
+                if new != "❌ Not Assigned":
+                    max_allowed = st.session_state.lecturer_limits.get(new, 18)
+                    if updated_lecturer_hours.get(new, 0) + hours <= max_allowed:
+                        updated_lecturer_hours[new] = updated_lecturer_hours.get(new, 0) + hours
+                        st.session_state.assignments.loc[i, "Lecturer"] = new
+                    else:
+                        st.warning(f"⚠️ {new} would exceed {max_allowed}h — can't assign {st.session_state.assignments.loc[i, 'Module Name']} (Group {st.session_state.assignments.loc[i, 'Group Number']})")
+                else:
+                    st.session_state.assignments.loc[i, "Lecturer"] = "❌ Not Assigned"
+
+            st.session_state.lecturer_hours = updated_lecturer_hours.copy()
+            st.success("✅ Reassignments applied.")
 
     st.subheader("📊 Current Workload Assignment Results")
     st.dataframe(st.session_state.assignments, use_container_width=True)
 
-    st.subheader("📈 Lecturer Remaining Workload Summary")
     all_lecturers = lecturers_df["Teacher's name"].unique()
     final_hours = {name: 0 for name in all_lecturers}
     for _, row in st.session_state.assignments.iterrows():
@@ -136,12 +177,9 @@ if lecturer_file and module_file:
         "Max Workload": [st.session_state.lecturer_limits.get(name, 18) for name in final_hours.keys()]
     })
     summary["Remaining Workload"] = summary["Max Workload"] - summary["Total Assigned Hours"]
-    st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
-    st.subheader("📊 Lecturer Workload by Trimester (Cumulative)")
-    workload_stats = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
-    workload_stats["Total"] = workload_stats.sum(axis=1)
-    st.dataframe(workload_stats, use_container_width=True)
+    st.subheader("📈 Lecturer Remaining Workload Summary")
+    st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
     csv = st.session_state.assignments.to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Download Assignment CSV", csv, "workload_assignment.csv", "text/csv")
