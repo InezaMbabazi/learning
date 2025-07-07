@@ -146,15 +146,17 @@ if lecturer_file and module_file:
                 else:
                     result_df.loc[i, "Lecturer"] = "❌ Not Assigned"
 
+            # ✅ FIX: persist updated workload
+            lecturer_hours = updated_lecturer_hours.copy()
+
             st.success("✅ Reassignments applied.")
 
-            # Generate updated summary including all lecturers
+            # Summary: all lecturers from original DB
             all_lecturers = lecturers_df["Teacher's name"].unique()
             final_hours = {name: 0 for name in all_lecturers}
             for _, row in result_df.iterrows():
-                lecturer = row["Lecturer"]
-                if lecturer in final_hours:
-                    final_hours[lecturer] += row["Weekly Hours"]
+                if row["Lecturer"] in final_hours:
+                    final_hours[row["Lecturer"]] += row["Weekly Hours"]
 
             summary = pd.DataFrame(list(final_hours.items()), columns=["Lecturer", "Total Assigned Hours"])
             summary["Remaining Workload"] = 18 - summary["Total Assigned Hours"]
@@ -162,7 +164,6 @@ if lecturer_file and module_file:
             st.subheader("📈 Updated Lecturer Remaining Workload Summary")
             st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
-            # Updated CSV
             csv = result_df.to_csv(index=False).encode("utf-8")
             st.download_button("⬇️ Download Updated Assignment CSV", csv, "updated_workload.csv", "text/csv")
 
@@ -171,9 +172,8 @@ if lecturer_file and module_file:
         all_lecturers = lecturers_df["Teacher's name"].unique()
         final_hours = {name: 0 for name in all_lecturers}
         for _, row in result_df.iterrows():
-            lecturer = row["Lecturer"]
-            if lecturer in final_hours:
-                final_hours[lecturer] += row["Weekly Hours"]
+            if row["Lecturer"] in final_hours:
+                final_hours[row["Lecturer"]] += row["Weekly Hours"]
 
         summary = pd.DataFrame(list(final_hours.items()), columns=["Lecturer", "Total Assigned Hours"])
         summary["Remaining Workload"] = 18 - summary["Total Assigned Hours"]
