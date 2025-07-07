@@ -134,11 +134,9 @@ if lecturer_file and module_file:
                 new = new_lecturers[i]
                 hours = result_df.loc[i, "Weekly Hours"]
 
-                # Remove workload from old lecturer only if assigned
                 if old != "❌ Not Assigned":
                     updated_lecturer_hours[old] -= hours
 
-                # Add workload to new lecturer only if assigned
                 if new != "❌ Not Assigned":
                     if updated_lecturer_hours.get(new, 0) + hours <= 18:
                         updated_lecturer_hours[new] = updated_lecturer_hours.get(new, 0) + hours
@@ -146,20 +144,17 @@ if lecturer_file and module_file:
                     else:
                         st.warning(f"⚠️ {new} would exceed 18h — can't assign {result_df.loc[i, 'Module Name']} (Group {result_df.loc[i, 'Group Number']})")
                 else:
-                    # New assignment is "Not Assigned" → clear assignment
                     result_df.loc[i, "Lecturer"] = "❌ Not Assigned"
 
             st.success("✅ Reassignments applied.")
 
-            # Show updated assignment table
-            st.subheader("📊 Updated Workload Assignment Results")
-            st.dataframe(result_df, use_container_width=True)
-
-            # Updated workload summary
-            final_hours = {name: 0 for name in lecturers_df["Teacher's name"].unique()}
+            # Generate updated summary including all lecturers
+            all_lecturers = lecturers_df["Teacher's name"].unique()
+            final_hours = {name: 0 for name in all_lecturers}
             for _, row in result_df.iterrows():
-                if row["Lecturer"] != "❌ Not Assigned":
-                    final_hours[row["Lecturer"]] += row["Weekly Hours"]
+                lecturer = row["Lecturer"]
+                if lecturer in final_hours:
+                    final_hours[lecturer] += row["Weekly Hours"]
 
             summary = pd.DataFrame(list(final_hours.items()), columns=["Lecturer", "Total Assigned Hours"])
             summary["Remaining Workload"] = 18 - summary["Total Assigned Hours"]
@@ -167,18 +162,24 @@ if lecturer_file and module_file:
             st.subheader("📈 Updated Lecturer Remaining Workload Summary")
             st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
-            # Download updated assignments CSV
+            # Updated CSV
             csv = result_df.to_csv(index=False).encode("utf-8")
             st.download_button("⬇️ Download Updated Assignment CSV", csv, "updated_workload.csv", "text/csv")
 
     else:
-        # Show initial workload summary if reassignment hidden/not done
-        summary = pd.DataFrame(list(lecturer_hours.items()), columns=["Lecturer", "Total Assigned Hours"])
+        # Initial summary includes all lecturers from database
+        all_lecturers = lecturers_df["Teacher's name"].unique()
+        final_hours = {name: 0 for name in all_lecturers}
+        for _, row in result_df.iterrows():
+            lecturer = row["Lecturer"]
+            if lecturer in final_hours:
+                final_hours[lecturer] += row["Weekly Hours"]
+
+        summary = pd.DataFrame(list(final_hours.items()), columns=["Lecturer", "Total Assigned Hours"])
         summary["Remaining Workload"] = 18 - summary["Total Assigned Hours"]
         st.subheader("📈 Lecturer Remaining Workload Summary")
         st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
-        # Download initial assignments CSV
         csv = result_df.to_csv(index=False).encode("utf-8")
         st.download_button("⬇️ Download Initial Assignment CSV", csv, "initial_workload.csv", "text/csv")
 
