@@ -33,6 +33,11 @@ def get_weekly_hours(credits):
 def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
     lecturer_hours = {}
     assignments = []
+
+    # Get maximum workload per lecturer (use first occurrence only)
+    lecturer_limits = lecturers_df.drop_duplicates(subset=["Teacher's name"])[["Teacher's name", "Weekly Workload"]]
+    lecturer_limits = dict(zip(lecturer_limits["Teacher's name"], lecturer_limits["Weekly Workload"]))
+
     filtered_modules = modules_df[modules_df["When to Take Place"] == selected_trimester].copy()
     filtered_modules["Weekly Hours"] = filtered_modules["Credits"].apply(get_weekly_hours)
 
@@ -49,13 +54,15 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
                     lecturer_hours[name] = 0
 
             matching_lecturers["Assigned Hours"] = matching_lecturers["Teacher's name"].map(lecturer_hours)
-            matching_lecturers["Remaining"] = 18 - matching_lecturers["Assigned Hours"]
+            matching_lecturers["Max Workload"] = matching_lecturers["Teacher's name"].map(lecturer_limits)
+            matching_lecturers["Remaining"] = matching_lecturers["Max Workload"] - matching_lecturers["Assigned Hours"]
             matching_lecturers = matching_lecturers.sort_values(by="Remaining", ascending=False)
 
             assigned = False
             for _, lecturer in matching_lecturers.iterrows():
                 name = lecturer["Teacher's name"]
-                if lecturer_hours[name] + hours_needed <= 18:
+                max_allowed = lecturer_limits.get(name, 18)
+                if lecturer_hours[name] + hours_needed <= max_allowed:
                     assignments.append({
                         "Lecturer": name,
                         "Module Code": module_code,
@@ -86,7 +93,7 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
                     "Trimester": selected_trimester
                 })
 
-    return pd.DataFrame(assignments), lecturer_hours
+    return pd.DataFrame(assignments), lecturer_hours, lecturer_limits
 
 if lecturer_file and module_file:
     lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
@@ -98,11 +105,12 @@ if lecturer_file and module_file:
     trimester_options = modules_df["When to Take Place"].dropna().unique()
     selected_trimester = st.selectbox("📅 Select When to Take Place (Trimester)", sorted(trimester_options))
 
-    result_df, lecturer_hours = generate_workload_assignment(lecturers_df, modules_df, selected_trimester)
+    result_df, lecturer_hours, lecturer_limits = generate_workload_assignment(lecturers_df, modules_df, selected_trimester)
 
     if "assignments" not in st.session_state:
         st.session_state.assignments = result_df.copy()
         st.session_state.lecturer_hours = lecturer_hours.copy()
+        st.session_state.lecturer_limits = lecturer_limits.copy()
 
     show_reassign = st.checkbox("✏️ Show Reassign Lecturers (Optional)")
 
@@ -140,11 +148,12 @@ if lecturer_file and module_file:
                     updated_lecturer_hours[old] -= hours
 
                 if new != "❌ Not Assigned":
-                    if updated_lecturer_hours.get(new, 0) + hours <= 18:
+                    max_allowed = st.session_state.lecturer_limits.get(new, 18)
+                    if updated_lecturer_hours.get(new, 0) + hours <= max_allowed:
                         updated_lecturer_hours[new] = updated_lecturer_hours.get(new, 0) + hours
                         st.session_state.assignments.loc[i, "Lecturer"] = new
                     else:
-                        st.warning(f"⚠️ {new} would exceed 18h — can't assign {st.session_state.assignments.loc[i, 'Module Name']} (Group {st.session_state.assignments.loc[i, 'Group Number']})")
+                        st.warning(f"⚠️ {new} would exceed {max_allowed}h — can't assign {st.session_state.assignments.loc[i, 'Module Name']} (Group {st.session_state.assignments.loc[i, 'Group Number']})")
                 else:
                     st.session_state.assignments.loc[i, "Lecturer"] = "❌ Not Assigned"
 
@@ -160,8 +169,12 @@ if lecturer_file and module_file:
         if row["Lecturer"] in final_hours:
             final_hours[row["Lecturer"]] += row["Weekly Hours"]
 
-    summary = pd.DataFrame(list(final_hours.items()), columns=["Lecturer", "Total Assigned Hours"])
-    summary["Remaining Workload"] = 18 - summary["Total Assigned Hours"]
+    summary = pd.DataFrame({
+        "Lecturer": list(final_hours.keys()),
+        "Total Assigned Hours": list(final_hours.values()),
+        "Max Workload": [lecturer_limits.get(name, 18) for name in final_hours.keys()]
+    })
+    summary["Remaining Workload"] = summary["Max Workload"] - summary["Total Assigned Hours"]
 
     st.subheader("📈 Lecturer Remaining Workload Summary")
     st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
