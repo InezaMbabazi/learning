@@ -35,8 +35,9 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
     assignments = []
 
     # Get maximum workload per lecturer (use first occurrence only)
-    lecturer_limits = lecturers_df.drop_duplicates(subset=["Teacher's name"])[["Teacher's name", "Weekly Workload"]]
-    lecturer_limits = dict(zip(lecturer_limits["Teacher's name"], lecturer_limits["Weekly Workload"]))
+    lecturer_limits_df = lecturers_df.drop_duplicates(subset=["Teacher's name"])[["Teacher's name", "Weekly Workload"]]
+    lecturer_limits_df = lecturer_limits_df.set_index("Teacher's name")
+    lecturer_limits = lecturer_limits_df["Weekly Workload"].to_dict()
 
     filtered_modules = modules_df[modules_df["When to Take Place"] == selected_trimester].copy()
     filtered_modules["Weekly Hours"] = filtered_modules["Credits"].apply(get_weekly_hours)
@@ -172,7 +173,7 @@ if lecturer_file and module_file:
     summary = pd.DataFrame({
         "Lecturer": list(final_hours.keys()),
         "Total Assigned Hours": list(final_hours.values()),
-        "Max Workload": [lecturer_limits.get(name, 18) for name in final_hours.keys()]
+        "Max Workload": [st.session_state.lecturer_limits.get(name, 18) for name in final_hours.keys()]
     })
     summary["Remaining Workload"] = summary["Max Workload"] - summary["Total Assigned Hours"]
 
