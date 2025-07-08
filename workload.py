@@ -205,17 +205,30 @@ if lecturer_file and module_file:
     st.subheader("📊 Current Workload Assignment Results")
     st.dataframe(st.session_state.assignments, use_container_width=True)
 
+    # ⬇️ Weekly Workload Summary for selected trimester
+    all_lecturers = lecturers_df["Teacher's name"].unique()
+    final_hours = {name: 0 for name in all_lecturers}
+    for _, row in st.session_state.assignments.iterrows():
+        if row["Lecturer"] in final_hours:
+            final_hours[row["Lecturer"]] += row["Weekly Hours"]
+
+    summary = pd.DataFrame({
+        "Lecturer": list(final_hours.keys()),
+        "Total Assigned Weekly Hours": list(final_hours.values()),
+        "Max Weekly Workload": [st.session_state.lecturer_limits.get(name, 18) for name in final_hours.keys()]
+    })
+    summary["Remaining Weekly Workload"] = summary["Max Weekly Workload"] - summary["Total Assigned Weekly Hours"]
+    summary["Occupancy %"] = (summary["Total Assigned Weekly Hours"] / summary["Max Weekly Workload"] * 100).round(1).astype(str) + " %"
+
+    st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
+    st.dataframe(summary.sort_values(by="Remaining Weekly Workload"), use_container_width=True)
+
     if st.button("📊 Generate Cumulative Workload Statistics"):
         cumulative = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
-        cumulative = cumulative * 12  # 12 weeks per trimester
+        cumulative = cumulative * 12  # 12 weeks
         cumulative["Total"] = cumulative.sum(axis=1)
-
-        # Max Annual Load
         cumulative["Max Workload (Annual)"] = cumulative.index.map(lambda x: st.session_state.lecturer_limits.get(x, 18) * 12 * 3)
-
-        # ✅ Occupancy %
-        cumulative["Occupancy %"] = (cumulative["Total"] / cumulative["Max Workload (Annual)"]) * 100
-        cumulative["Occupancy %"] = cumulative["Occupancy %"].round(1).astype(str) + " %"
+        cumulative["Occupancy %"] = (cumulative["Total"] / cumulative["Max Workload (Annual)"] * 100).round(1).astype(str) + " %"
 
         st.subheader("📊 Cumulative Lecturer Workload (Trimester 1, 2, 3, Total, Occupancy)")
         st.dataframe(cumulative, use_container_width=True)
