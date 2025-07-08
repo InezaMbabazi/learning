@@ -9,7 +9,7 @@ st.sidebar.header("Upload Datasets")
 lecturer_file = st.sidebar.file_uploader("Upload Lecturers Dataset", type=["csv", "xlsx"])
 module_file = st.sidebar.file_uploader("Upload Modules Dataset", type=["csv", "xlsx"])
 
-# Split logic
+# Utilities
 def split_students(total, min_size=30, max_size=70):
     if total <= max_size:
         return [total]
@@ -95,6 +95,7 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
 
     return pd.DataFrame(assignments), lecturer_hours, lecturer_limits
 
+# Main Logic
 if lecturer_file and module_file:
     lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
     modules_df = pd.read_csv(module_file) if module_file.name.endswith('.csv') else pd.read_excel(module_file)
@@ -123,6 +124,7 @@ if lecturer_file and module_file:
     st.session_state.lecturer_limits = lecturer_limits.copy()
     st.session_state.current_trimester = selected_trimester
 
+    # Reassignment section
     show_reassign = st.checkbox("✏️ Show Reassign Lecturers (Optional)")
     if show_reassign:
         st.subheader("✏️ Reassign Lecturers")
@@ -168,11 +170,21 @@ if lecturer_file and module_file:
                     st.session_state.assignments.loc[i, "Lecturer"] = "❌ Not Assigned"
 
             st.session_state.lecturer_hours = updated_lecturer_hours.copy()
-            st.success("✅ Reassignments applied.")
 
+            # 🆕 Update all_assignments with reassigned data
+            current_trimester = st.session_state.current_trimester
+            st.session_state.all_assignments = pd.concat([
+                st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != current_trimester],
+                st.session_state.assignments
+            ], ignore_index=True)
+
+            st.success("✅ Reassignments applied and cumulative data updated.")
+
+    # Display current assignment
     st.subheader("📊 Current Workload Assignment Results")
     st.dataframe(st.session_state.assignments, use_container_width=True)
 
+    # Workload summary
     all_lecturers = lecturers_df["Teacher's name"].unique()
     final_hours = {name: 0 for name in all_lecturers}
     for _, row in st.session_state.assignments.iterrows():
@@ -189,6 +201,7 @@ if lecturer_file and module_file:
     st.subheader("📈 Lecturer Remaining Workload Summary")
     st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
+    # Cumulative statistics
     if st.button("📊 Generate Cumulative Workload Statistics"):
         cumulative = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
         cumulative["Total"] = cumulative.sum(axis=1)
