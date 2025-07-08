@@ -115,7 +115,6 @@ def schedule_rooms(assignments, room_df):
     for _, row in assigned.iterrows():
         key_id = f"{row['Module Code']}_G{row['Group Number']}"
         sessions_scheduled = 0
-        # shuffle slots and days to vary scheduling
         shuffled_slots = slots.copy()
         shuffled_days = weekdays.copy()
         random.shuffle(shuffled_slots)
@@ -157,7 +156,7 @@ def schedule_rooms(assignments, room_df):
             "Room": room,
             "Capacity": room_df.loc[room_df['Room Name'] == room, 'capacity'].values[0],
             "Slots Used": used_count,
-            "Total Slots": len(slots)*len(weekdays)
+            "Total Slots": len(slots) * len(weekdays)
         })
     room_summary_df = pd.DataFrame(room_summary)
     room_summary_df["Usage %"] = (room_summary_df["Slots Used"] / room_summary_df["Total Slots"] * 100).round(1).astype(str) + "%"
@@ -239,11 +238,9 @@ if lecturer_file and module_file and room_file:
             new_lecturers.append(selected)
 
         if st.button("🔁 Apply Reassignments"):
-            # Apply new lecturer assignments
             for i in range(len(st.session_state.assignments)):
                 st.session_state.assignments.loc[i, "Lecturer"] = new_lecturers[i]
 
-            # Recalculate lecturer_hours after reassignment
             updated_lecturer_hours = {}
             for name in st.session_state.lecturer_limits.keys():
                 updated_lecturer_hours[name] = 0
@@ -251,4 +248,41 @@ if lecturer_file and module_file and room_file:
                 lecturer = row["Lecturer"]
                 if lecturer != "❌ Not Assigned":
                     updated_lecturer_hours[lecturer] = updated_lecturer_hours.get(lecturer, 0) + row["Weekly Hours"]
-            st.session_state.lecturer_hours =
+
+            st.session_state.lecturer_hours = updated_lecturer_hours.copy()
+
+            st.session_state.reassignments_done[selected_trimester] = {
+                "assignments": st.session_state.assignments.copy(),
+                "lecturer_hours": updated_lecturer_hours.copy(),
+                "lecturer_limits": st.session_state.lecturer_limits.copy()
+            }
+
+            st.session_state.all_assignments = pd.concat([
+                st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != selected_trimester],
+                st.session_state.assignments
+            ], ignore_index=True)
+            st.success("✅ Reassignments applied successfully!")
+
+    st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
+    summary_df = pd.DataFrame({
+        "Lecturer": list(st.session_state.lecturer_hours.keys()),
+        "Total Assigned Weekly Hours": list(st.session_state.lecturer_hours.values()),
+        "Max Weekly Load": [st.session_state.lecturer_limits.get(name, 18) for name in st.session_state.lecturer_hours.keys()]
+    })
+    summary_df["Remaining"] = summary_df["Max Weekly Load"] - summary_df["Total Assigned Weekly Hours"]
+    st.dataframe(summary_df.sort_values("Remaining"))
+
+    st.subheader("🗓️ Weekly Room Timetable")
+    timetable_df, unassigned_modules, room_summary_df = schedule_rooms(st.session_state.assignments, room_df)
+    st.dataframe(timetable_df)
+
+    if unassigned_modules:
+        st.warning("⚠️ Modules without available room slots:")
+        st.dataframe(pd.DataFrame(unassigned_modules))
+        total_students = sum(entry["Students"] for entry in unassigned_modules)
+        st.info(f"Total students without room slots: {total_students}")
+
+    st.subheader("📊 Room Utilization Summary")
+    st.dataframe(room_summary_df)
+else:
+    st.info("📈 Please upload all three datasets: lecturers, modules, and rooms.")
