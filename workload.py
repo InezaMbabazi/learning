@@ -106,9 +106,9 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
 def schedule_rooms(assignments, room_df):
     slots = ["08:00–10:00", "10:30–12:30", "14:00–16:00", "16:15–18:15"]
     weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-    schedule = {(slot, day): "" for slot in slots for day in weekdays}
+    schedule = {(slot, day): [] for slot in slots for day in weekdays}
     room_usage = defaultdict(lambda: {(slot, day): False for slot in slots for day in weekdays})
-    used_slots = defaultdict(list)  # to prevent double-booking same module
+    used_slots = defaultdict(list)
 
     for _, row in assignments.iterrows():
         key_id = f"{row['Module Code']}_G{row['Group Number']}"
@@ -121,8 +121,9 @@ def schedule_rooms(assignments, room_df):
                 if (slot, day) in used_slots[key_id]:
                     continue
                 for _, room in room_df.iterrows():
-                    if row['Group Size'] <= room['capacity'] and not room_usage[room['Room Name']][(slot, day)] and not schedule[(slot, day)]:
-                        schedule[(slot, day)] = f"{row['Module Name']}\nGroup {row['Group Number']}\n{room['Room Name']}\n{row['Lecturer']}\n{row['Group Size']} students"
+                    if row['Group Size'] <= room['capacity'] and not room_usage[room['Room Name']][(slot, day)]:
+                        entry = f"{row['Module Name']}\nGroup {row['Group Number']}\n{room['Room Name']}\n{row['Lecturer']}\n{row['Group Size']} students"
+                        schedule[(slot, day)].append(entry)
                         room_usage[room['Room Name']][(slot, day)] = True
                         used_slots[key_id].append((slot, day))
                         sessions_scheduled += 1
@@ -133,8 +134,8 @@ def schedule_rooms(assignments, room_df):
                 break
 
     timetable_df = pd.DataFrame(index=slots, columns=weekdays)
-    for (slot, day), text in schedule.items():
-        timetable_df.loc[slot, day] = text
+    for (slot, day), entries in schedule.items():
+        timetable_df.loc[slot, day] = "\n\n".join(entries)
 
     return timetable_df
 
