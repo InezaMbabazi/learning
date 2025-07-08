@@ -143,6 +143,54 @@ if lecturer_file and module_file:
     st.subheader("📈 Lecturer Remaining Workload Summary")
     st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
+    # Manual reassignment UI
+    show_reassign = st.checkbox("✏️ Show Reassign Lecturers (Optional)")
+    if show_reassign:
+        st.subheader("✏️ Reassign Lecturers")
+        new_lecturers = []
+        updated_lecturer_hours = st.session_state.lecturer_hours.copy()
+
+        for i, row in st.session_state.assignments.iterrows():
+            module_code = row["Module Code"]
+            current = row["Lecturer"]
+            hours = row["Weekly Hours"]
+            label = f"{row['Module Name']} (Group {row['Group Number']})"
+
+            eligible = lecturers_df[lecturers_df["Module Code"] == module_code]["Teacher's name"].unique().tolist()
+            if current not in eligible and current != "❌ Not Assigned":
+                eligible.append(current)
+
+            options = ["❌ Not Assigned"] + sorted(eligible)
+            selected = st.selectbox(
+                f"➡️ {label} | Current: {current}",
+                options=options,
+                index=options.index(current) if current in options else 0,
+                key=f"reassign_{i}"
+            )
+            new_lecturers.append(selected)
+
+        if st.button("🔁 Apply Reassignments"):
+            for i in range(len(st.session_state.assignments)):
+                old = st.session_state.assignments.loc[i, "Lecturer"]
+                new = new_lecturers[i]
+                hours = st.session_state.assignments.loc[i, "Weekly Hours"]
+
+                if old != "❌ Not Assigned":
+                    updated_lecturer_hours[old] -= hours
+
+                if new != "❌ Not Assigned":
+                    max_allowed = st.session_state.lecturer_limits.get(new, 18)
+                    if updated_lecturer_hours.get(new, 0) + hours <= max_allowed:
+                        updated_lecturer_hours[new] = updated_lecturer_hours.get(new, 0) + hours
+                        st.session_state.assignments.loc[i, "Lecturer"] = new
+                    else:
+                        st.warning(f"⚠️ {new} would exceed {max_allowed}h — can't assign {st.session_state.assignments.loc[i, 'Module Name']} (Group {st.session_state.assignments.loc[i, 'Group Number']})")
+                else:
+                    st.session_state.assignments.loc[i, "Lecturer"] = "❌ Not Assigned"
+
+            st.session_state.lecturer_hours = updated_lecturer_hours.copy()
+            st.success("✅ Reassignments applied.")
+
     if st.button("📊 Generate Cumulative Workload Statistics"):
         cumulative = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
         cumulative["Total"] = cumulative.sum(axis=1)
