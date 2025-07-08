@@ -211,9 +211,6 @@ if lecturer_file and module_file and room_file:
         else:
             st.session_state.all_assignments = result_df.copy()
 
-    st.subheader("📊 Current Workload Assignment Results")
-    st.dataframe(st.session_state.assignments, use_container_width=True)
-
     show_reassign = st.checkbox("✏️ Show Reassign Lecturers (Optional)")
     if show_reassign:
         st.subheader("✏️ Reassign Lecturers")
@@ -262,6 +259,9 @@ if lecturer_file and module_file and room_file:
                 st.session_state.assignments
             ], ignore_index=True)
             st.success("✅ Reassignments applied successfully!")
+
+    st.subheader("📊 Current Workload Assignment Results")
+    st.dataframe(st.session_state.assignments, use_container_width=True)
 
     st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
     summary_df = pd.DataFrame({
