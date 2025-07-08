@@ -118,7 +118,6 @@ def schedule_rooms(assignments, room_df):
         sessions_scheduled = 0
         random.shuffle(slots)
         random.shuffle(weekdays)
-        found_slot = False
 
         for slot in slots:
             for day in weekdays:
@@ -131,25 +130,33 @@ def schedule_rooms(assignments, room_df):
                         room_usage[room['Room Name']][(slot, day)] = True
                         used_slots[key_id].append((slot, day))
                         sessions_scheduled += 1
-                        found_slot = True
                         break
                 if sessions_scheduled >= 2:
                     break
             if sessions_scheduled >= 2:
                 break
 
-        if not found_slot:
-            unassigned_modules.append(key_id)
+        if sessions_scheduled < 2:
+            unassigned_modules.append({
+                "Module": row["Module Name"],
+                "Group": row["Group Number"],
+                "Lecturer": row["Lecturer"],
+                "Students": row["Group Size"]
+            })
 
     timetable_df = pd.DataFrame(index=slots, columns=weekdays)
     for (slot, day), entries in schedule.items():
         timetable_df.loc[slot, day] = "\n\n".join(entries)
 
-    # Calculate room usage summary
     room_summary = []
     for room, usage in room_usage.items():
         used_count = sum(1 for v in usage.values() if v)
-        room_summary.append({"Room": room, "Slots Used": used_count, "Total Slots": len(slots)*len(weekdays)})
+        room_summary.append({
+            "Room": room,
+            "Capacity": room_df.loc[room_df['Room Name'] == room, 'capacity'].values[0],
+            "Slots Used": used_count,
+            "Total Slots": len(slots)*len(weekdays)
+        })
     room_summary_df = pd.DataFrame(room_summary)
     room_summary_df["Usage %"] = (room_summary_df["Slots Used"] / room_summary_df["Total Slots"] * 100).round(1).astype(str) + "%"
 
@@ -178,7 +185,9 @@ if lecturer_file and module_file and room_file:
 
     if unassigned:
         st.warning("⚠️ Modules without available room slots:")
-        st.write(unassigned)
+        st.dataframe(pd.DataFrame(unassigned))
+        total_students = sum([entry['Students'] for entry in unassigned])
+        st.info(f"Total students without room slots: {total_students}")
 
     st.subheader("📊 Room Utilization Summary")
     st.dataframe(room_stats)
