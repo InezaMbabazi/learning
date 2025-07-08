@@ -296,4 +296,4 @@ if lecturer_file and module_file and room_file:
     summary["Remaining Weekly Workload"] = summary["Max Weekly Workload"] - summary["Total Assigned Weekly Hours"]
     summary["Occupancy %"] = (summary["Total Assigned Weekly Hours"] / summary["Max Weekly Workload"] * 100).round(1).astype(str) + " %"
 
-    st.subheader(f"📈 Weekly Workload Summary – Trimester {
+st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
