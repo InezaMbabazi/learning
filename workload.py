@@ -27,7 +27,7 @@ def split_students(total, min_size=30, max_size=70):
     return [total]
 
 def get_weekly_hours(credits):
-    return 6 if credits == 20 else 4 if credits in [10, 15] else 0
+    return 7 if credits == 20 else 5 if credits in [10, 15] else 0
 
 def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
     lecturer_hours = {}
