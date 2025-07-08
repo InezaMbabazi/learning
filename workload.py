@@ -106,16 +106,18 @@ if lecturer_file and module_file:
     trimester_options = modules_df["When to Take Place"].dropna().unique()
     selected_trimester = st.selectbox("📅 Select When to Take Place (Trimester)", sorted(trimester_options))
 
+    # 🔧 Fix: Reset reassignment flag if trimester changes
+    if "current_trimester" in st.session_state and st.session_state.current_trimester != selected_trimester:
+        st.session_state.reassignment_applied = False
+
     result_df, lecturer_hours, lecturer_limits = generate_workload_assignment(lecturers_df, modules_df, selected_trimester)
 
-    # Create session state holders
     if "all_assignments" not in st.session_state:
         st.session_state.all_assignments = pd.DataFrame()
 
     if "reassignment_applied" not in st.session_state:
         st.session_state.reassignment_applied = False
 
-    # Only update assignments if reassignment wasn't applied
     if not st.session_state.reassignment_applied:
         if "Trimester" in st.session_state.all_assignments.columns:
             st.session_state.all_assignments = pd.concat([
@@ -177,7 +179,7 @@ if lecturer_file and module_file:
 
             st.session_state.lecturer_hours = updated_lecturer_hours.copy()
 
-            # Update the all_assignments with the reassigned ones
+            # Update all_assignments with reassigned data
             current_trimester = st.session_state.current_trimester
             st.session_state.all_assignments = pd.concat([
                 st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != current_trimester],
