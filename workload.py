@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import itertools
 from collections import defaultdict
 
 st.set_page_config(page_title="Workload Management System", layout="wide")
@@ -102,50 +103,31 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
     return pd.DataFrame(assignments), lecturer_hours, lecturer_limits
 
 def schedule_rooms(assignments, room_df):
-    slots = [
-        "08:00–10:00", "10:30–12:30", "14:00–16:00", "16:15–18:15"
-    ]
+    slots = ["08:00–10:00", "10:30–12:30", "14:00–16:00", "16:15–18:15"]
     weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-    timetable = {day: {slot: None for slot in slots} for day in weekdays}
-    room_usage = defaultdict(lambda: {day: {slot: False for slot in slots} for day in weekdays})
+    schedule = {(slot, day): "" for slot in slots for day in weekdays}
 
-    schedule_output = []
-    current_index = 0
+    room_usage = defaultdict(lambda: {(slot, day): False for slot in slots for day in weekdays})
+
     for _, row in assignments.iterrows():
-        module = row['Module Name']
-        size = row['Group Size']
-        group = row['Group Number']
-        lecturer = row['Lecturer']
-
-        assigned = False
-        for day in weekdays:
-            for slot in slots:
+        for slot in slots:
+            for day in weekdays:
                 for _, room in room_df.iterrows():
-                    if room['capacity'] >= size and not room_usage[room['Room Name']][day][slot]:
-                        room_usage[room['Room Name']][day][slot] = True
-                        schedule_output.append({
-                            "Day": day,
-                            "Time": slot,
-                            "Module": module,
-                            "Group": f"Group {group}",
-                            "Room": room['Room Name'],
-                            "Lecturer": lecturer,
-                            "Size": size
-                        })
-                        assigned = True
+                    key = (slot, day)
+                    if row['Group Size'] <= room['capacity'] and not room_usage[room['Room Name']][key] and not schedule[key]:
+                        schedule[key] = f"{row['Module Name']}\nGroup {row['Group Number']}\n{room['Room Name']}\n{row['Lecturer']}\n{row['Group Size']} students"
+                        room_usage[room['Room Name']][key] = True
                         break
-                if assigned:
+                if schedule[key]:
                     break
-            if assigned:
+            if schedule[key]:
                 break
 
-    schedule_df = pd.DataFrame(schedule_output)
-    pivot = schedule_df.pivot_table(
-        index="Time", columns="Day",
-        values=["Module", "Group", "Lecturer", "Room", "Size"],
-        aggfunc=lambda x: '\n'.join(str(i) for i in x)
-    ).fillna("")
-    return schedule_df, pivot
+    timetable_df = pd.DataFrame(index=slots, columns=weekdays)
+    for (slot, day), text in schedule.items():
+        timetable_df.loc[slot, day] = text
+
+    return timetable_df
 
 if lecturer_file and module_file and room_file:
     lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
@@ -159,43 +141,22 @@ if lecturer_file and module_file and room_file:
     trimester_options = modules_df["When to Take Place"].dropna().unique()
     selected_trimester = st.selectbox("🗕️ Select When to Take Place (Trimester)", sorted(trimester_options))
 
-    result_df, lecturer_hours, lecturer_limits = generate_workload_assignment(lecturers_df, modules_df, selected_trimester)
+    assignments_df, lecturer_hours, lecturer_limits = generate_workload_assignment(lecturers_df, modules_df, selected_trimester)
+
     st.subheader("📊 Current Workload Assignment Results")
-    st.dataframe(result_df)
+    st.dataframe(assignments_df)
 
-    schedule_df, pivot_timetable = schedule_rooms(result_df, room_df)
-    st.subheader("🗓️ Weekly Timetable by Room Allocation")
-    st.dataframe(pivot_timetable)
-
-    # Weekly summary
-    all_lecturers = lecturers_df["Teacher's name"].unique()
-    final_hours = {name: 0 for name in all_lecturers}
-    for _, row in result_df.iterrows():
-        if row["Lecturer"] in final_hours:
-            final_hours[row["Lecturer"]] += row["Weekly Hours"]
-
-    summary = pd.DataFrame({
-        "Lecturer": list(final_hours.keys()),
-        "Total Assigned Weekly Hours": list(final_hours.values()),
-        "Max Weekly Workload": [lecturer_limits.get(name, 18) for name in final_hours.keys()]
-    })
-    summary["Remaining Weekly Workload"] = summary["Max Weekly Workload"] - summary["Total Assigned Weekly Hours"]
-    summary["Occupancy %"] = (summary["Total Assigned Weekly Hours"] / summary["Max Weekly Workload"] * 100).round(1).astype(str) + " %"
+    st.subheader("🗓️ Weekly Room Timetable")
+    timetable = schedule_rooms(assignments_df, room_df)
+    st.dataframe(timetable)
 
     st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
-    st.dataframe(summary.sort_values(by="Remaining Weekly Workload"))
-
-    # Cumulative Summary Button
-    if st.button("📊 Generate Cumulative Workload Statistics"):
-        cumulative = result_df.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack().fillna(0)
-        cumulative = cumulative.reindex(index=all_lecturers, fill_value=0)
-        cumulative = cumulative * 12
-        cumulative["Total"] = cumulative.sum(axis=1)
-        cumulative["Max Workload (Annual)"] = cumulative.index.map(lambda x: lecturer_limits.get(x, 18) * 12 * 3)
-        cumulative["Occupancy %"] = (cumulative["Total"] / cumulative["Max Workload (Annual)"] * 100).round(1).astype(str) + " %"
-
-        st.subheader("📊 Cumulative Lecturer Workload")
-        st.dataframe(cumulative)
-
+    summary_df = pd.DataFrame({
+        "Lecturer": list(lecturer_hours.keys()),
+        "Total Assigned Hours": list(lecturer_hours.values()),
+        "Max Weekly Load": [lecturer_limits.get(name, 18) for name in lecturer_hours.keys()]
+    })
+    summary_df["Remaining"] = summary_df["Max Weekly Load"] - summary_df["Total Assigned Hours"]
+    st.dataframe(summary_df.sort_values("Remaining"))
 else:
-    st.info("📈 Please upload lecturers, modules, and rooms datasets to begin.")
+    st.info("📈 Please upload all three datasets: lecturers, modules, and rooms.")
