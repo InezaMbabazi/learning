@@ -26,8 +26,14 @@ def split_students(total, min_size=30, max_size=70):
         return valid_splits[0]
     return [total]
 
+# ✅ Updated Weekly Hours Logic
 def get_weekly_hours(credits):
-    return 7 if credits == 20 else 5 if credits in [10, 15] else 0
+    if credits == 20:
+        return 7
+    elif credits in [10, 15]:
+        return 5
+    else:
+        return 0
 
 def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
     lecturer_hours = {}
@@ -104,7 +110,6 @@ if lecturer_file and module_file:
     trimester_options = modules_df["When to Take Place"].dropna().unique()
     selected_trimester = st.selectbox("📅 Select When to Take Place (Trimester)", sorted(trimester_options))
 
-    # Initialize reassignment tracking dict and flags
     if "reassignments_done" not in st.session_state:
         st.session_state.reassignments_done = {}
     if "all_assignments" not in st.session_state:
@@ -112,26 +117,22 @@ if lecturer_file and module_file:
     if "reassignment_applied" not in st.session_state:
         st.session_state.reassignment_applied = False
 
-    # Reset reassignment flag if trimester changed
     if "current_trimester" in st.session_state and st.session_state.current_trimester != selected_trimester:
         st.session_state.reassignment_applied = False
     st.session_state.current_trimester = selected_trimester
 
-    # Add Reset button for current trimester
     if st.button(f"🔄 Reset Assignments for Trimester {selected_trimester}"):
         if selected_trimester in st.session_state.reassignments_done:
             del st.session_state.reassignments_done[selected_trimester]
         st.session_state.reassignment_applied = False
         st.experimental_rerun()
 
-    # Load saved assignments if exist
     if selected_trimester in st.session_state.reassignments_done:
         st.session_state.assignments = st.session_state.reassignments_done[selected_trimester]["assignments"]
         st.session_state.lecturer_hours = st.session_state.reassignments_done[selected_trimester]["lecturer_hours"]
         st.session_state.lecturer_limits = st.session_state.reassignments_done[selected_trimester]["lecturer_limits"]
         st.session_state.reassignment_applied = True
     else:
-        # Generate new if not saved or reset
         result_df, lecturer_hours, lecturer_limits = generate_workload_assignment(lecturers_df, modules_df, selected_trimester)
         st.session_state.assignments = result_df.copy()
         st.session_state.lecturer_hours = lecturer_hours.copy()
@@ -145,7 +146,6 @@ if lecturer_file and module_file:
         else:
             st.session_state.all_assignments = result_df.copy()
 
-    # Show reassign UI
     show_reassign = st.checkbox("✏️ Show Reassign Lecturers (Optional)")
     if show_reassign:
         st.subheader("✏️ Reassign Lecturers")
@@ -191,27 +191,21 @@ if lecturer_file and module_file:
                     st.session_state.assignments.loc[i, "Lecturer"] = "❌ Not Assigned"
 
             st.session_state.lecturer_hours = updated_lecturer_hours.copy()
-
-            # Save reassigned data per trimester
             st.session_state.reassignments_done[selected_trimester] = {
                 "assignments": st.session_state.assignments.copy(),
                 "lecturer_hours": updated_lecturer_hours.copy(),
                 "lecturer_limits": st.session_state.lecturer_limits.copy()
             }
-
             st.session_state.all_assignments = pd.concat([
                 st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != selected_trimester],
                 st.session_state.assignments
             ], ignore_index=True)
-
             st.session_state.reassignment_applied = True
             st.success("✅ Reassignments applied and saved.")
 
-    # Display current assignment
     st.subheader("📊 Current Workload Assignment Results")
     st.dataframe(st.session_state.assignments, use_container_width=True)
 
-    # Lecturer summary
     all_lecturers = lecturers_df["Teacher's name"].unique()
     final_hours = {name: 0 for name in all_lecturers}
     for _, row in st.session_state.assignments.iterrows():
@@ -220,23 +214,25 @@ if lecturer_file and module_file:
 
     summary = pd.DataFrame({
         "Lecturer": list(final_hours.keys()),
-        "Total Assigned Hours": list(final_hours.values()),
-        "Max Workload": [st.session_state.lecturer_limits.get(name, 18) for name in final_hours.keys()]
+        "Total Assigned Weekly Hours": list(final_hours.values()),
+        "Max Weekly Workload": [st.session_state.lecturer_limits.get(name, 18) for name in final_hours.keys()]
     })
-    summary["Remaining Workload"] = summary["Max Workload"] - summary["Total Assigned Hours"]
+    summary["Remaining Weekly Workload"] = summary["Max Weekly Workload"] - summary["Total Assigned Weekly Hours"]
 
     st.subheader("📈 Lecturer Remaining Workload Summary")
-    st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
+    st.dataframe(summary.sort_values(by="Remaining Weekly Workload"), use_container_width=True)
 
-    # Cumulative statistics button
     if st.button("📊 Generate Cumulative Workload Statistics"):
         cumulative = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
+        cumulative = cumulative * 12  # ✅ 12 weeks per trimester
         cumulative["Total"] = cumulative.sum(axis=1)
-        cumulative["Max Workload"] = cumulative.index.map(lambda x: st.session_state.lecturer_limits.get(x, 18))
+
+        # ✅ Max Workload = Weekly Workload × 12 × 3 trimesters
+        cumulative["Max Workload (Annual)"] = cumulative.index.map(lambda x: st.session_state.lecturer_limits.get(x, 18) * 12 * 3)
+
         st.subheader("📊 Cumulative Lecturer Workload (Trimester 1, 2, 3, Total)")
         st.dataframe(cumulative, use_container_width=True)
 
-    # Download CSV
     csv = st.session_state.assignments.to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Download Assignment CSV", csv, "workload_assignment.csv", "text/csv")
 
