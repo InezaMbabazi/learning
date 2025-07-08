@@ -106,11 +106,9 @@ if lecturer_file and module_file:
     trimester_options = modules_df["When to Take Place"].dropna().unique()
     selected_trimester = st.selectbox("📅 Select When to Take Place (Trimester)", sorted(trimester_options))
 
-    # 🔧 Fix: Reset reassignment flag if trimester changes
-    if "current_trimester" in st.session_state and st.session_state.current_trimester != selected_trimester:
-        st.session_state.reassignment_applied = False
-
-    result_df, lecturer_hours, lecturer_limits = generate_workload_assignment(lecturers_df, modules_df, selected_trimester)
+    # Initialize reassignment tracking dictionary
+    if "reassignments_done" not in st.session_state:
+        st.session_state.reassignments_done = {}
 
     if "all_assignments" not in st.session_state:
         st.session_state.all_assignments = pd.DataFrame()
@@ -118,7 +116,25 @@ if lecturer_file and module_file:
     if "reassignment_applied" not in st.session_state:
         st.session_state.reassignment_applied = False
 
-    if not st.session_state.reassignment_applied:
+    # Reset reassignment flag if trimester changed
+    if "current_trimester" in st.session_state and st.session_state.current_trimester != selected_trimester:
+        st.session_state.reassignment_applied = False
+
+    st.session_state.current_trimester = selected_trimester
+
+    # Use saved reassigned values if available
+    if selected_trimester in st.session_state.reassignments_done:
+        st.session_state.assignments = st.session_state.reassignments_done[selected_trimester]["assignments"]
+        st.session_state.lecturer_hours = st.session_state.reassignments_done[selected_trimester]["lecturer_hours"]
+        st.session_state.lecturer_limits = st.session_state.reassignments_done[selected_trimester]["lecturer_limits"]
+        st.session_state.reassignment_applied = True
+
+    if not st.session_state.reassignment_applied and selected_trimester not in st.session_state.reassignments_done:
+        result_df, lecturer_hours, lecturer_limits = generate_workload_assignment(lecturers_df, modules_df, selected_trimester)
+        st.session_state.assignments = result_df.copy()
+        st.session_state.lecturer_hours = lecturer_hours.copy()
+        st.session_state.lecturer_limits = lecturer_limits.copy()
+
         if "Trimester" in st.session_state.all_assignments.columns:
             st.session_state.all_assignments = pd.concat([
                 st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != selected_trimester],
@@ -126,11 +142,6 @@ if lecturer_file and module_file:
             ], ignore_index=True)
         else:
             st.session_state.all_assignments = result_df.copy()
-
-        st.session_state.assignments = result_df.copy()
-        st.session_state.lecturer_hours = lecturer_hours.copy()
-        st.session_state.lecturer_limits = lecturer_limits.copy()
-        st.session_state.current_trimester = selected_trimester
 
     # Reassignment section
     show_reassign = st.checkbox("✏️ Show Reassign Lecturers (Optional)")
@@ -179,15 +190,20 @@ if lecturer_file and module_file:
 
             st.session_state.lecturer_hours = updated_lecturer_hours.copy()
 
-            # Update all_assignments with reassigned data
-            current_trimester = st.session_state.current_trimester
+            # ✅ Store reassigned data per trimester
+            st.session_state.reassignments_done[selected_trimester] = {
+                "assignments": st.session_state.assignments.copy(),
+                "lecturer_hours": updated_lecturer_hours.copy(),
+                "lecturer_limits": st.session_state.lecturer_limits.copy()
+            }
+
             st.session_state.all_assignments = pd.concat([
-                st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != current_trimester],
+                st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != selected_trimester],
                 st.session_state.assignments
             ], ignore_index=True)
 
             st.session_state.reassignment_applied = True
-            st.success("✅ Reassignments applied and cumulative data updated.")
+            st.success("✅ Reassignments applied and saved.")
 
     # Display current assignment
     st.subheader("📊 Current Workload Assignment Results")
