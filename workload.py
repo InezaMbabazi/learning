@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import itertools
 from collections import defaultdict
+import random
 
 st.set_page_config(page_title="Workload Management System", layout="wide")
 st.title("📚 Automated Workload Management System")
@@ -106,21 +107,29 @@ def schedule_rooms(assignments, room_df):
     slots = ["08:00–10:00", "10:30–12:30", "14:00–16:00", "16:15–18:15"]
     weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
     schedule = {(slot, day): "" for slot in slots for day in weekdays}
-
     room_usage = defaultdict(lambda: {(slot, day): False for slot in slots for day in weekdays})
+    used_slots = defaultdict(list)  # to prevent double-booking same module
 
     for _, row in assignments.iterrows():
+        key_id = f"{row['Module Code']}_G{row['Group Number']}"
+        sessions_scheduled = 0
+        random.shuffle(slots)
+        random.shuffle(weekdays)
+
         for slot in slots:
             for day in weekdays:
+                if (slot, day) in used_slots[key_id]:
+                    continue
                 for _, room in room_df.iterrows():
-                    key = (slot, day)
-                    if row['Group Size'] <= room['capacity'] and not room_usage[room['Room Name']][key] and not schedule[key]:
-                        schedule[key] = f"{row['Module Name']}\nGroup {row['Group Number']}\n{room['Room Name']}\n{row['Lecturer']}\n{row['Group Size']} students"
-                        room_usage[room['Room Name']][key] = True
+                    if row['Group Size'] <= room['capacity'] and not room_usage[room['Room Name']][(slot, day)] and not schedule[(slot, day)]:
+                        schedule[(slot, day)] = f"{row['Module Name']}\nGroup {row['Group Number']}\n{room['Room Name']}\n{row['Lecturer']}\n{row['Group Size']} students"
+                        room_usage[room['Room Name']][(slot, day)] = True
+                        used_slots[key_id].append((slot, day))
+                        sessions_scheduled += 1
                         break
-                if schedule[key]:
+                if sessions_scheduled >= 2:
                     break
-            if schedule[key]:
+            if sessions_scheduled >= 2:
                 break
 
     timetable_df = pd.DataFrame(index=slots, columns=weekdays)
