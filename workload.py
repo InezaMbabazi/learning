@@ -253,21 +253,23 @@ if lecturer_file and module_file and room_file:
                 st.session_state.assignments.loc[i, "Lecturer"] = new_lecturers[i]
 
             # Recalculate lecturer_hours after reassignment
-            updated_lecturer_hours = {name: 0 for name in st.session_state.lecturer_limits.keys()}
+            updated_lecturer_hours = {}
+            for name in st.session_state.lecturer_limits.keys():
+                updated_lecturer_hours[name] = 0
             for _, row in st.session_state.assignments.iterrows():
                 lecturer = row["Lecturer"]
                 if lecturer != "❌ Not Assigned":
                     updated_lecturer_hours[lecturer] = updated_lecturer_hours.get(lecturer, 0) + row["Weekly Hours"]
-            st.session_state.lecturer_hours = updated_lecturer_hours
+            st.session_state.lecturer_hours = updated_lecturer_hours.copy()
 
-            # Save reassignment state
+            # Save reassignment
             st.session_state.reassignments_done[selected_trimester] = {
                 "assignments": st.session_state.assignments.copy(),
                 "lecturer_hours": updated_lecturer_hours.copy(),
                 "lecturer_limits": st.session_state.lecturer_limits.copy()
             }
 
-            # Update all_assignments too
+            # Update all_assignments with reassigned data for selected trimester
             st.session_state.all_assignments = pd.concat([
                 st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != selected_trimester],
                 st.session_state.assignments
@@ -294,27 +296,33 @@ if lecturer_file and module_file and room_file:
     st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
     st.dataframe(summary.sort_values(by="Remaining Weekly Workload"), use_container_width=True)
 
-    # Room scheduling and timetable
-    timetable_df, unassigned_modules, room_summary_df = schedule_rooms(st.session_state.assignments, room_df)
-
-    st.subheader("🗓️ Weekly Room Timetable")
-    st.dataframe(timetable_df.fillna(""), use_container_width=True)
-
-    if unassigned_modules:
-        st.subheader("⚠️ Modules Without Available Room Slots")
-        st.dataframe(pd.DataFrame(unassigned_modules), use_container_width=True)
-
-    st.subheader("🏢 Room Utilization Summary")
-    st.dataframe(room_summary_df, use_container_width=True)
-
-    # Cumulative workload statistics
+    # Generate Cumulative Workload Statistics
     if st.button("📊 Generate Cumulative Workload Statistics"):
         cumulative = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
 
+        # Multiply assigned weekly hours by 12 weeks per trimester
+        cumulative = cumulative * 12
+
         cumulative = cumulative.reindex(index=all_lecturers, fill_value=0)
         cumulative["Total"] = cumulative.sum(axis=1)
+
+        # Max workload per week * 12 weeks * 3 trimesters for annual max
         cumulative["Max Workload (Annual)"] = cumulative.index.map(lambda x: st.session_state.lecturer_limits.get(x, 18) * 12 * 3)
         cumulative["Occupancy %"] = (cumulative["Total"] / cumulative["Max Workload (Annual)"] * 100).round(1).astype(str) + " %"
 
         st.subheader("📊 Cumulative Lecturer Workload (Trimester 1, 2, 3, Total, Occupancy)")
         st.dataframe(cumulative, use_container_width=True)
+
+    # Room scheduling and timetable
+    timetable_df, unassigned_modules, room_summary_df = schedule_rooms(st.session_state.assignments, room_df)
+
+    st.subheader("🏫 Weekly Room Timetable")
+    st.dataframe(timetable_df, use_container_width=True)
+
+    if unassigned_modules:
+        st.warning(f"⚠️ Some modules/groups could not be fully scheduled due to room constraints:")
+        for item in unassigned_modules:
+            st.write(f"Module: {item['Module']}, Group: {item['Group']}, Lecturer: {item['Lecturer']}, Students: {item['Students']}")
+
+    st.subheader("🏫 Room Usage Summary")
+    st.dataframe(room_summary_df, use_container_width=True)
