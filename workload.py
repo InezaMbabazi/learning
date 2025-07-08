@@ -109,12 +109,16 @@ def schedule_rooms(assignments, room_df):
     schedule = {(slot, day): [] for slot in slots for day in weekdays}
     room_usage = defaultdict(lambda: {(slot, day): False for slot in slots for day in weekdays})
     used_slots = defaultdict(list)
+    unassigned_modules = []
 
-    for _, row in assignments.iterrows():
+    assigned = assignments[assignments["Lecturer"] != "❌ Not Assigned"].copy()
+
+    for _, row in assigned.iterrows():
         key_id = f"{row['Module Code']}_G{row['Group Number']}"
         sessions_scheduled = 0
         random.shuffle(slots)
         random.shuffle(weekdays)
+        found_slot = False
 
         for slot in slots:
             for day in weekdays:
@@ -127,17 +131,29 @@ def schedule_rooms(assignments, room_df):
                         room_usage[room['Room Name']][(slot, day)] = True
                         used_slots[key_id].append((slot, day))
                         sessions_scheduled += 1
+                        found_slot = True
                         break
                 if sessions_scheduled >= 2:
                     break
             if sessions_scheduled >= 2:
                 break
 
+        if not found_slot:
+            unassigned_modules.append(key_id)
+
     timetable_df = pd.DataFrame(index=slots, columns=weekdays)
     for (slot, day), entries in schedule.items():
         timetable_df.loc[slot, day] = "\n\n".join(entries)
 
-    return timetable_df
+    # Calculate room usage summary
+    room_summary = []
+    for room, usage in room_usage.items():
+        used_count = sum(1 for v in usage.values() if v)
+        room_summary.append({"Room": room, "Slots Used": used_count, "Total Slots": len(slots)*len(weekdays)})
+    room_summary_df = pd.DataFrame(room_summary)
+    room_summary_df["Usage %"] = (room_summary_df["Slots Used"] / room_summary_df["Total Slots"] * 100).round(1).astype(str) + "%"
+
+    return timetable_df, unassigned_modules, room_summary_df
 
 if lecturer_file and module_file and room_file:
     lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
@@ -157,8 +173,15 @@ if lecturer_file and module_file and room_file:
     st.dataframe(assignments_df)
 
     st.subheader("🗓️ Weekly Room Timetable")
-    timetable = schedule_rooms(assignments_df, room_df)
+    timetable, unassigned, room_stats = schedule_rooms(assignments_df, room_df)
     st.dataframe(timetable)
+
+    if unassigned:
+        st.warning("⚠️ Modules without available room slots:")
+        st.write(unassigned)
+
+    st.subheader("📊 Room Utilization Summary")
+    st.dataframe(room_stats)
 
     st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
     summary_df = pd.DataFrame({
