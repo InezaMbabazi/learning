@@ -34,7 +34,6 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
     lecturer_hours = {}
     assignments = []
 
-    # Get maximum workload per lecturer (use first occurrence only)
     lecturer_limits_df = lecturers_df.drop_duplicates(subset=["Teacher's name"])[["Teacher's name", "Weekly Workload"]]
     lecturer_limits_df = lecturer_limits_df.set_index("Teacher's name")
     lecturer_limits = lecturer_limits_df["Weekly Workload"].to_dict()
@@ -124,26 +123,6 @@ if lecturer_file and module_file:
     st.session_state.lecturer_limits = lecturer_limits.copy()
     st.session_state.current_trimester = selected_trimester
 
-    st.subheader("📊 Current Workload Assignment Results")
-    st.dataframe(st.session_state.assignments, use_container_width=True)
-
-    all_lecturers = lecturers_df["Teacher's name"].unique()
-    final_hours = {name: 0 for name in all_lecturers}
-    for _, row in st.session_state.assignments.iterrows():
-        if row["Lecturer"] in final_hours:
-            final_hours[row["Lecturer"]] += row["Weekly Hours"]
-
-    summary = pd.DataFrame({
-        "Lecturer": list(final_hours.keys()),
-        "Total Assigned Hours": list(final_hours.values()),
-        "Max Workload": [st.session_state.lecturer_limits.get(name, 18) for name in final_hours.keys()]
-    })
-    summary["Remaining Workload"] = summary["Max Workload"] - summary["Total Assigned Hours"]
-
-    st.subheader("📈 Lecturer Remaining Workload Summary")
-    st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
-
-    # Manual reassignment UI
     show_reassign = st.checkbox("✏️ Show Reassign Lecturers (Optional)")
     if show_reassign:
         st.subheader("✏️ Reassign Lecturers")
@@ -190,6 +169,25 @@ if lecturer_file and module_file:
 
             st.session_state.lecturer_hours = updated_lecturer_hours.copy()
             st.success("✅ Reassignments applied.")
+
+    st.subheader("📊 Current Workload Assignment Results")
+    st.dataframe(st.session_state.assignments, use_container_width=True)
+
+    all_lecturers = lecturers_df["Teacher's name"].unique()
+    final_hours = {name: 0 for name in all_lecturers}
+    for _, row in st.session_state.assignments.iterrows():
+        if row["Lecturer"] in final_hours:
+            final_hours[row["Lecturer"]] += row["Weekly Hours"]
+
+    summary = pd.DataFrame({
+        "Lecturer": list(final_hours.keys()),
+        "Total Assigned Hours": list(final_hours.values()),
+        "Max Workload": [st.session_state.lecturer_limits.get(name, 18) for name in final_hours.keys()]
+    })
+    summary["Remaining Workload"] = summary["Max Workload"] - summary["Total Assigned Hours"]
+
+    st.subheader("📈 Lecturer Remaining Workload Summary")
+    st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
 
     if st.button("📊 Generate Cumulative Workload Statistics"):
         cumulative = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
