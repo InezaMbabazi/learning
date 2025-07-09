@@ -170,57 +170,18 @@ def schedule_rooms(assignments, room_df):
     room_summary_df = pd.DataFrame(room_summary)
     room_summary_df["Usage %"] = (room_summary_df["Slots Used"] / room_summary_df["Total Slots"] * 100).round(1).astype(str) + "%"
 
-    # Improved lecturer-group session mismatch report
-group_session_tracker = defaultdict(int)
-group_info = {}  # To track mapping of lecturer and module for reporting
-
-# Count actual sessions scheduled for each group
-for (slot, day), entries in schedule.items():
-    for entry in entries:
-        parts = entry.split("\n")
-        if len(parts) >= 5:
-            module_name = parts[0]
-            group_label = parts[1]  # e.g., "Group 1"
-            room = parts[2]
-            lecturer = parts[3]
-            group_key = f"{lecturer} - {module_name} - {group_label}"
-            group_session_tracker[group_key] += 1
-            group_info[group_key] = {
+    # Generate lecturer session mismatch report
+    lecturers_with_missing_sessions = []
+    for lecturer, required in lecturer_sessions_required.items():
+        scheduled = lecturer_sessions_scheduled.get(lecturer, 0)
+        if scheduled < required:
+            lecturers_with_missing_sessions.append({
                 "Lecturer": lecturer,
-                "Module": module_name,
-                "Group": group_label,
-            }
-
-# Compare actual vs required sessions (2 per group)
-lecturers_with_missing_sessions = []
-for group_key, count in group_session_tracker.items():
-    if count < 2:
-        info = group_info[group_key]
-        lecturers_with_missing_sessions.append({
-            "Lecturer": info["Lecturer"],
-            "Module": info["Module"],
-            "Group": info["Group"],
-            "Sessions Scheduled": count,
-            "Sessions Required": 2,
-            "Sessions Missing": 2 - count
-        })
-
-# Also check for fully missing groups (not in the tracker at all)
-assigned = assignments[assignments["Lecturer"] != "❌ Not Assigned"]
-for _, row in assigned.iterrows():
-    expected_key = f"{row['Lecturer']} - {row['Module Name']} - Group {row['Group Number']}"
-    if expected_key not in group_session_tracker:
-        lecturers_with_missing_sessions.append({
-            "Lecturer": row["Lecturer"],
-            "Module": row["Module Name"],
-            "Group": f"Group {row['Group Number']}",
-            "Sessions Scheduled": 0,
-            "Sessions Required": 2,
-            "Sessions Missing": 2
-        })
-
-lecturer_sessions_report_df = pd.DataFrame(lecturers_with_missing_sessions)
-
+                "Sessions Required": required,
+                "Sessions Scheduled": scheduled,
+                "Sessions Missing": required - scheduled
+            })
+    lecturer_sessions_report_df = pd.DataFrame(lecturers_with_missing_sessions)
 
     return timetable_df, unassigned_modules, room_summary_df, lecturer_sessions_report_df
 
@@ -389,6 +350,5 @@ if lecturer_file and module_file and room_file:
         else pd.DataFrame(columns=["Lecturer", "Sessions Required", "Sessions Scheduled", "Sessions Missing"]),
         use_container_width=True
     )
-    (
 else:
     st.info("Please upload all three datasets to proceed.")
