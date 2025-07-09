@@ -4,7 +4,7 @@ from collections import defaultdict
 import random
 
 st.set_page_config(page_title="Workload Management System", layout="wide")
-st.title("\U0001F4DA Automated Workload Management System")
+st.title("📚 Automated Workload Management System")
 
 # Upload files
 st.sidebar.header("Upload Datasets")
