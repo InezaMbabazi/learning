@@ -113,13 +113,19 @@ def schedule_rooms(assignments, room_df):
 
     assigned = assignments[assignments["Lecturer"] != "❌ Not Assigned"].copy()
 
+    # Track sessions per lecturer
+    lecturer_sessions_scheduled = defaultdict(int)
+    lecturer_sessions_required = defaultdict(int)
+
     for _, row in assigned.iterrows():
         key_id = f"{row['Module Code']}_G{row['Group Number']}"
-        sessions_required = 2
+        sessions_required = 2  # fixed 2 sessions per module/group
         sessions_scheduled = 0
-        scheduled_slots = []
         available_slots = [(slot, day) for day in weekdays for slot in slots]
         random.shuffle(available_slots)
+
+        # Track required sessions per lecturer
+        lecturer_sessions_required[row["Lecturer"]] += sessions_required
 
         for slot, day in available_slots:
             if (slot, day) in used_slots[key_id]:
@@ -131,8 +137,8 @@ def schedule_rooms(assignments, room_df):
                     schedule[(slot, day)].append(entry)
                     room_usage[room['Room Name']][(slot, day)] = True
                     used_slots[key_id].append((slot, day))
-                    scheduled_slots.append((slot, day))
                     sessions_scheduled += 1
+                    lecturer_sessions_scheduled[row["Lecturer"]] += 1
                     break
             if sessions_scheduled >= sessions_required:
                 break
@@ -164,24 +170,34 @@ def schedule_rooms(assignments, room_df):
     room_summary_df = pd.DataFrame(room_summary)
     room_summary_df["Usage %"] = (room_summary_df["Slots Used"] / room_summary_df["Total Slots"] * 100).round(1).astype(str) + "%"
 
-    return timetable_df, unassigned_modules, room_summary_df
+    # Generate lecturer session mismatch report
+    lecturers_with_missing_sessions = []
+    for lecturer, required in lecturer_sessions_required.items():
+        scheduled = lecturer_sessions_scheduled.get(lecturer, 0)
+        if scheduled < required:
+            lecturers_with_missing_sessions.append({
+                "Lecturer": lecturer,
+                "Sessions Required": required,
+                "Sessions Scheduled": scheduled,
+                "Sessions Missing": required - scheduled
+            })
+    lecturer_sessions_report_df = pd.DataFrame(lecturers_with_missing_sessions)
+
+    return timetable_df, unassigned_modules, room_summary_df, lecturer_sessions_report_df
+
 
 if lecturer_file and module_file and room_file:
-    # Load datasets
     lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
     modules_df = pd.read_csv(module_file) if module_file.name.endswith('.csv') else pd.read_excel(module_file)
     room_df = pd.read_csv(room_file) if room_file.name.endswith('.csv') else pd.read_excel(room_file)
 
-    # Clean column names
     lecturers_df.columns = lecturers_df.columns.str.strip()
     modules_df.columns = modules_df.columns.str.strip()
     room_df.columns = room_df.columns.str.strip()
 
-    # Trimester selection
     trimester_options = modules_df["When to Take Place"].dropna().unique()
     selected_trimester = st.selectbox("🗕️ Select When to Take Place (Trimester)", sorted(trimester_options))
 
-    # Initialize session state
     if "reassignments_done" not in st.session_state:
         st.session_state.reassignments_done = {}
     if "all_assignments" not in st.session_state:
@@ -189,19 +205,16 @@ if lecturer_file and module_file and room_file:
     if "reassignment_applied" not in st.session_state:
         st.session_state.reassignment_applied = False
 
-    # Reset reassignment flag on trimester change
     if "current_trimester" in st.session_state and st.session_state.current_trimester != selected_trimester:
         st.session_state.reassignment_applied = False
     st.session_state.current_trimester = selected_trimester
 
-    # Reset assignments button
     if st.button(f"🔄 Reset Assignments for Trimester {selected_trimester}"):
         if selected_trimester in st.session_state.reassignments_done:
             del st.session_state.reassignments_done[selected_trimester]
         st.session_state.reassignment_applied = False
         st.experimental_rerun()
 
-    # Load or generate assignments
     if selected_trimester in st.session_state.reassignments_done:
         st.session_state.assignments = st.session_state.reassignments_done[selected_trimester]["assignments"].copy()
         st.session_state.lecturer_hours = st.session_state.reassignments_done[selected_trimester]["lecturer_hours"].copy()
@@ -213,7 +226,6 @@ if lecturer_file and module_file and room_file:
         st.session_state.lecturer_hours = lecturer_hours.copy()
         st.session_state.lecturer_limits = lecturer_limits.copy()
 
-        # Update all_assignments for all trimesters cumulatively
         if "Trimester" in st.session_state.all_assignments.columns:
             st.session_state.all_assignments = pd.concat([
                 st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != selected_trimester],
@@ -222,11 +234,9 @@ if lecturer_file and module_file and room_file:
         else:
             st.session_state.all_assignments = result_df.copy()
 
-    # Display current assignments
     st.subheader("📊 Current Workload Assignment Results")
     st.dataframe(st.session_state.assignments, use_container_width=True)
 
-    # Show reassign lecturer option
     show_reassign = st.checkbox("✏️ Show Reassign Lecturers (Optional)")
     if show_reassign:
         st.subheader("✏️ Reassign Lecturers")
@@ -280,12 +290,11 @@ if lecturer_file and module_file and room_file:
                 ], ignore_index=True)
 
                 st.success("✅ Reassignments applied and saved.")
-                st.experimental_rerun()
-
+                # No st.experimental_rerun() to avoid error; data updates directly
             except Exception as e:
                 st.error(f"Error applying reassignment: {e}")
 
-    # Weekly workload summary per lecturer for selected trimester
+    # Weekly summary for selected trimester
     all_lecturers = lecturers_df["Teacher's name"].unique()
     final_hours = {name: 0 for name in all_lecturers}
     for _, row in st.session_state.assignments.iterrows():
@@ -321,7 +330,7 @@ if lecturer_file and module_file and room_file:
         st.dataframe(cumulative, use_container_width=True)
 
     # Generate timetable and room scheduling
-    timetable_df, unassigned_modules, room_summary_df = schedule_rooms(st.session_state.assignments, room_df)
+    timetable_df, unassigned_modules, room_summary_df, lecturer_sessions_report_df = schedule_rooms(st.session_state.assignments, room_df)
 
     st.subheader("🏫 Weekly Room Timetable")
     st.dataframe(timetable_df.fillna(""), use_container_width=True)
@@ -335,6 +344,13 @@ if lecturer_file and module_file and room_file:
 
     st.subheader("🏫 Room Usage Summary")
     st.dataframe(room_summary_df, use_container_width=True)
+
+    if not lecturer_sessions_report_df.empty:
+        st.subheader("⚠️ Lecturers with Missing Sessions in Timetable")
+        st.write("The following lecturers have fewer scheduled sessions than required based on assigned modules/groups (2 sessions per module group):")
+        st.dataframe(lecturer_sessions_report_df, use_container_width=True)
+    else:
+        st.success("All lecturers have their required sessions scheduled.")
 
 else:
     st.info("Please upload all three datasets (Lecturers, Modules, Rooms) to begin.")
