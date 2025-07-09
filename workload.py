@@ -116,6 +116,7 @@ def schedule_rooms(assignments, room_df):
 
     for _, row in assigned.iterrows():
         key_id = f"{row['Module Code']}_G{row['Group Number']}"
+        sessions_required = 2
         sessions_scheduled = 0
         scheduled_days = []
         available_slots = [(slot, day) for day in weekdays for slot in slots]
@@ -137,17 +138,17 @@ def schedule_rooms(assignments, room_df):
                     scheduled_days.append(day)
                     sessions_scheduled += 1
                     break
-            if sessions_scheduled >= 2:
+            if sessions_scheduled >= sessions_required:
                 break
 
-        if sessions_scheduled < 2:
+        if sessions_scheduled < sessions_required:
             unassigned_modules.append({
                 "Module": row["Module Name"],
                 "Group": row["Group Number"],
                 "Lecturer": row["Lecturer"],
                 "Students": row["Group Size"],
                 "Sessions Scheduled": sessions_scheduled,
-                "Sessions Required": 2
+                "Sessions Required": sessions_required
             })
 
     timetable_df = pd.DataFrame(index=slots, columns=weekdays)
