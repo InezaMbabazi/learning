@@ -148,7 +148,8 @@ def schedule_rooms(assignments, room_df):
                 "Lecturer": row["Lecturer"],
                 "Students": row["Group Size"],
                 "Sessions Scheduled": sessions_scheduled,
-                "Sessions Required": sessions_required
+                "Sessions Required": sessions_required,
+                "Missing Sessions": sessions_required - sessions_scheduled
             })
 
     timetable_df = pd.DataFrame(index=slots, columns=weekdays)
@@ -167,4 +168,6 @@ def schedule_rooms(assignments, room_df):
     room_summary_df = pd.DataFrame(room_summary)
     room_summary_df["Usage %"] = (room_summary_df["Slots Used"] / room_summary_df["Total Slots"] * 100).round(1).astype(str) + "%"
 
-    return timetable_df, unassigned_modules, room_summary_df
+    unassigned_df = pd.DataFrame(unassigned_modules) if unassigned_modules else pd.DataFrame()
+
+    return timetable_df, unassigned_df, room_summary_df
