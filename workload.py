@@ -167,7 +167,7 @@ def schedule_rooms(assignments, room_df):
     unassigned_df = pd.DataFrame(unassigned_modules) if unassigned_modules else pd.DataFrame()
 
     return timetable_df, unassigned_df, room_summary_df
-    if lecturer_file and module_file and room_file:
+        if lecturer_file and module_file and room_file:
     lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
     modules_df = pd.read_csv(module_file) if module_file.name.endswith('.csv') else pd.read_excel(module_file)
     room_df = pd.read_csv(room_file) if room_file.name.endswith('.csv') else pd.read_excel(room_file)
