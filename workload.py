@@ -248,11 +248,11 @@ def main():
             else:
                 st.session_state.all_assignments = result_df.copy()
 
-        # Compute summaries and timetable initially or after reassignment
+        # Compute workload summary and timetable
         st.session_state.workload_summary = compute_workload_summary(st.session_state.assignments, st.session_state.lecturer_limits)
         st.session_state.timetable_df, st.session_state.unassigned_modules, st.session_state.room_summary_df = schedule_rooms(st.session_state.assignments, room_df)
 
-        # Display current assignments
+        # Show assignments
         st.subheader("📊 Current Workload Assignment Results")
         st.dataframe(st.session_state.assignments, use_container_width=True)
 
@@ -281,13 +281,59 @@ def main():
                 new_lecturers.append(selected)
 
             if st.button("🔁 Apply Reassignments"):
-                # Update lecturers in assignments dataframe
+                # Update lecturers
                 for i in range(len(st.session_state.assignments)):
                     st.session_state.assignments.loc[i, "Lecturer"] = new_lecturers[i]
 
-                # Recalculate lecturer hours after reassignment
+                # Recalculate lecturer_hours after reassignment
                 updated_lecturer_hours = {name: 0 for name in st.session_state.lecturer_limits.keys()}
                 for _, row in st.session_state.assignments.iterrows():
                     lecturer = row["Lecturer"]
                     if lecturer != "❌ Not Assigned":
-                        updated_lecturer_hours[lecturer] = updated_lecturer_hours.get(lecturer, 0)
+                        updated_lecturer_hours[lecturer] = updated_lecturer_hours.get(lecturer, 0) + row["Weekly Hours"]
+                st.session_state.lecturer_hours = updated_lecturer_hours.copy()
+
+                # Save reassignment state
+                st.session_state.reassignments_done[selected_trimester] = {
+                    "assignments": st.session_state.assignments.copy(),
+                    "lecturer_hours": updated_lecturer_hours.copy(),
+                    "lecturer_limits": st.session_state.lecturer_limits.copy()
+                }
+                st.session_state.reassignment_applied = True
+
+                # Update all_assignments with reassigned data
+                st.session_state.all_assignments = pd.concat([
+                    st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != selected_trimester],
+                    st.session_state.assignments
+                ], ignore_index=True)
+
+                st.success("✅ Reassignments applied and saved.")
+                st.experimental_rerun()
+                return
+
+        # Show workload summary
+        st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
+        st.dataframe(st.session_state.workload_summary.sort_values(by="Remaining Weekly Workload"), use_container_width=True)
+
+        # Button to generate cumulative workload stats
+        if st.button("📊 Generate Cumulative Workload Statistics"):
+            cumulative = compute_cumulative_stats(st.session_state.all_assignments, st.session_state.lecturer_limits, lecturers_df)
+            st.subheader("📊 Cumulative Lecturer Workload (Trimester 1, 2, 3, Total, Occupancy)")
+            st.dataframe(cumulative, use_container_width=True)
+
+        # Room scheduling & timetable display
+        timetable_df, unassigned_modules, room_summary_df = schedule_rooms(st.session_state.assignments, room_df)
+
+        st.subheader("🏫 Weekly Room Timetable")
+        st.dataframe(timetable_df, use_container_width=True)
+
+        if unassigned_modules:
+            st.warning(f"⚠️ Some modules/groups could not be fully scheduled due to room constraints:")
+            for item in unassigned_modules:
+                st.write(f"Module: {item['Module']}, Group: {item['Group']}, Lecturer: {item['Lecturer']}, Students: {item['Students']}")
+
+        st.subheader("🏫 Room Usage Summary")
+        st.dataframe(room_summary_df, use_container_width=True)
+
+if __name__ == "__main__":
+    main()
