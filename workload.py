@@ -388,6 +388,7 @@ if lecturer_file and module_file and room_file:
         lecturer_sessions_report_df if not lecturer_sessions_report_df.empty
         else pd.DataFrame(columns=["Lecturer", "Sessions Required", "Sessions Scheduled", "Sessions Missing"]),
         use_container_width=True
-    ) 
+    )
+    (
 else:
     st.info("Please upload all three datasets to proceed.")
