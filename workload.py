@@ -296,16 +296,24 @@ if lecturer_file and module_file and room_file:
     st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
     st.dataframe(summary.sort_values(by="Remaining Weekly Workload"), use_container_width=True)
 
-    if st.button("📊 Generate Cumulative Workload Statistics"):
-        cumulative = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
-        cumulative = cumulative * 12
-        cumulative = cumulative.reindex(index=all_lecturers, fill_value=0)
-        cumulative["Total"] = cumulative.sum(axis=1)
-        cumulative["Max Workload (Annual)"] = cumulative.index.map(lambda x: st.session_state.lecturer_limits.get(x, 18) * 12 * 3)
-        cumulative["Occupancy %"] = (cumulative["Total"] / cumulative["Max Workload (Annual)"] * 100).round(1).astype(str) + " %"
+  if st.button("📊 Generate Cumulative Workload Statistics"):
+    cumulative = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
+    cumulative = cumulative * 12
+    cumulative = cumulative.reindex(index=all_lecturers, fill_value=0)
+    cumulative["Total"] = cumulative.sum(axis=1)
 
-        st.subheader("📊 Cumulative Lecturer Workload (Trimester 1, 2, 3, Total, Occupancy)")
-        st.dataframe(cumulative, use_container_width=True)
+    # ✅ FIX: Refresh workload limits from original file
+    fresh_limits = lecturers_df.drop_duplicates(subset=["Teacher's name"])[["Teacher's name", "Weekly Workload"]]
+    fresh_limits = fresh_limits.set_index("Teacher's name")["Weekly Workload"].to_dict()
+    st.session_state.lecturer_limits.update(fresh_limits)
+
+    # ✅ Safe usage with no default guess
+    cumulative["Max Workload (Annual)"] = cumulative.index.map(lambda x: st.session_state.lecturer_limits.get(x, 0) * 12 * 3)
+    cumulative["Occupancy %"] = (cumulative["Total"] / cumulative["Max Workload (Annual)"] * 100).round(1).astype(str) + " %"
+
+    st.subheader("📊 Cumulative Lecturer Workload (Trimester 1, 2, 3, Total, Occupancy)")
+    st.dataframe(cumulative, use_container_width=True)
+
 
     timetable_df, unassigned_modules, room_summary_df = schedule_rooms(st.session_state.assignments, room_df)
 
