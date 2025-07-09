@@ -164,10 +164,10 @@ def schedule_rooms(assignments, room_df):
     room_summary_df = pd.DataFrame(room_summary)
     room_summary_df["Usage %"] = (room_summary_df["Slots Used"] / room_summary_df["Total Slots"] * 100).round(1).astype(str) + "%"
 
-    unassigned_df = pd.DataFrame(unassigned_modules) if unassigned_modules else pd.DataFrame()
+    return timetable_df, unassigned_modules, room_summary_df
 
-    return timetable_df, unassigned_df, room_summary_df
-        if lecturer_file and module_file and room_file:
+# Main app logic
+if lecturer_file and module_file and room_file:
     lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
     modules_df = pd.read_csv(module_file) if module_file.name.endswith('.csv') else pd.read_excel(module_file)
     room_df = pd.read_csv(room_file) if room_file.name.endswith('.csv') else pd.read_excel(room_file)
@@ -189,6 +189,7 @@ def schedule_rooms(assignments, room_df):
     if st.button(f"🔄 Reset Assignments for Trimester {selected_trimester}"):
         st.session_state.reassignments_done.pop(selected_trimester, None)
         st.session_state.assignments = pd.DataFrame()
+        st.experimental_rerun()
 
     if selected_trimester in st.session_state.reassignments_done:
         st.session_state.assignments = st.session_state.reassignments_done[selected_trimester]["assignments"].copy()
@@ -248,6 +249,7 @@ def schedule_rooms(assignments, room_df):
                 st.session_state.assignments
             ], ignore_index=True)
             st.success("✅ Reassignments applied and saved.")
+            st.experimental_rerun()
 
     # Weekly Summary
     all_lecturers = lecturers_df["Teacher's name"].unique()
@@ -280,15 +282,16 @@ def schedule_rooms(assignments, room_df):
 
     # Timetable and Room Schedule
     timetable_df, unassigned_modules, room_summary_df = schedule_rooms(st.session_state.assignments, room_df)
-    st.subheader("📅 Weekly Room Timetable")
+
+    st.subheader("🏫 Weekly Room Timetable")
     st.dataframe(timetable_df, use_container_width=True)
 
-    if not isinstance(unassigned_modules, pd.DataFrame):
-        unassigned_modules = pd.DataFrame(unassigned_modules)
-    if not unassigned_modules.empty:
-        st.warning("⚠️ Some sessions were not scheduled:")
-        st.dataframe(unassigned_modules)
+    if unassigned_modules:
+        st.warning(f"⚠️ Some modules/groups could not be fully scheduled due to room constraints:")
+        for item in unassigned_modules:
+            st.write(f"Module: {item['Module']}, Group: {item['Group']}, Lecturer: {item['Lecturer']}, "
+                     f"Students: {item['Students']}, Sessions Scheduled: {item['Sessions Scheduled']}, "
+                     f"Sessions Required: {item['Sessions Required']}, Missing Sessions: {item['Missing Sessions']}")
 
     st.subheader("🏫 Room Usage Summary")
     st.dataframe(room_summary_df, use_container_width=True)
-
