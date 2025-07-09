@@ -12,6 +12,11 @@ lecturer_file = st.sidebar.file_uploader("Upload Lecturers Dataset", type=["csv"
 module_file = st.sidebar.file_uploader("Upload Modules Dataset", type=["csv", "xlsx"])
 room_file = st.sidebar.file_uploader("Upload Room Dataset", type=["csv", "xlsx"])
 
+# Safe rerun check
+if st.session_state.get("reassignment_applied_flag", False):
+    st.session_state.reassignment_applied_flag = False
+    st.experimental_rerun()
+
 def split_students(total, min_size=30, max_size=70):
     if total <= max_size:
         return [total]
@@ -127,8 +132,6 @@ def schedule_rooms(assignments, room_df):
             for day in shuffled_days:
                 if (slot, day) in used_slots[key_id]:
                     continue
-
-                # Enforce 1-day break between sessions
                 if scheduled_days:
                     if any(abs(weekday_indices[day] - weekday_indices[sd]) <= 1 for sd in scheduled_days):
                         continue
@@ -172,6 +175,8 @@ def schedule_rooms(assignments, room_df):
     room_summary_df["Usage %"] = (room_summary_df["Slots Used"] / room_summary_df["Total Slots"] * 100).round(1).astype(str) + "%"
 
     return timetable_df, unassigned_modules, room_summary_df
+
+# --------------------- Main App Logic Below --------------------------
 
 if lecturer_file and module_file and room_file:
     lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
@@ -248,37 +253,31 @@ if lecturer_file and module_file and room_file:
             new_lecturers.append(selected)
 
         if st.button("🔁 Apply Reassignments"):
-            # Apply new lecturer assignments
             for i in range(len(st.session_state.assignments)):
                 st.session_state.assignments.loc[i, "Lecturer"] = new_lecturers[i]
 
-            # Recalculate lecturer_hours after reassignment
-            updated_lecturer_hours = {}
-            for name in st.session_state.lecturer_limits.keys():
-                updated_lecturer_hours[name] = 0
+            updated_lecturer_hours = {name: 0 for name in st.session_state.lecturer_limits.keys()}
             for _, row in st.session_state.assignments.iterrows():
                 lecturer = row["Lecturer"]
                 if lecturer != "❌ Not Assigned":
                     updated_lecturer_hours[lecturer] = updated_lecturer_hours.get(lecturer, 0) + row["Weekly Hours"]
             st.session_state.lecturer_hours = updated_lecturer_hours.copy()
 
-            # Save reassignment
             st.session_state.reassignments_done[selected_trimester] = {
                 "assignments": st.session_state.assignments.copy(),
                 "lecturer_hours": updated_lecturer_hours.copy(),
                 "lecturer_limits": st.session_state.lecturer_limits.copy()
             }
 
-            # Update all_assignments with reassigned data for selected trimester
             st.session_state.all_assignments = pd.concat([
                 st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != selected_trimester],
                 st.session_state.assignments
             ], ignore_index=True)
 
+            st.session_state.reassignment_applied_flag = True
             st.success("✅ Reassignments applied and saved.")
-            st.experimental_rerun()
 
-    # Weekly summary for selected trimester
+    # Workload summary
     all_lecturers = lecturers_df["Teacher's name"].unique()
     final_hours = {name: 0 for name in all_lecturers}
     for _, row in st.session_state.assignments.iterrows():
@@ -296,24 +295,17 @@ if lecturer_file and module_file and room_file:
     st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
     st.dataframe(summary.sort_values(by="Remaining Weekly Workload"), use_container_width=True)
 
-    # Generate Cumulative Workload Statistics
     if st.button("📊 Generate Cumulative Workload Statistics"):
         cumulative = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
-
-        # Multiply assigned weekly hours by 12 weeks per trimester
         cumulative = cumulative * 12
-
         cumulative = cumulative.reindex(index=all_lecturers, fill_value=0)
         cumulative["Total"] = cumulative.sum(axis=1)
-
-        # Max workload per week * 12 weeks * 3 trimesters for annual max
         cumulative["Max Workload (Annual)"] = cumulative.index.map(lambda x: st.session_state.lecturer_limits.get(x, 18) * 12 * 3)
         cumulative["Occupancy %"] = (cumulative["Total"] / cumulative["Max Workload (Annual)"] * 100).round(1).astype(str) + " %"
 
         st.subheader("📊 Cumulative Lecturer Workload (Trimester 1, 2, 3, Total, Occupancy)")
         st.dataframe(cumulative, use_container_width=True)
 
-    # Room scheduling and timetable
     timetable_df, unassigned_modules, room_summary_df = schedule_rooms(st.session_state.assignments, room_df)
 
     st.subheader("🏫 Weekly Room Timetable")
