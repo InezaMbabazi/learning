@@ -166,11 +166,43 @@ def schedule_rooms(assignments, room_df):
 
     return timetable_df, unassigned_modules, room_summary_df
 
-# Add below this in your Streamlit app after generating timetable_df, unassigned_modules, room_summary_df:
-st.subheader("❌ Unscheduled Sessions Report")
-if unassigned_modules:
-    st.warning("The following module groups were not fully scheduled due to room constraints or slot limitations.")
-    unscheduled_df = pd.DataFrame(unassigned_modules)
-    st.dataframe(unscheduled_df, use_container_width=True)
-else:
-    st.success("✅ All module groups have been successfully scheduled with 2 sessions each.")
+# After schedule_rooms and displaying the timetable:
+if 'st' in globals() and 'session_state' in st.__dict__:
+    if 'assignments' in st.session_state and 'room_df' in locals():
+        timetable_df, unassigned_modules, room_summary_df = schedule_rooms(st.session_state.assignments, room_df)
+
+        st.subheader("🏫 Weekly Room Timetable")
+        st.dataframe(timetable_df, use_container_width=True)
+
+        if unassigned_modules:
+            st.subheader("❌ Unscheduled Sessions Report")
+            st.warning("Some module groups could not be fully scheduled due to slot/room limitations:")
+            st.dataframe(pd.DataFrame(unassigned_modules), use_container_width=True)
+
+        # Sessions per lecturer report
+        st.subheader("📌 Scheduled Sessions Per Lecturer")
+
+        assigned_df = st.session_state.assignments[st.session_state.assignments["Lecturer"] != "❌ Not Assigned"].copy()
+        expected_sessions_per_lecturer = assigned_df.groupby("Lecturer").size() * 2
+        expected_sessions_per_lecturer.name = "Expected Sessions"
+
+        actual_sessions_per_lecturer = defaultdict(int)
+        for cell in timetable_df.values.flatten():
+            if pd.notnull(cell):
+                for entry in cell.split("\n\n"):
+                    lines = entry.split("\n")
+                    if len(lines) >= 4:
+                        lecturer = lines[3]
+                        actual_sessions_per_lecturer[lecturer] += 1
+
+        actual_sessions_df = pd.DataFrame.from_dict(actual_sessions_per_lecturer, orient="index", columns=["Actual Sessions"])
+
+        comparison_df = pd.merge(expected_sessions_per_lecturer, actual_sessions_df, left_index=True, right_index=True, how="outer").fillna(0)
+        comparison_df["Expected Sessions"] = comparison_df["Expected Sessions"].astype(int)
+        comparison_df["Actual Sessions"] = comparison_df["Actual Sessions"].astype(int)
+        comparison_df["Missing Sessions"] = comparison_df["Expected Sessions"] - comparison_df["Actual Sessions"]
+
+        st.dataframe(comparison_df.sort_values("Missing Sessions", ascending=False), use_container_width=True)
+
+        st.subheader("🏫 Room Usage Summary")
+        st.dataframe(room_summary_df, use_container_width=True)
