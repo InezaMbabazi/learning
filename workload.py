@@ -389,5 +389,16 @@ if lecturer_file and module_file and room_file:
         else pd.DataFrame(columns=["Lecturer", "Sessions Required", "Sessions Scheduled", "Sessions Missing"]),
         use_container_width=True
     )
+   st.subheader("📝 Lecturer Session Scheduling Report")
+if lecturer_sessions_report_df.empty:
+    st.success("All lecturers have their required sessions scheduled.")
+else:
+    st.warning("Some lecturers have fewer scheduled sessions than required (2 sessions per module group):")
+st.dataframe(
+    lecturer_sessions_report_df if not lecturer_sessions_report_df.empty
+    else pd.DataFrame(columns=["Lecturer", "Module", "Group", "Sessions Scheduled", "Sessions Required", "Sessions Missing"]),
+    use_container_width=True
+)
+ 
 else:
     st.info("Please upload all three datasets to proceed.")
