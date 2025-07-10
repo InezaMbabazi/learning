@@ -136,21 +136,25 @@ def schedule_rooms(assignments, room_df):
     lecturer_sessions_required[row["Lecturer"]] += sessions_required
 
 
-        for slot, day in available_slots:
-            if (slot, day) in used_slots[key_id]:
-                continue
+       for slot, day in available_slots:
+    if (slot, day) in used_slots[key_id]:
+        continue
 
-            for _, room in room_df.iterrows():
-                if row['Group Size'] <= room['capacity'] and not room_usage[room['Room Name']][(slot, day)]:
-                    entry = f"{row['Module Name']}\nGroup {row['Group Number']}\n{room['Room Name']}\n{row['Lecturer']}\n{row['Group Size']} students"
-                    schedule[(slot, day)].append(entry)
-                    room_usage[room['Room Name']][(slot, day)] = True
-                    used_slots[key_id].append((slot, day))
-                    sessions_scheduled += 1
-                    lecturer_sessions_scheduled[row["Lecturer"]] += 1
-                    break
+    for _, room in room_df.iterrows():
+        if row['Group Size'] <= room['capacity'] and not room_usage[room['Room Name']][(slot, day)]:
+            entry = f"{row['Module Name']}\nGroup {row['Group Number']}\n{room['Room Name']}\n{row['Lecturer']}\n{row['Group Size']} students"
+            schedule[(slot, day)].append(entry)
+            room_usage[room['Room Name']][(slot, day)] = True
+            used_slots[key_id].append((slot, day))
+            sessions_scheduled += 1
+            lecturer_sessions_scheduled[row["Lecturer"]] += 1
+
             if sessions_scheduled >= sessions_required:
-                break
+                break  # only exit the room loop
+
+    if sessions_scheduled >= sessions_required:
+        break  # this can now stay, but you’ll reach it only after room loop finishes
+
 
         if sessions_scheduled < sessions_required:
             unassigned_modules.append({
