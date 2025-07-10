@@ -118,14 +118,23 @@ def schedule_rooms(assignments, room_df):
     lecturer_sessions_required = defaultdict(int)
 
     for _, row in assigned.iterrows():
-        key_id = f"{row['Module Code']}_G{row['Group Number']}"
-        sessions_required = 2  # fixed 2 sessions per module/group
-        sessions_scheduled = 0
-        available_slots = [(slot, day) for day in weekdays for slot in slots]
-        random.shuffle(available_slots)
+    key_id = f"{row['Module Code']}_G{row['Group Number']}"
 
-        # Track required sessions per lecturer
-        lecturer_sessions_required[row["Lecturer"]] += sessions_required
+    # ✅ Updated rule based on credits
+    credits = row["Credits"]
+    if credits == 20:
+        sessions_required = 3
+    elif credits in [10, 15]:
+        sessions_required = 2
+    else:
+        sessions_required = 1  # fallback/default
+
+    sessions_scheduled = 0
+    available_slots = [(slot, day) for day in weekdays for slot in slots]
+    random.shuffle(available_slots)
+
+    lecturer_sessions_required[row["Lecturer"]] += sessions_required
+
 
         for slot, day in available_slots:
             if (slot, day) in used_slots[key_id]:
