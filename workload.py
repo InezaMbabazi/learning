@@ -118,43 +118,39 @@ def schedule_rooms(assignments, room_df):
     lecturer_sessions_required = defaultdict(int)
 
     for _, row in assigned.iterrows():
-    key_id = f"{row['Module Code']}_G{row['Group Number']}"
+        key_id = f"{row['Module Code']}_G{row['Group Number']}"
 
-    # ✅ Updated rule based on credits
-    credits = row["Credits"]
-    if credits == 20:
-        sessions_required = 3
-    elif credits in [10, 15]:
-        sessions_required = 2
-    else:
-        sessions_required = 1  # fallback/default
+        # ✅ Set required sessions based on credits
+        credits = row["Credits"]
+        if credits == 20:
+            sessions_required = 3
+        elif credits in [10, 15]:
+            sessions_required = 2
+        else:
+            sessions_required = 1  # fallback
 
-    sessions_scheduled = 0
-    available_slots = [(slot, day) for day in weekdays for slot in slots]
-    random.shuffle(available_slots)
+        sessions_scheduled = 0
+        available_slots = [(slot, day) for day in weekdays for slot in slots]
+        random.shuffle(available_slots)
 
-    lecturer_sessions_required[row["Lecturer"]] += sessions_required
+        lecturer_sessions_required[row["Lecturer"]] += sessions_required
 
+        for slot, day in available_slots:
+            if (slot, day) in used_slots[key_id]:
+                continue
 
-       for slot, day in available_slots:
-    if (slot, day) in used_slots[key_id]:
-        continue
+            for _, room in room_df.iterrows():
+                if row['Group Size'] <= room['capacity'] and not room_usage[room['Room Name']][(slot, day)]:
+                    entry = f"{row['Module Name']}\nGroup {row['Group Number']}\n{room['Room Name']}\n{row['Lecturer']}\n{row['Group Size']} students"
+                    schedule[(slot, day)].append(entry)
+                    room_usage[room['Room Name']][(slot, day)] = True
+                    used_slots[key_id].append((slot, day))
+                    sessions_scheduled += 1
+                    lecturer_sessions_scheduled[row["Lecturer"]] += 1
 
-    for _, room in room_df.iterrows():
-        if row['Group Size'] <= room['capacity'] and not room_usage[room['Room Name']][(slot, day)]:
-            entry = f"{row['Module Name']}\nGroup {row['Group Number']}\n{room['Room Name']}\n{row['Lecturer']}\n{row['Group Size']} students"
-            schedule[(slot, day)].append(entry)
-            room_usage[room['Room Name']][(slot, day)] = True
-            used_slots[key_id].append((slot, day))
-            sessions_scheduled += 1
-            lecturer_sessions_scheduled[row["Lecturer"]] += 1
-
+                    break  # go to next available slot
             if sessions_scheduled >= sessions_required:
-                break  # only exit the room loop
-
-    if sessions_scheduled >= sessions_required:
-        break  # this can now stay, but you’ll reach it only after room loop finishes
-
+                break  # break outer loop if done
 
         if sessions_scheduled < sessions_required:
             unassigned_modules.append({
@@ -167,10 +163,12 @@ def schedule_rooms(assignments, room_df):
                 "Missing Sessions": sessions_required - sessions_scheduled
             })
 
+    # Construct timetable
     timetable_df = pd.DataFrame(index=slots, columns=weekdays)
     for (slot, day), entries in schedule.items():
         timetable_df.loc[slot, day] = "\n\n".join(entries) if entries else ""
 
+    # Room usage summary
     room_summary = []
     for room, usage in room_usage.items():
         used_count = sum(1 for v in usage.values() if v)
@@ -183,7 +181,7 @@ def schedule_rooms(assignments, room_df):
     room_summary_df = pd.DataFrame(room_summary)
     room_summary_df["Usage %"] = (room_summary_df["Slots Used"] / room_summary_df["Total Slots"] * 100).round(1).astype(str) + "%"
 
-    # Generate lecturer session mismatch report
+    # Lecturer session mismatch report
     lecturers_with_missing_sessions = []
     for lecturer, required in lecturer_sessions_required.items():
         scheduled = lecturer_sessions_scheduled.get(lecturer, 0)
