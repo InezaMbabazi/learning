@@ -288,40 +288,35 @@ if lecturer_file and module_file and room_file:
 
             st.success("✅ Reassignments applied and saved.")
 
-        # Weekly summary for selected trimester
     all_lecturers = lecturers_df["Teacher's name"].unique()
-    final_hours = {name: 0 for name in all_lecturers}
-    grading_hours = {name: 0 for name in all_lecturers}
-
+    final_teaching = {name: 0 for name in all_lecturers}
+    final_grading = {name: 0 for name in all_lecturers}
     for _, row in st.session_state.assignments.iterrows():
-        name = row["Lecturer"]
-        if name in final_hours:
-            final_hours[name] += row["Weekly Hours"]
-            grading_hours[name] += row["Grading Hours"]
+        if row["Lecturer"] in final_teaching:
+            final_teaching[row["Lecturer"]] += row["Weekly Hours"]
+            final_grading[row["Lecturer"]] += row["Grading Hours"]
+
+    admin = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Administration Hours"].to_dict()
+    planning = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Planning Hours"].to_dict()
+    research = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Research Hours"].to_dict()
 
     summary = pd.DataFrame({
-        "Lecturer": list(final_hours.keys()),
-        "Total Teaching Hours": list(final_hours.values()),
-        "Grading Hours": list(grading_hours.values()),
-        "Administration Hours": [lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Administration Hours"].iloc[0] if not lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Administration Hours"].empty else 0 for name in final_hours.keys()],
-        "Planning Hours": [
-            0 if final_hours[name] == 0 else 
-            lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Planning Hours"].iloc[0] 
-            if not lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Planning Hours"].empty else 0 
-            for name in final_hours.keys()
-        ],
-        "Research Hours": [lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Research Hours"].iloc[0] if not lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Research Hours"].empty else 0 for name in final_hours.keys()],
-        "Max Weekly Workload": [st.session_state.lecturer_limits.get(name, 35) for name in final_hours.keys()]
+        "Lecturer": list(final_teaching.keys()),
+        "Teaching Hours": list(final_teaching.values()),
+        "Grading Hours": list(final_grading.values()),
+        "Administration Hours": [admin.get(name, 0) for name in final_teaching.keys()],
+        "Planning Hours": [planning.get(name, 0) for name in final_teaching.keys()],
+        "Research Hours": [research.get(name, 0) for name in final_teaching.keys()]
     })
 
-    summary["Total Weekly Workload"] = summary[["Total Teaching Hours", "Grading Hours", "Administration Hours", "Planning Hours", "Research Hours"]].sum(axis=1)
-    summary["Occupancy %"] = (summary["Total Weekly Workload"] / summary["Max Weekly Workload"] * 100).round(1).astype(str) + "%"
-    summary["Teaching Occupancy %"] = (summary["Total Teaching Hours"] / summary["Max Weekly Workload"] * 100).round(1).astype(str) + "%"
-    summary["Trimester Total"] = summary["Total Weekly Workload"] * 12
+    summary["Total Weekly Hours"] = summary[["Teaching Hours", "Grading Hours", "Administration Hours", "Planning Hours", "Research Hours"]].sum(axis=1)
+    summary["Expected Weekly Load"] = 35
+    summary["Weekly Occupancy %"] = (summary["Total Weekly Hours"] / summary["Expected Weekly Load"] * 100).round(1).astype(str) + " %"
+    summary["Trimester Total"] = summary["Total Weekly Hours"] * 12
+    summary = summary.sort_values(by="Total Weekly Hours", ascending=False)
 
-    st.subheader(f"\U0001F4C8 Weekly Workload Summary – Trimester {selected_trimester}")
-    st.dataframe(summary.sort_values(by="Remaining Weekly Workload", ascending=False), use_container_width=True)
-
+    st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
+    st.dataframe(summary, use_container_width=True)
 if st.button("📊 Generate Cumulative Workload Statistics"):
     all_lecturers = lecturers_df["Teacher's name"].dropna().unique().tolist()
 
