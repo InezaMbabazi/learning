@@ -330,6 +330,11 @@ if st.button("📊 Generate Cumulative Workload Statistics"):
     planning = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Planning Hours"]
     research = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Research Hours"]
 
+    # Set planning to 0 if no teaching assigned
+    for lecturer in all_lecturers:
+        if lecturer not in weekly_teaching.index or weekly_teaching.loc[lecturer].sum() == 0:
+            planning[lecturer] = 0
+
     trimester_cols = weekly_teaching.columns.tolist()
     cumulative_weekly = pd.DataFrame(index=all_lecturers, columns=trimester_cols).fillna(0)
 
@@ -364,7 +369,6 @@ if st.button("📊 Generate Cumulative Workload Statistics"):
         cumulative_trimester["Total"] / cumulative_trimester["Expected Total"] * 100
     ).round(1).astype(str) + " %"
 
-    # Total teaching occupancy across all trimesters
     cumulative_teaching_total = weekly_teaching.sum(axis=1) * 12
     total_expected_teach = expected_teach_per_trimester * len(trimester_cols)
     cumulative_trimester["Total Teaching Occupancy %"] = (
@@ -376,8 +380,9 @@ if st.button("📊 Generate Cumulative Workload Statistics"):
                    [col + " Teaching Occupancy %" for col in trimester_cols] + \
                    ["Total", "Expected Total", "Total Occupancy %", "Total Teaching Occupancy %"]
 
-    st.subheader("\U0001F4CA Cumulative Lecturer Workload (Teaching + Grading + Admin + Planning + Research)")
+    st.subheader("📊 Cumulative Lecturer Workload (Teaching + Grading + Admin + Planning + Research)")
     st.dataframe(cumulative_trimester[cols_to_show], use_container_width=True)
+
 
 
 
