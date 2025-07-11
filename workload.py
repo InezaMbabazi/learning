@@ -289,6 +289,7 @@ if lecturer_file and module_file and room_file:
             st.success("✅ Reassignments applied and saved.")
 
        # Weekly summary for selected trimester
+      # Weekly summary for selected trimester
     all_lecturers = lecturers_df["Teacher's name"].unique()
     final_hours = {name: 0 for name in all_lecturers}
     grading_hours = {name: 0 for name in all_lecturers}
@@ -319,8 +320,9 @@ if lecturer_file and module_file and room_file:
     summary["Teaching Occupancy %"] = (summary["Total Teaching Hours"] / summary["Max Weekly Workload"] * 100).round(1).astype(str) + "%"
     summary["Trimester Total"] = summary["Total Weekly Workload"] * 12
 
-    st.subheader(f"\U0001F4C8 Weekly Workload Summary – Trimester {selected_trimester}")
-    st.dataframe(summary.sort_values(by="Remaining Weekly Workload", ascending=False), use_container_width=True)
+    st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
+    st.dataframe(summary, use_container_width=True)
+
 
 if st.button("📊 Generate Cumulative Workload Statistics"):
     all_lecturers = lecturers_df["Teacher's name"].dropna().unique().tolist()
