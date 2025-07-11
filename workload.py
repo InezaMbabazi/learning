@@ -296,19 +296,21 @@ if lecturer_file and module_file and room_file:
             final_teaching[row["Lecturer"]] += row["Weekly Hours"]
             final_grading[row["Lecturer"]] += row["Grading Hours"]
 
-    # Map base hours
-# Map base hours
+ 
+# Compute administration, planning, and research hours per lecturer
 base_admin = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Administration Hours"].to_dict()
 base_planning = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Planning Hours"].to_dict()
 base_research = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Research Hours"].to_dict()
 
-# Update planning to 0 if no module assigned in this trimester
-planning = {}
-for name in final_teaching:
-    planning[name] = base_planning.get(name, 0) if final_teaching[name] > 0 else 0
+# Set Planning Hours to 0 for lecturers with no teaching in the selected trimester
+planning = {
+    name: base_planning.get(name, 0) if final_teaching[name] > 0 else 0
+    for name in final_teaching
+}
 
 admin = base_admin
 research = base_research
+
 
 
     summary = pd.DataFrame({
