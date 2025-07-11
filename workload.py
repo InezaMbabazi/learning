@@ -297,6 +297,7 @@ if lecturer_file and module_file and room_file:
             final_grading[row["Lecturer"]] += row["Grading Hours"]
 
     # Map base hours
+# Map base hours
 base_admin = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Administration Hours"].to_dict()
 base_planning = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Planning Hours"].to_dict()
 base_research = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Research Hours"].to_dict()
@@ -308,6 +309,7 @@ for name in final_teaching:
 
 admin = base_admin
 research = base_research
+
 
     summary = pd.DataFrame({
         "Lecturer": list(final_teaching.keys()),
