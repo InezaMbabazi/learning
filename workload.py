@@ -12,6 +12,7 @@ lecturer_file = st.sidebar.file_uploader("Upload Lecturers Dataset", type=["csv"
 module_file = st.sidebar.file_uploader("Upload Modules Dataset", type=["csv", "xlsx"])
 room_file = st.sidebar.file_uploader("Upload Room Dataset", type=["csv", "xlsx"])
 
+# ----------- Helper Functions ------------
 def split_students(total, min_size=30, max_size=50):
     if total <= max_size:
         return [total]
@@ -30,12 +31,7 @@ def split_students(total, min_size=30, max_size=50):
     return [total]
 
 def get_weekly_hours(credits):
-    if credits == 20:
-        return 7
-    elif credits in [10, 15]:
-        return 5
-    else:
-        return 0
+    return 7 if credits == 20 else 5 if credits in [10, 15] else 0
 
 def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
     lecturer_hours = {}
@@ -104,64 +100,96 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
 
     return pd.DataFrame(assignments), lecturer_hours, lecturer_limits
 
-# Room scheduling and all other previous unchanged code...
-# (Leave your `schedule_rooms()` and Streamlit interface untouched)
+# ----------- Main App Starts Here ------------
+if lecturer_file and module_file and room_file:
+    lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
+    modules_df = pd.read_csv(module_file) if module_file.name.endswith('.csv') else pd.read_excel(module_file)
+    room_df = pd.read_csv(room_file) if room_file.name.endswith('.csv') else pd.read_excel(room_file)
 
-# === AFTER st.session_state.assignments is ready ===
+    lecturers_df.columns = lecturers_df.columns.str.strip()
+    modules_df.columns = modules_df.columns.str.strip()
+    room_df.columns = room_df.columns.str.strip()
+
+    trimester_options = modules_df["When to Take Place"].dropna().unique()
+    selected_trimester = st.selectbox("🗕️ Select When to Take Place (Trimester)", sorted(trimester_options))
+
+    if "reassignments_done" not in st.session_state:
+        st.session_state.reassignments_done = {}
+    if "all_assignments" not in st.session_state:
+        st.session_state.all_assignments = pd.DataFrame()
+    if "reassignment_applied" not in st.session_state:
+        st.session_state.reassignment_applied = False
+
+    if "current_trimester" in st.session_state and st.session_state.current_trimester != selected_trimester:
+        st.session_state.reassignment_applied = False
+    st.session_state.current_trimester = selected_trimester
+
+    if st.button(f"🔄 Reset Assignments for Trimester {selected_trimester}"):
+        if selected_trimester in st.session_state.reassignments_done:
+            del st.session_state.reassignments_done[selected_trimester]
+        st.session_state.reassignment_applied = False
+        st.experimental_rerun()
+
+    if selected_trimester in st.session_state.reassignments_done:
+        st.session_state.assignments = st.session_state.reassignments_done[selected_trimester]["assignments"].copy()
+        st.session_state.lecturer_hours = st.session_state.reassignments_done[selected_trimester]["lecturer_hours"].copy()
+        st.session_state.lecturer_limits = st.session_state.reassignments_done[selected_trimester]["lecturer_limits"].copy()
+        st.session_state.reassignment_applied = True
+    else:
+        result_df, lecturer_hours, lecturer_limits = generate_workload_assignment(lecturers_df, modules_df, selected_trimester)
+        st.session_state.assignments = result_df.copy()
+        st.session_state.lecturer_hours = lecturer_hours.copy()
+        st.session_state.lecturer_limits = lecturer_limits.copy()
+
+        if "Trimester" in st.session_state.all_assignments.columns:
+            st.session_state.all_assignments = pd.concat([
+                st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != selected_trimester],
+                result_df
+            ], ignore_index=True)
+        else:
+            st.session_state.all_assignments = result_df.copy()
+
+    # === CURRENT WORKLOAD ASSIGNMENT TABLE ===
     st.subheader("📊 Current Workload Assignment Results")
     st.dataframe(st.session_state.assignments, use_container_width=True)
 
-# === NEW Weekly Summary ===
-    all_lecturers = lecturers_df["Teacher's name"].unique()
-    final_teaching = {name: 0 for name in all_lecturers}
-    final_grading = {name: 0 for name in all_lecturers}
+    # === WEEKLY + TRIMESTER SUMMARY ===
+    st.subheader(f"📈 Weekly & Trimester Workload Summary – Trimester {selected_trimester}")
+    lecturers = lecturers_df["Teacher's name"].unique()
+    weekly_teaching = {name: 0 for name in lecturers}
+    weekly_grading = {name: 0 for name in lecturers}
 
     for _, row in st.session_state.assignments.iterrows():
-        lecturer = row["Lecturer"]
-        if lecturer in final_teaching:
-            final_teaching[lecturer] += row["Weekly Hours"]
-            final_grading[lecturer] += row["Grading Hours"]
+        lec = row["Lecturer"]
+        if lec in weekly_teaching:
+            weekly_teaching[lec] += row["Weekly Hours"]
+            weekly_grading[lec] += row["Grading Hours"]
 
-    # Get admin/planning/research from lecturer file
-    admin_hours = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Administration Hours"].to_dict()
-    planning_hours = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Planning Hours"].to_dict()
-    research_hours = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Research Hours"].to_dict()
+    admin = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Administration Hours"].to_dict()
+    planning = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Planning Hours"].to_dict()
+    research = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Research Hours"].to_dict()
 
     summary = pd.DataFrame({
-        "Lecturer": list(final_teaching.keys()),
-        "Teaching Hours": list(final_teaching.values()),
-        "Grading Hours": [final_grading.get(name, 0) for name in final_teaching.keys()],
-        "Administration Hours": [admin_hours.get(name, 0) for name in final_teaching.keys()],
-        "Planning Hours": [planning_hours.get(name, 0) for name in final_teaching.keys()],
-        "Research Hours": [research_hours.get(name, 0) for name in final_teaching.keys()]
+        "Lecturer": lecturers,
+        "Teaching Hours": [weekly_teaching.get(name, 0) for name in lecturers],
+        "Grading Hours": [weekly_grading.get(name, 0) for name in lecturers],
+        "Administration Hours": [admin.get(name, 0) for name in lecturers],
+        "Planning Hours": [planning.get(name, 0) for name in lecturers],
+        "Research Hours": [research.get(name, 0) for name in lecturers],
     })
 
-    summary["Total Workload"] = summary[
+    summary["Weekly Total"] = summary[
         ["Teaching Hours", "Grading Hours", "Administration Hours", "Planning Hours", "Research Hours"]
     ].sum(axis=1)
+    summary["Expected Weekly"] = 35
+    summary["Remaining Weekly"] = summary["Expected Weekly"] - summary["Weekly Total"]
 
-    summary["Expected Weekly Workload"] = 35
-    summary["Remaining Workload"] = summary["Expected Weekly Workload"] - summary["Total Workload"]
-    summary["Occupancy %"] = (summary["Total Workload"] / 35 * 100).round(1).astype(str) + " %"
+    summary["Trimester Total"] = summary["Weekly Total"] * 12
+    summary["Expected Trimester"] = 35 * 12
+    summary["Remaining Trimester"] = summary["Expected Trimester"] - summary["Trimester Total"]
+    summary["Trimester Occupancy %"] = (summary["Trimester Total"] / 420 * 100).round(1).astype(str) + " %"
 
-    st.subheader(f"📈 Expanded Weekly Workload Summary – Trimester {selected_trimester}")
-    st.dataframe(summary.sort_values(by="Remaining Workload"), use_container_width=True)
+    st.dataframe(summary.sort_values(by="Remaining Weekly"), use_container_width=True)
 
-# === UPDATED CUMULATIVE SECTION ===
-    if st.button("📊 Generate Cumulative Workload Statistics"):
-        weekly_teaching = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0) * 12
-        grading_teaching = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Grading Hours"].sum().unstack(fill_value=0) * 12
-
-        cumulative = weekly_teaching.add(grading_teaching, fill_value=0)
-
-        # Add Admin, Planning, Research × 3 trimesters
-        cumulative["Admin"] = cumulative.index.map(lambda x: admin_hours.get(x, 0) * 12 * 3)
-        cumulative["Planning"] = cumulative.index.map(lambda x: planning_hours.get(x, 0) * 12 * 3)
-        cumulative["Research"] = cumulative.index.map(lambda x: research_hours.get(x, 0) * 12 * 3)
-
-        cumulative["Total"] = cumulative.sum(axis=1)
-        cumulative["Max Workload (Annual)"] = 35 * 12 * 3
-        cumulative["Occupancy %"] = (cumulative["Total"] / cumulative["Max Workload (Annual)"] * 100).round(1).astype(str) + " %"
-
-        st.subheader("📊 Cumulative Lecturer Workload (All Trimester + Grading + Admin)")
-        st.dataframe(cumulative, use_container_width=True)
+else:
+    st.info("📂 Please upload all three datasets to proceed.")
