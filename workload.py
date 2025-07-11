@@ -318,11 +318,9 @@ if lecturer_file and module_file and room_file:
     st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
     st.dataframe(summary, use_container_width=True)
 if st.button("📊 Generate Cumulative Workload Statistics"):
-    # Calculate per trimester lecturer weekly teaching + grading hours from assignments
     weekly_teaching = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
     weekly_grading = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Grading Hours"].sum().unstack(fill_value=0)
 
-    # Prepare admin/planning/research from lecturers_df (per lecturer, no trimester variation)
     admin = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Administration Hours"]
     planning = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Planning Hours"]
     research = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Research Hours"]
@@ -330,9 +328,7 @@ if st.button("📊 Generate Cumulative Workload Statistics"):
     all_lecturers = weekly_teaching.index.tolist()
     trimester_cols = weekly_teaching.columns.tolist()
 
-    # Create a DataFrame for cumulative weekly total (teaching + grading + admin + planning + research)
     cumulative_weekly = pd.DataFrame(index=all_lecturers, columns=trimester_cols).fillna(0)
-
     for trimester in trimester_cols:
         for lecturer in all_lecturers:
             teach = weekly_teaching.at[lecturer, trimester] if lecturer in weekly_teaching.index else 0
@@ -342,26 +338,35 @@ if st.button("📊 Generate Cumulative Workload Statistics"):
             res = research.get(lecturer, 0)
             cumulative_weekly.at[lecturer, trimester] = teach + grade + adm + plan + res
 
-    # Convert all values to float
-    cumulative_weekly = cumulative_weekly.astype(float)
-
-    # Calculate trimester total hours (weekly total * 12 weeks)
-    cumulative_trimester = cumulative_weekly * 12
-
-    # Add total column summing all trimesters
+    cumulative_trimester = cumulative_weekly.astype(float) * 12
     cumulative_trimester["Total"] = cumulative_trimester.sum(axis=1)
 
-    expected_trimester_load = 35 * 12  # per trimester expected total hours
-    # Occupancy % per trimester
-    for col in trimester_cols:
-        cumulative_trimester[col + " Occupancy %"] = (cumulative_trimester[col] / expected_trimester_load * 100).round(1).astype(str) + " %"
+    expected_trimester_load = 35 * 12
+    expected_teach_per_trimester = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Weekly Workload"] * 12
+    expected_teach_per_trimester = expected_teach_per_trimester.reindex(index=all_lecturers, fill_value=0)
 
-    # Overall occupancy for total workload against expected max workload (all trimesters)
+    for col in trimester_cols:
+        cumulative_trimester[col + " Occupancy %"] = (
+            cumulative_trimester[col] / expected_trimester_load * 100
+        ).round(1).astype(str) + " %"
+
+        teach_hours = weekly_teaching[col] * 12
+        cumulative_trimester[col + " Teaching Occupancy %"] = (
+            teach_hours / expected_teach_per_trimester * 100
+        ).round(1).astype(str) + " %"
+
     cumulative_trimester["Expected Total"] = expected_trimester_load * len(trimester_cols)
-    cumulative_trimester["Total Occupancy %"] = (cumulative_trimester["Total"] / cumulative_trimester["Expected Total"] * 100).round(1).astype(str) + " %"
+    cumulative_trimester["Total Occupancy %"] = (
+        cumulative_trimester["Total"] / cumulative_trimester["Expected Total"] * 100
+    ).round(1).astype(str) + " %"
+
+    cols_to_show = list(trimester_cols) + \
+                   [col + " Occupancy %" for col in trimester_cols] + \
+                   [col + " Teaching Occupancy %" for col in trimester_cols] + \
+                   ["Total", "Expected Total", "Total Occupancy %"]
 
     st.subheader("📊 Cumulative Lecturer Workload (Teaching + Grading + Admin + Planning + Research)")
-    st.dataframe(cumulative_trimester, use_container_width=True)
+    st.dataframe(cumulative_trimester[cols_to_show], use_container_width=True)
 
 
 
