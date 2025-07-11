@@ -287,46 +287,47 @@ if lecturer_file and module_file and room_file:
             ], ignore_index=True)
 
             st.success("✅ Reassignments applied and saved.")
+    all_lecturers = lecturers_df["Teacher's name"].unique()
+    final_teaching = {name: 0 for name in all_lecturers}
+    final_grading = {name: 0 for name in all_lecturers}
 
-  all_lecturers = lecturers_df["Teacher's name"].unique()
-final_teaching = {name: 0 for name in all_lecturers}
-final_grading = {name: 0 for name in all_lecturers}
-for _, row in st.session_state.assignments.iterrows():
-    if row["Lecturer"] in final_teaching:
-        final_teaching[row["Lecturer"]] += row["Weekly Hours"]
-        final_grading[row["Lecturer"]] += row["Grading Hours"]
+    for _, row in st.session_state.assignments.iterrows():
+        if row["Lecturer"] in final_teaching:
+            final_teaching[row["Lecturer"]] += row["Weekly Hours"]
+            final_grading[row["Lecturer"]] += row["Grading Hours"]
 
-# Map base hours
-base_admin = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Administration Hours"].to_dict()
-base_planning = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Planning Hours"].to_dict()
-base_research = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Research Hours"].to_dict()
+    # Get base admin/planning/research hours
+    base_admin = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Administration Hours"].to_dict()
+    base_planning = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Planning Hours"].to_dict()
+    base_research = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Research Hours"].to_dict()
 
-# Set Planning Hours to 0 for lecturers with no teaching assigned this trimester
-adjusted_planning = {
-    name: base_planning.get(name, 0) if final_teaching.get(name, 0) > 0 else 0
-    for name in final_teaching
-}
+    # Adjust planning to 0 if no teaching
+    adjusted_planning = {
+        name: base_planning.get(name, 0) if final_teaching.get(name, 0) > 0 else 0
+        for name in final_teaching
+    }
 
-summary = pd.DataFrame({
-    "Lecturer": list(final_teaching.keys()),
-    "Teaching Hours": list(final_teaching.values()),
-    "Grading Hours": list(final_grading.values()),
-    "Administration Hours": [base_admin.get(name, 0) for name in final_teaching.keys()],
-    "Planning Hours": [adjusted_planning.get(name, 0) for name in final_teaching.keys()],
-    "Research Hours": [base_research.get(name, 0) for name in final_teaching.keys()]
-})
+    summary = pd.DataFrame({
+        "Lecturer": list(final_teaching.keys()),
+        "Teaching Hours": list(final_teaching.values()),
+        "Grading Hours": list(final_grading.values()),
+        "Administration Hours": [base_admin.get(name, 0) for name in final_teaching.keys()],
+        "Planning Hours": [adjusted_planning.get(name, 0) for name in final_teaching.keys()],
+        "Research Hours": [base_research.get(name, 0) for name in final_teaching.keys()]
+    })
 
-summary["Total Weekly Hours"] = summary[[
-    "Teaching Hours", "Grading Hours", "Administration Hours", "Planning Hours", "Research Hours"
-]].sum(axis=1)
+    summary["Total Weekly Hours"] = summary[[
+        "Teaching Hours", "Grading Hours", "Administration Hours", "Planning Hours", "Research Hours"
+    ]].sum(axis=1)
 
-summary["Expected Weekly Load"] = 35
-summary["Weekly Occupancy %"] = (summary["Total Weekly Hours"] / summary["Expected Weekly Load"] * 100).round(1).astype(str) + " %"
-summary["Trimester Total"] = summary["Total Weekly Hours"] * 12
-summary = summary.sort_values(by="Total Weekly Hours", ascending=False)
+    summary["Expected Weekly Load"] = 35
+    summary["Weekly Occupancy %"] = (summary["Total Weekly Hours"] / summary["Expected Weekly Load"] * 100).round(1).astype(str) + " %"
+    summary["Trimester Total"] = summary["Total Weekly Hours"] * 12
+    summary = summary.sort_values(by="Total Weekly Hours", ascending=False)
 
-st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
-st.dataframe(summary, use_container_width=True)
+    st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
+    st.dataframe(summary, use_container_width=True)
+
 
 if st.button("📊 Generate Cumulative Workload Statistics"):
     all_lecturers = lecturers_df["Teacher's name"].dropna().unique().tolist()
