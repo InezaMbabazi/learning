@@ -317,17 +317,16 @@ if lecturer_file and module_file and room_file:
     })
 
     summary["Total Weekly Hours"] = summary[[
-    "Teaching Hours", "Grading Hours", "Administration Hours", "Planning Hours", "Research Hours"
-]].sum(axis=1)
+        "Teaching Hours", "Grading Hours", "Administration Hours", "Planning Hours", "Research Hours"
+    ]].sum(axis=1)
 
-summary["Expected Weekly Load"] = 35
-summary["Weekly Occupancy %"] = (summary["Total Weekly Hours"] / summary["Expected Weekly Load"] * 100).round(1).astype(str) + " %"
-summary["Teaching Occupancy %"] = (summary["Teaching Hours"] / summary["Expected Weekly Load"] * 100).round(1).astype(str) + " %"
-summary["Trimester Total"] = summary["Total Weekly Hours"] * 12
-summary = summary.sort_values(by="Total Weekly Hours", ascending=False)
+    summary["Expected Weekly Load"] = 35
+    summary["Weekly Occupancy %"] = (summary["Total Weekly Hours"] / summary["Expected Weekly Load"] * 100).round(1).astype(str) + " %"
+    summary["Trimester Total"] = summary["Total Weekly Hours"] * 12
+    summary = summary.sort_values(by="Total Weekly Hours", ascending=False)
 
-st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
-st.dataframe(summary, use_container_width=True)
+    st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
+    st.dataframe(summary, use_container_width=True)
 
 
 if st.button("📊 Generate Cumulative Workload Statistics"):
