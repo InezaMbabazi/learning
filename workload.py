@@ -317,7 +317,7 @@ if lecturer_file and module_file and room_file:
 
     st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
     st.dataframe(summary, use_container_width=True)
-  if st.button("📊 Generate Cumulative Workload Statistics"):
+ if st.button("📊 Generate Cumulative Workload Statistics"):
     cumulative_weekly = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
     
     # Calculate trimester total hours per trimester (weekly hours * 12)
@@ -342,6 +342,7 @@ if lecturer_file and module_file and room_file:
 
     st.subheader("📊 Cumulative Lecturer Workload with Expected Trimester Load and Occupancy")
     st.dataframe(cumulative_trimester, use_container_width=True)
+
 
     # Room scheduling and timetable
     timetable_df, unassigned_modules, room_summary_df, lecturer_sessions_report_df = schedule_rooms(st.session_state.assignments, room_df)
