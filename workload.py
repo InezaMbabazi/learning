@@ -80,11 +80,7 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
                         "Weekly Hours": hours_needed,
                         "Group Size": group_size,
                         "Group Number": group_index + 1,
-                        "Trimester": selected_trimester,
-                        "Grading Hours": group_size * 0.08,
-                        "Planning Hours": 2,
-                        "Research Hours": 3,
-                        "Admin Hours": 2
+                        "Trimester": selected_trimester
                     })
                     lecturer_hours[name] += hours_needed
                     assigned = True
@@ -101,11 +97,7 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
                     "Weekly Hours": hours_needed,
                     "Group Size": group_size,
                     "Group Number": group_index + 1,
-                    "Trimester": selected_trimester,
-                    "Grading Hours": group_size * 0.08,
-                    "Planning Hours": 2,
-                    "Research Hours": 3,
-                    "Admin Hours": 2
+                    "Trimester": selected_trimester
                 })
 
     return pd.DataFrame(assignments), lecturer_hours, lecturer_limits
@@ -121,19 +113,21 @@ def schedule_rooms(assignments, room_df):
 
     assigned = assignments[assignments["Lecturer"] != "❌ Not Assigned"].copy()
 
+    # Track sessions per lecturer
     lecturer_sessions_scheduled = defaultdict(int)
     lecturer_sessions_required = defaultdict(int)
 
     for _, row in assigned.iterrows():
         key_id = f"{row['Module Code']}_G{row['Group Number']}"
 
+        # ✅ Set required sessions based on credits
         credits = row["Credits"]
         if credits == 20:
             sessions_required = 3
         elif credits in [10, 15]:
             sessions_required = 2
         else:
-            sessions_required = 1
+            sessions_required = 1  # fallback
 
         sessions_scheduled = 0
         available_slots = [(slot, day) for day in weekdays for slot in slots]
@@ -153,9 +147,10 @@ def schedule_rooms(assignments, room_df):
                     used_slots[key_id].append((slot, day))
                     sessions_scheduled += 1
                     lecturer_sessions_scheduled[row["Lecturer"]] += 1
-                    break
+
+                    break  # go to next available slot
             if sessions_scheduled >= sessions_required:
-                break
+                break  # break outer loop if done
 
         if sessions_scheduled < sessions_required:
             unassigned_modules.append({
@@ -168,28 +163,25 @@ def schedule_rooms(assignments, room_df):
                 "Missing Sessions": sessions_required - sessions_scheduled
             })
 
+    # Construct timetable
     timetable_df = pd.DataFrame(index=slots, columns=weekdays)
     for (slot, day), entries in schedule.items():
         timetable_df.loc[slot, day] = "\n\n".join(entries) if entries else ""
 
+    # Room usage summary
     room_summary = []
     for room, usage in room_usage.items():
         used_count = sum(1 for v in usage.values() if v)
-        room_capacity = room_df.loc[room_df['Room Name'] == room, 'capacity']
-        capacity = room_capacity.values[0] if not room_capacity.empty else 0
         room_summary.append({
             "Room": room,
-            "Capacity": capacity,
+            "Capacity": room_df.loc[room_df['Room Name'] == room, 'capacity'].values[0],
             "Slots Used": used_count,
             "Total Slots": len(slots) * len(weekdays)
         })
-
     room_summary_df = pd.DataFrame(room_summary)
-    if not room_summary_df.empty and {"Slots Used", "Total Slots"}.issubset(room_summary_df.columns):
-        room_summary_df["Usage %"] = (room_summary_df["Slots Used"] / room_summary_df["Total Slots"] * 100).round(1).astype(str) + "%"
-    else:
-        room_summary_df["Usage %"] = []
+    room_summary_df["Usage %"] = (room_summary_df["Slots Used"] / room_summary_df["Total Slots"] * 100).round(1).astype(str) + "%"
 
+    # Lecturer session mismatch report
     lecturers_with_missing_sessions = []
     for lecturer, required in lecturer_sessions_required.items():
         scheduled = lecturer_sessions_scheduled.get(lecturer, 0)
@@ -280,22 +272,28 @@ if lecturer_file and module_file and room_file:
             new_lecturers.append(selected)
 
         if st.button("🔁 Apply Reassignments"):
+            # Apply new lecturer assignments
             for i in range(len(st.session_state.assignments)):
                 st.session_state.assignments.loc[i, "Lecturer"] = new_lecturers[i]
 
-            updated_lecturer_hours = {name: 0 for name in st.session_state.lecturer_limits.keys()}
+            # Recalculate lecturer_hours after reassignment
+            updated_lecturer_hours = {}
+            for name in st.session_state.lecturer_limits.keys():
+                updated_lecturer_hours[name] = 0
             for _, row in st.session_state.assignments.iterrows():
                 lecturer = row["Lecturer"]
                 if lecturer != "❌ Not Assigned":
                     updated_lecturer_hours[lecturer] = updated_lecturer_hours.get(lecturer, 0) + row["Weekly Hours"]
             st.session_state.lecturer_hours = updated_lecturer_hours.copy()
 
+            # Save reassignment
             st.session_state.reassignments_done[selected_trimester] = {
                 "assignments": st.session_state.assignments.copy(),
                 "lecturer_hours": updated_lecturer_hours.copy(),
                 "lecturer_limits": st.session_state.lecturer_limits.copy()
             }
 
+            # Update all_assignments with reassigned data for selected trimester
             st.session_state.all_assignments = pd.concat([
                 st.session_state.all_assignments[st.session_state.all_assignments["Trimester"] != selected_trimester],
                 st.session_state.assignments
@@ -303,62 +301,42 @@ if lecturer_file and module_file and room_file:
 
             st.success("✅ Reassignments applied and saved.")
 
+    # Weekly summary for selected trimester
     all_lecturers = lecturers_df["Teacher's name"].unique()
     final_hours = {name: 0 for name in all_lecturers}
-    grading_hours = {name: 0 for name in all_lecturers}
-    planning_hours = {name: 0 for name in all_lecturers}
-    research_hours = {name: 0 for name in all_lecturers}
-    admin_hours = {name: 0 for name in all_lecturers}
-
     for _, row in st.session_state.assignments.iterrows():
-        lecturer = row["Lecturer"]
-        if lecturer in final_hours:
-            final_hours[lecturer] += row["Weekly Hours"]
-            grading_hours[lecturer] += row["Grading Hours"]
-            planning_hours[lecturer] += row["Planning Hours"]
-            research_hours[lecturer] += row["Research Hours"]
-            admin_hours[lecturer] += row["Admin Hours"]
+        if row["Lecturer"] in final_hours:
+            final_hours[row["Lecturer"]] += row["Weekly Hours"]
 
     summary = pd.DataFrame({
         "Lecturer": list(final_hours.keys()),
         "Total Assigned Weekly Hours": list(final_hours.values()),
-        "Grading Hours (Weekly)": [grading_hours[name] for name in final_hours.keys()],
-        "Planning Hours (Weekly)": [planning_hours[name] for name in final_hours.keys()],
-        "Research Hours (Weekly)": [research_hours[name] for name in final_hours.keys()],
-        "Admin Hours (Weekly)": [admin_hours[name] for name in final_hours.keys()],
         "Max Weekly Workload": [st.session_state.lecturer_limits.get(name, 18) for name in final_hours.keys()]
     })
-    summary["Extra Time (Weekly)"] = summary[[
-        "Grading Hours (Weekly)", "Planning Hours (Weekly)", "Research Hours (Weekly)", "Admin Hours (Weekly)"
-    ]].sum(axis=1)
-    summary["Extra Time (Trimester)"] = summary["Extra Time (Weekly)"] * 12
-    summary["Teaching Time (Trimester)"] = summary["Total Assigned Weekly Hours"] * 12
-    summary["Total Time (Trimester)"] = summary["Teaching Time (Trimester)"] + summary["Extra Time (Trimester)"]
-    summary["Max Time (Trimester)"] = summary["Lecturer"].map(lambda x: st.session_state.lecturer_limits.get(x, 18) * 12)
     summary["Remaining Weekly Workload"] = summary["Max Weekly Workload"] - summary["Total Assigned Weekly Hours"]
-    summary["Occupancy %"] = (summary["Total Time (Trimester)"] / summary["Max Time (Trimester)"] * 100).round(1).astype(str) + " %"
+    summary["Occupancy %"] = (summary["Total Assigned Weekly Hours"] / summary["Max Weekly Workload"] * 100).round(1).astype(str) + " %"
 
     st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
     st.dataframe(summary.sort_values(by="Remaining Weekly Workload"), use_container_width=True)
 
+    # Generate Cumulative Workload Statistics
     if st.button("📊 Generate Cumulative Workload Statistics"):
-        cumulative = st.session_state.all_assignments.groupby("Lecturer")[[
-            "Weekly Hours", "Grading Hours", "Planning Hours", "Research Hours", "Admin Hours"
-        ]].sum()
+        cumulative = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
 
-        cumulative["Teaching Time (Year)"] = cumulative["Weekly Hours"] * 12 * 3
-        cumulative["Extra Time (Year)"] = (
-            cumulative["Grading Hours"] + cumulative["Planning Hours"] + cumulative["Research Hours"] + cumulative["Admin Hours"]
-        ) * 12 * 3
-        cumulative["Total Time (Year)"] = cumulative["Teaching Time (Year)"] + cumulative["Extra Time (Year)"]
-        cumulative["Max Annual Workload"] = cumulative.index.map(lambda x: st.session_state.lecturer_limits.get(x, 18) * 12 * 3)
-        cumulative["Occupancy %"] = (cumulative["Total Time (Year)"] / cumulative["Max Annual Workload"] * 100).round(1).astype(str) + " %"
+        # Multiply assigned weekly hours by 12 weeks per trimester
+        cumulative = cumulative * 12
+
+        cumulative = cumulative.reindex(index=all_lecturers, fill_value=0)
+        cumulative["Total"] = cumulative.sum(axis=1)
+
+        # Max workload per week * 12 weeks * 3 trimesters for annual max
+        cumulative["Max Workload (Annual)"] = cumulative.index.map(lambda x: st.session_state.lecturer_limits.get(x, 18) * 12 * 3)
+        cumulative["Occupancy %"] = (cumulative["Total"] / cumulative["Max Workload (Annual)"] * 100).round(1).astype(str) + " %"
 
         st.subheader("📊 Cumulative Lecturer Workload (Trimester 1, 2, 3, Total, Occupancy)")
-        st.dataframe(cumulative[[
-            "Teaching Time (Year)", "Extra Time (Year)", "Total Time (Year)", "Max Annual Workload", "Occupancy %"
-        ]], use_container_width=True)
+        st.dataframe(cumulative, use_container_width=True)
 
+    # Room scheduling and timetable
     timetable_df, unassigned_modules, room_summary_df, lecturer_sessions_report_df = schedule_rooms(st.session_state.assignments, room_df)
 
     st.subheader("🏫 Weekly Room Timetable")
@@ -367,15 +345,21 @@ if lecturer_file and module_file and room_file:
     if unassigned_modules:
         st.warning(f"⚠️ Some modules/groups could not be fully scheduled due to room constraints:")
         for item in unassigned_modules:
-            st.write(f"Module: {item['Module']}, Group: {item['Group']}, Lecturer: {item['Lecturer']}, Students: {item['Students']}, Sessions Scheduled: {item['Sessions Scheduled']}/{item['Sessions Required']}")
+            st.write(f"Module: {item['Module']}, Group: {item['Group']}, Lecturer: {item['Lecturer']}, Students: {item['Students']}, Sessions Scheduled: {item['Sessions Scheduled']}, Sessions Required: {item['Sessions Required']}")
 
-    st.subheader("🏢 Room Usage Summary")
+    st.subheader("🏫 Room Usage Summary")
     st.dataframe(room_summary_df, use_container_width=True)
 
-    if not lecturer_sessions_report_df.empty:
-        st.subheader("⚠️ Lecturers with Missing Sessions")
-        st.dataframe(lecturer_sessions_report_df, use_container_width=True)
-
+    # Show session report always, even if empty
+    st.subheader("📝 Lecturer Session Scheduling Report")
+    if lecturer_sessions_report_df.empty:
+        st.success("All lecturers have their required sessions scheduled.")
+    else:
+        st.warning("Some lecturers have fewer scheduled sessions than required (2 sessions per module group):")
+    st.dataframe(
+        lecturer_sessions_report_df if not lecturer_sessions_report_df.empty
+        else pd.DataFrame(columns=["Lecturer", "Sessions Required", "Sessions Scheduled", "Sessions Missing"]),
+        use_container_width=True
+    )
 else:
-    st.info("Please upload the lecturers, modules, and rooms datasets to begin.")
-
+    st.info("Please upload all three datasets to proceed.")
