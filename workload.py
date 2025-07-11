@@ -317,19 +317,31 @@ if lecturer_file and module_file and room_file:
 
     st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
     st.dataframe(summary, use_container_width=True)
-    if st.button("📊 Generate Cumulative Workload Statistics"):
-        cumulative = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
+  if st.button("📊 Generate Cumulative Workload Statistics"):
+    cumulative_weekly = st.session_state.all_assignments.groupby(["Lecturer", "Trimester"])["Weekly Hours"].sum().unstack(fill_value=0)
+    
+    # Calculate trimester total hours per trimester (weekly hours * 12)
+    cumulative_trimester = cumulative_weekly * 12
 
-        cumulative = cumulative * 12  # weeks per trimester
+    # Reindex to keep all lecturers
+    cumulative_trimester = cumulative_trimester.reindex(index=all_lecturers, fill_value=0)
+    
+    # Add total trimester hours sum
+    cumulative_trimester["Total"] = cumulative_trimester.sum(axis=1)
 
-        cumulative = cumulative.reindex(index=all_lecturers, fill_value=0)
-        cumulative["Total"] = cumulative.sum(axis=1)
-        cumulative["Max Workload (Trimester)"] = 35 * 12  # expected total hours per trimester per lecturer
+    # Expected hours per trimester (35 * 12 weeks)
+    expected_trimester_load = 35 * 12
 
-        cumulative["Occupancy %"] = (cumulative["Total"] / cumulative["Max Workload (Trimester)"] * 100).round(1).astype(str) + " %"
+    # Calculate occupancy % per trimester column
+    for col in cumulative_trimester.columns[:-1]:  # all trimester cols except 'Total'
+        cumulative_trimester[col + " Occupancy %"] = (cumulative_trimester[col] / expected_trimester_load * 100).round(1).astype(str) + " %"
 
-        st.subheader("📊 Cumulative Lecturer Workload (Trimester 1, 2, 3, Total, Occupancy)")
-        st.dataframe(cumulative, use_container_width=True)
+    # Overall occupancy based on total
+    cumulative_trimester["Expected Total"] = expected_trimester_load * len(trimester_options)
+    cumulative_trimester["Total Occupancy %"] = (cumulative_trimester["Total"] / cumulative_trimester["Expected Total"] * 100).round(1).astype(str) + " %"
+
+    st.subheader("📊 Cumulative Lecturer Workload with Expected Trimester Load and Occupancy")
+    st.dataframe(cumulative_trimester, use_container_width=True)
 
     # Room scheduling and timetable
     timetable_df, unassigned_modules, room_summary_df, lecturer_sessions_report_df = schedule_rooms(st.session_state.assignments, room_df)
