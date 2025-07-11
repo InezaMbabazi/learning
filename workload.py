@@ -290,38 +290,64 @@ if lecturer_file and module_file and room_file:
 
        # Weekly summary for selected trimester
       # Weekly summary for selected trimester
-    all_lecturers = lecturers_df["Teacher's name"].unique()
-    final_hours = {name: 0 for name in all_lecturers}
-    grading_hours = {name: 0 for name in all_lecturers}
+   # Weekly summary for selected trimester
+all_lecturers = lecturers_df["Teacher's name"].unique()
+final_hours = {name: 0 for name in all_lecturers}
+grading_hours = {name: 0 for name in all_lecturers}
 
-    for _, row in st.session_state.assignments.iterrows():
-        name = row["Lecturer"]
-        if name in final_hours:
-            final_hours[name] += row["Weekly Hours"]
-            grading_hours[name] += row["Grading Hours"]
+for _, row in st.session_state.assignments.iterrows():
+    name = row["Lecturer"]
+    if name in final_hours:
+        final_hours[name] += row["Weekly Hours"]
+        grading_hours[name] += row["Grading Hours"]
 
-    summary = pd.DataFrame({
-        "Lecturer": list(final_hours.keys()),
-        "Total Teaching Hours": list(final_hours.values()),
-        "Grading Hours": list(grading_hours.values()),
-        "Administration Hours": [lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Administration Hours"].iloc[0] if not lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Administration Hours"].empty else 0 for name in final_hours.keys()],
-        "Planning Hours": [
-            0 if final_hours[name] == 0 else 
-            lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Planning Hours"].iloc[0] 
-            if not lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Planning Hours"].empty else 0 
-            for name in final_hours.keys()
-        ],
-        "Research Hours": [lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Research Hours"].iloc[0] if not lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Research Hours"].empty else 0 for name in final_hours.keys()],
-        "Max Weekly Workload": [st.session_state.lecturer_limits.get(name, 35) for name in final_hours.keys()]
-    })
+summary = pd.DataFrame({
+    "Lecturer": list(final_hours.keys()),
+    "Total Teaching Hours": list(final_hours.values()),
+    "Grading Hours": list(grading_hours.values()),
+    "Administration Hours": [
+        lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Administration Hours"].iloc[0]
+        if not lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Administration Hours"].empty else 0
+        for name in final_hours.keys()
+    ],
+    "Planning Hours": [
+        0 if final_hours[name] == 0 else
+        lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Planning Hours"].iloc[0]
+        if not lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Planning Hours"].empty else 0
+        for name in final_hours.keys()
+    ],
+    "Research Hours": [
+        lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Research Hours"].iloc[0]
+        if not lecturers_df.loc[lecturers_df["Teacher's name"] == name, "Research Hours"].empty else 0
+        for name in final_hours.keys()
+    ],
+    "Max Weekly Workload": [st.session_state.lecturer_limits.get(name, 35) for name in final_hours.keys()]
+})
 
-    summary["Total Weekly Workload"] = summary[["Total Teaching Hours", "Grading Hours", "Administration Hours", "Planning Hours", "Research Hours"]].sum(axis=1)
-    summary["Occupancy %"] = (summary["Total Weekly Workload"] / summary["Max Weekly Workload"] * 100).round(1).astype(str) + "%"
-    summary["Teaching Occupancy %"] = (summary["Total Teaching Hours"] / summary["Max Weekly Workload"] * 100).round(1).astype(str) + "%"
-    summary["Trimester Total"] = summary["Total Weekly Workload"] * 12
+# Total workload includes teaching, grading, administration, planning, and research
+summary["Total Weekly Workload"] = summary[
+    ["Total Teaching Hours", "Grading Hours", "Administration Hours", "Planning Hours", "Research Hours"]
+].sum(axis=1)
 
-    st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
-    st.dataframe(summary, use_container_width=True)
+# Trimester total workload (weekly workload * 12 weeks)
+summary["Trimester Total"] = summary["Total Weekly Workload"] * 12
+
+# Expected workload for the trimester
+summary["Expected Trimester Workload"] = summary["Max Weekly Workload"] * 12
+
+# Overall occupancy for the trimester
+summary["Occupancy %"] = (
+    summary["Trimester Total"] / summary["Expected Trimester Workload"] * 100
+).round(1).astype(str) + "%"
+
+# Teaching occupancy for the trimester (teaching hours * 12 / expected workload)
+summary["Teaching Occupancy %"] = (
+    summary["Total Teaching Hours"] * 12 / summary["Expected Trimester Workload"] * 100
+).round(1).astype(str) + "%"
+
+st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
+st.dataframe(summary, use_container_width=True)
+
 
 
 if st.button("📊 Generate Cumulative Workload Statistics"):
