@@ -287,7 +287,7 @@ if lecturer_file and module_file and room_file:
             ], ignore_index=True)
 
             st.success("✅ Reassignments applied and saved.")
-    all_lecturers = lecturers_df["Teacher's name"].unique()
+        all_lecturers = lecturers_df["Teacher's name"].unique()
     final_teaching = {name: 0 for name in all_lecturers}
     final_grading = {name: 0 for name in all_lecturers}
 
@@ -322,11 +322,31 @@ if lecturer_file and module_file and room_file:
 
     summary["Expected Weekly Load"] = 35
     summary["Weekly Occupancy %"] = (summary["Total Weekly Hours"] / summary["Expected Weekly Load"] * 100).round(1).astype(str) + " %"
+    summary["Teaching Occupancy %"] = (summary["Teaching Hours"] / summary["Expected Weekly Load"] * 100).round(1).astype(str) + " %"
     summary["Trimester Total"] = summary["Total Weekly Hours"] * 12
     summary = summary.sort_values(by="Total Weekly Hours", ascending=False)
 
     st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
-    st.dataframe(summary, use_container_width=True)
+
+    # Function to highlight occupancy % columns
+    def highlight_occupancy(val):
+        try:
+            val_num = float(val.strip('% '))
+            if val_num >= 100:
+                color = 'lightgreen'
+            elif val_num >= 70:
+                color = 'lightyellow'
+            else:
+                color = 'salmon'
+        except:
+            color = 'white'
+        return f'background-color: {color}'
+
+    # Apply highlight to % columns
+    styled_summary = summary.style.applymap(highlight_occupancy, subset=["Weekly Occupancy %", "Teaching Occupancy %"])
+
+    st.dataframe(styled_summary, use_container_width=True)
+
 
 
 if st.button("📊 Generate Cumulative Workload Statistics"):
