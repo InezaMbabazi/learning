@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 from collections import defaultdict
@@ -6,13 +7,11 @@ import random
 st.set_page_config(page_title="Workload Management System", layout="wide")
 st.title("📚 Automated Workload Management System")
 
-# Upload files
 st.sidebar.header("Upload Datasets")
 lecturer_file = st.sidebar.file_uploader("Upload Lecturers Dataset", type=["csv", "xlsx"])
 module_file = st.sidebar.file_uploader("Upload Modules Dataset", type=["csv", "xlsx"])
 room_file = st.sidebar.file_uploader("Upload Room Dataset", type=["csv", "xlsx"])
 
-# ----------- Helper Functions ------------
 def split_students(total, min_size=30, max_size=50):
     if total <= max_size:
         return [total]
@@ -100,7 +99,6 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
 
     return pd.DataFrame(assignments), lecturer_hours, lecturer_limits
 
-# ----------- Main App Starts Here ------------
 if lecturer_file and module_file and room_file:
     lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
     modules_df = pd.read_csv(module_file) if module_file.name.endswith('.csv') else pd.read_excel(module_file)
@@ -149,11 +147,9 @@ if lecturer_file and module_file and room_file:
         else:
             st.session_state.all_assignments = result_df.copy()
 
-    # === CURRENT WORKLOAD ASSIGNMENT TABLE ===
     st.subheader("📊 Current Workload Assignment Results")
     st.dataframe(st.session_state.assignments, use_container_width=True)
 
-    # === WEEKLY + TRIMESTER SUMMARY ===
     st.subheader(f"📈 Weekly & Trimester Workload Summary – Trimester {selected_trimester}")
     lecturers = lecturers_df["Teacher's name"].unique()
     weekly_teaching = {name: 0 for name in lecturers}
@@ -165,9 +161,9 @@ if lecturer_file and module_file and room_file:
             weekly_teaching[lec] += row["Weekly Hours"]
             weekly_grading[lec] += row["Grading Hours"]
 
-    admin = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Administration Hours"].to_dict()
-    planning = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Planning Hours"].to_dict()
-    research = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name")["Research Hours"].to_dict()
+    admin = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name").get("Administration Hours", pd.Series(0, index=lecturers_df["Teacher's name"])).to_dict()
+    planning = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name").get("Planning Hours", pd.Series(0, index=lecturers_df["Teacher's name"])).to_dict()
+    research = lecturers_df.drop_duplicates("Teacher's name").set_index("Teacher's name").get("Research Hours", pd.Series(0, index=lecturers_df["Teacher's name"])).to_dict()
 
     summary = pd.DataFrame({
         "Lecturer": lecturers,
@@ -185,7 +181,7 @@ if lecturer_file and module_file and room_file:
     summary["Remaining Weekly"] = summary["Expected Weekly"] - summary["Weekly Total"]
 
     summary["Trimester Total"] = summary["Weekly Total"] * 12
-    summary["Expected Trimester"] = 35 * 12
+    summary["Expected Trimester"] = 420
     summary["Remaining Trimester"] = summary["Expected Trimester"] - summary["Trimester Total"]
     summary["Trimester Occupancy %"] = (summary["Trimester Total"] / 420 * 100).round(1).astype(str) + " %"
 
