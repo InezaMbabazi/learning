@@ -55,11 +55,6 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
         group_sizes = split_students(total_students)
 
         for group_index, group_size in enumerate(group_sizes):
-            grading = round(group_size * 0.08, 2)
-            planning = 2
-            research = 3
-            admin = 2
-
             matching_lecturers = lecturers_df[lecturers_df["Module Code"] == module_code].copy()
             for name in matching_lecturers["Teacher's name"].unique():
                 if name not in lecturer_hours:
@@ -86,10 +81,10 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
                         "Group Size": group_size,
                         "Group Number": group_index + 1,
                         "Trimester": selected_trimester,
-                        "Grading Hours": grading,
-                        "Planning Hours": planning,
-                        "Research Hours": research,
-                        "Admin Hours": admin
+                        "Grading Hours": group_size * 0.08,
+                        "Planning Hours": 2,
+                        "Research Hours": 3,
+                        "Admin Hours": 2
                     })
                     lecturer_hours[name] += hours_needed
                     assigned = True
@@ -107,10 +102,10 @@ def generate_workload_assignment(lecturers_df, modules_df, selected_trimester):
                     "Group Size": group_size,
                     "Group Number": group_index + 1,
                     "Trimester": selected_trimester,
-                    "Grading Hours": grading,
-                    "Planning Hours": planning,
-                    "Research Hours": research,
-                    "Admin Hours": admin
+                    "Grading Hours": group_size * 0.08,
+                    "Planning Hours": 2,
+                    "Research Hours": 3,
+                    "Admin Hours": 2
                 })
 
     return pd.DataFrame(assignments), lecturer_hours, lecturer_limits
@@ -158,7 +153,6 @@ def schedule_rooms(assignments, room_df):
                     used_slots[key_id].append((slot, day))
                     sessions_scheduled += 1
                     lecturer_sessions_scheduled[row["Lecturer"]] += 1
-
                     break
             if sessions_scheduled >= sessions_required:
                 break
@@ -181,14 +175,20 @@ def schedule_rooms(assignments, room_df):
     room_summary = []
     for room, usage in room_usage.items():
         used_count = sum(1 for v in usage.values() if v)
+        room_capacity = room_df.loc[room_df['Room Name'] == room, 'capacity']
+        capacity = room_capacity.values[0] if not room_capacity.empty else 0
         room_summary.append({
             "Room": room,
-            "Capacity": room_df.loc[room_df['Room Name'] == room, 'capacity'].values[0],
+            "Capacity": capacity,
             "Slots Used": used_count,
             "Total Slots": len(slots) * len(weekdays)
         })
+
     room_summary_df = pd.DataFrame(room_summary)
-    room_summary_df["Usage %"] = (room_summary_df["Slots Used"] / room_summary_df["Total Slots"] * 100).round(1).astype(str) + "%"
+    if not room_summary_df.empty and {"Slots Used", "Total Slots"}.issubset(room_summary_df.columns):
+        room_summary_df["Usage %"] = (room_summary_df["Slots Used"] / room_summary_df["Total Slots"] * 100).round(1).astype(str) + "%"
+    else:
+        room_summary_df["Usage %"] = []
 
     lecturers_with_missing_sessions = []
     for lecturer, required in lecturer_sessions_required.items():
@@ -203,6 +203,7 @@ def schedule_rooms(assignments, room_df):
     lecturer_sessions_report_df = pd.DataFrame(lecturers_with_missing_sessions)
 
     return timetable_df, unassigned_modules, room_summary_df, lecturer_sessions_report_df
+
 
 if lecturer_file and module_file and room_file:
     lecturers_df = pd.read_csv(lecturer_file) if lecturer_file.name.endswith('.csv') else pd.read_excel(lecturer_file)
@@ -302,7 +303,6 @@ if lecturer_file and module_file and room_file:
 
             st.success("✅ Reassignments applied and saved.")
 
-    # Weekly summary for selected trimester
     all_lecturers = lecturers_df["Teacher's name"].unique()
     final_hours = {name: 0 for name in all_lecturers}
     grading_hours = {name: 0 for name in all_lecturers}
@@ -341,7 +341,6 @@ if lecturer_file and module_file and room_file:
     st.subheader(f"📈 Weekly Workload Summary – Trimester {selected_trimester}")
     st.dataframe(summary.sort_values(by="Remaining Weekly Workload"), use_container_width=True)
 
-    # Cumulative workload statistics
     if st.button("📊 Generate Cumulative Workload Statistics"):
         cumulative = st.session_state.all_assignments.groupby("Lecturer")[[
             "Weekly Hours", "Grading Hours", "Planning Hours", "Research Hours", "Admin Hours"
@@ -360,7 +359,6 @@ if lecturer_file and module_file and room_file:
             "Teaching Time (Year)", "Extra Time (Year)", "Total Time (Year)", "Max Annual Workload", "Occupancy %"
         ]], use_container_width=True)
 
-    # Room scheduling and timetable
     timetable_df, unassigned_modules, room_summary_df, lecturer_sessions_report_df = schedule_rooms(st.session_state.assignments, room_df)
 
     st.subheader("🏫 Weekly Room Timetable")
@@ -369,20 +367,15 @@ if lecturer_file and module_file and room_file:
     if unassigned_modules:
         st.warning(f"⚠️ Some modules/groups could not be fully scheduled due to room constraints:")
         for item in unassigned_modules:
-            st.write(f"Module: {item['Module']}, Group: {item['Group']}, Lecturer: {item['Lecturer']}, Students: {item['Students']}, Sessions Scheduled: {item['Sessions Scheduled']}, Sessions Required: {item['Sessions Required']}")
+            st.write(f"Module: {item['Module']}, Group: {item['Group']}, Lecturer: {item['Lecturer']}, Students: {item['Students']}, Sessions Scheduled: {item['Sessions Scheduled']}/{item['Sessions Required']}")
 
-    st.subheader("🏫 Room Usage Summary")
+    st.subheader("🏢 Room Usage Summary")
     st.dataframe(room_summary_df, use_container_width=True)
 
-    st.subheader("📝 Lecturer Session Scheduling Report")
-    if lecturer_sessions_report_df.empty:
-        st.success("All lecturers have their required sessions scheduled.")
-    else:
-        st.warning("Some lecturers have fewer scheduled sessions than required (2 sessions per module group):")
-    st.dataframe(
-        lecturer_sessions_report_df if not lecturer_sessions_report_df.empty
-        else pd.DataFrame(columns=["Lecturer", "Sessions Required", "Sessions Scheduled", "Sessions Missing"]),
-        use_container_width=True
-    )
+    if not lecturer_sessions_report_df.empty:
+        st.subheader("⚠️ Lecturers with Missing Sessions")
+        st.dataframe(lecturer_sessions_report_df, use_container_width=True)
+
 else:
-    st.info("Please upload all three datasets to proceed.")
+    st.info("Please upload the lecturers, modules, and rooms datasets to begin.")
+
