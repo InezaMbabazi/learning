@@ -12,7 +12,7 @@ lecturer_file = st.sidebar.file_uploader("Upload Lecturers Dataset", type=["csv"
 module_file = st.sidebar.file_uploader("Upload Modules Dataset", type=["csv", "xlsx"])
 room_file = st.sidebar.file_uploader("Upload Room Dataset", type=["csv", "xlsx"])
 
-def split_students(total, min_size=30, max_size=40):
+def split_students(total, min_size=30, max_size=70):
     if total <= max_size:
         return [total]
     valid_splits = []
