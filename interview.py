@@ -10,7 +10,7 @@ def parse_list_block(text: str) -> List[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 # -----------------------------
-# Generate full scenario-based projects with embedded data and tasks
+# Generate detailed scenario-based projects with embedded data and practical tasks
 # -----------------------------
 
 def generate_project(competencies: List[str], hard_skills: List[str], soft_skills: List[str], tasks: List[str], num_projects: int) -> List[Dict]:
@@ -20,10 +20,11 @@ def generate_project(competencies: List[str], hard_skills: List[str], soft_skill
     prompt = (
         f"You are an AI career mentor. Based on the following competencies: {competencies},"
         f" job hard skills: {hard_skills}, soft skills: {soft_skills}, and tasks: {tasks},"
-        f" generate {num_projects} fully scenario-based project assignments for students to assess job readiness." 
-        f" Each scenario should include a realistic context (e.g., medical, finance, IT), all necessary data embedded directly within the question (tables, CSV snippets, inventory, or patient records), practical tasks to complete, grading criteria, hints, expected skills demonstrated, potential gaps, and recommendations to improve skills and align with market demands."
-        f" Ensure the projects allow the student to apply critical thinking, problem-solving, and hard skills relevant to the job market."
-        f" Return as JSON list with keys: project, type, skill, embedded_data, grading_criteria, hints, gaps, recommendations."
+        f" generate {num_projects} full scenario-based projects for students to assess their readiness for the job market." 
+        f" Each scenario should have a realistic context (e.g., finance, medical, IT), practical tasks that require students to apply skills, and all necessary data embedded directly in the question (tables, CSV snippets, or datasets)."
+        f" Provide step-by-step tasks, detailed grading criteria, expected skills demonstrated, hints, potential knowledge gaps, and actionable recommendations." 
+        f" The scenarios should be designed to test critical thinking, problem-solving, and hands-on abilities relevant to the job."
+        f" Return as JSON list with keys: project, type, skill, embedded_data, tasks_list, grading_criteria, hints, gaps, recommendations."
     )
 
     try:
@@ -48,8 +49,8 @@ def grade_project(project: str, student_answer: str, grading_criteria: str) -> D
         f"You are an AI grader. The project assignment is: '{project}'."
         f" The grading criteria are: '{grading_criteria}'."
         f" The student submitted: '{student_answer}'."
-        f" Provide a grade (pass/fail), highlight any gaps in skills or understanding, and give actionable recommendations for improvement." 
-        f" Focus on practical application, problem-solving, and alignment with real job market competencies."
+        f" Provide a grade (pass/fail), identify gaps in skills, and provide actionable recommendations for improvement." 
+        f" Focus on real-world applicability and job market readiness."
     )
 
     try:
@@ -67,8 +68,8 @@ def grade_project(project: str, student_answer: str, grading_criteria: str) -> D
 # -----------------------------
 # Streamlit App
 # -----------------------------
-st.set_page_config(page_title="AI Job Skills Full Scenario Assessment", layout="wide")
-st.title("AI Job Skills Full Scenario Assessment")
+st.set_page_config(page_title="AI Job Skills Scenario Assessment", layout="wide")
+st.title("AI Job Skills Scenario Assessment")
 
 # Input Section
 st.header("Enter Job and Competencies")
@@ -102,6 +103,7 @@ if st.button("Generate Full Scenario-Based Project Assessment"):
                 st.markdown(f"**Project {i} ({p.get('type', 'N/A')})**")
                 st.markdown(p.get('project'))
                 st.markdown(f"*Embedded Data: {p.get('embedded_data', 'N/A')}*")
+                st.markdown(f"*Tasks to Complete: {p.get('tasks_list', 'N/A')}*")
                 student_answer = st.text_area(f"Your Submission for Project {i}", key=f"answer_{i}")
 
                 if st.button(f"Submit Project {i}", key=f"submit_{i}"):
