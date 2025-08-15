@@ -29,7 +29,11 @@ def generate_interview(competencies: List[str], hard_skills: List[str], soft_ski
             temperature=0.7
         )
         content = response.choices[0].message.content
+        # Ensure valid JSON parsing
         interview_questions = json.loads(content)
+    except json.JSONDecodeError:
+        st.error("Failed to parse JSON from AI. Please check the generated content.")
+        interview_questions = []
     except Exception as e:
         st.error(f"Failed to generate interview: {e}")
         interview_questions = []
@@ -45,7 +49,7 @@ def grade_answer(question: str, student_answer: str, grading_criteria: str) -> D
         f"You are an AI grader. The interview question is: '{question}'."
         f" The grading criteria are: '{grading_criteria}'."
         f" The candidate answered: '{student_answer}'."
-        f" Provide a grade (pass/fail), highlight skill gaps, and give actionable recommendations for improvement."
+        f" Provide a JSON object with keys: 'grade', 'gaps', 'recommendations'."
     )
     try:
         response = openai.ChatCompletion.create(
@@ -53,8 +57,16 @@ def grade_answer(question: str, student_answer: str, grading_criteria: str) -> D
             messages=[{"role": "user", "content": prompt}],
             temperature=0
         )
-        result = response.choices[0].message.content
-        return json.loads(result)
+        result_text = response.choices[0].message.content.strip()
+        # Some responses may include extra text, extract JSON portion
+        first_brace = result_text.find('{')
+        last_brace = result_text.rfind('}')
+        if first_brace != -1 and last_brace != -1:
+            json_text = result_text[first_brace:last_brace+1]
+            return json.loads(json_text)
+        else:
+            st.warning("AI response did not contain valid JSON.")
+            return {"grade": "N/A", "gaps": "N/A", "recommendations": "N/A"}
     except Exception as e:
         st.error(f"Failed to grade answer: {e}")
         return {"grade": "N/A", "gaps": "N/A", "recommendations": "N/A"}
@@ -99,7 +111,11 @@ if st.session_state["interview"]:
         if q.get('embedded_data'):
             st.markdown(f"*Embedded Data: {q.get('embedded_data')}*")
         answer_key = f"answer_{i}"
-        st.session_state["responses"][answer_key] = st.text_area(f"Your Answer for Question {i}", value=st.session_state["responses"].get(answer_key, ""), key=answer_key)
+        st.session_state["responses"][answer_key] = st.text_area(
+            f"Your Answer for Question {i}",
+            value=st.session_state["responses"].get(answer_key, ""),
+            key=answer_key
+        )
 
     if st.button("Submit All Answers"):
         graded_results = []
