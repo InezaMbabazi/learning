@@ -10,7 +10,7 @@ def parse_list_block(text: str) -> List[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 # -----------------------------
-# Generate practical job-focused quiz using ChatGPT API
+# Generate scenario/project-based interview using ChatGPT API
 # -----------------------------
 
 def generate_quiz(competencies: List[str], hard_skills: List[str], soft_skills: List[str], tasks: List[str], num_questions: int) -> List[Dict]:
@@ -20,8 +20,8 @@ def generate_quiz(competencies: List[str], hard_skills: List[str], soft_skills: 
     prompt = (
         f"You are an AI career mentor. Based on the following competencies: {competencies},"
         f" job hard skills: {hard_skills}, soft skills: {soft_skills}, and tasks: {tasks},"
-        f" generate {num_questions} practical interview questions that directly assess if a student can perform in the real job market and fit the job role." 
-        f" Focus on competencies to see if the student has all necessary skills for the job." 
+        f" generate {num_questions} scenario-based or project-based interview questions that assess if a student can perform in the real job market and fit the job role." 
+        f" Focus on practical tasks and competencies to see if the student has all necessary skills for the job." 
         f" For each question, provide grading criteria, hints, knowledge gaps if the student struggles, and actionable recommendations to improve and align with market requirements."
         f" Return as JSON list with keys: question, type, skill, grading_criteria, hints, gaps, recommendations."
     )
@@ -45,10 +45,11 @@ def generate_quiz(competencies: List[str], hard_skills: List[str], soft_skills: 
 
 def grade_response(question: str, student_answer: str, grading_criteria: str) -> Dict:
     prompt = (
-        f"You are an AI grader. The question is: '{question}'."
+        f"You are an AI grader. The scenario/project question is: '{question}'."
         f" The grading criteria are: '{grading_criteria}'."
         f" The student answered: '{student_answer}'."
-        f" Provide a grade (pass/fail), explain gaps if failed, and give recommendations to improve skills and fit the job market."
+        f" Provide a grade (pass/fail), explain gaps if failed, and give recommendations to improve skills and fit the job market." 
+        f" Focus on practical application and job readiness."
     )
 
     try:
@@ -66,8 +67,8 @@ def grade_response(question: str, student_answer: str, grading_criteria: str) ->
 # -----------------------------
 # Streamlit App
 # -----------------------------
-st.set_page_config(page_title="AI Job Skills Quiz Agent", layout="wide")
-st.title("AI Job Skills Quiz Agent")
+st.set_page_config(page_title="AI Job Skills Scenario Quiz", layout="wide")
+st.title("AI Job Skills Scenario/Project-Based Quiz")
 
 # Input Section
 st.header("Enter Job and Competencies")
@@ -75,13 +76,13 @@ competencies_txt = st.text_area("Module Competencies (one per line)")
 hard_skills_txt = st.text_area("Hard Skills (one per line)")
 soft_skills_txt = st.text_area("Soft Skills (one per line)")
 tasks_txt = st.text_area("Key Tasks (one per line)")
-num_questions = st.slider("Number of practical questions", min_value=2, max_value=12, value=5)
+num_questions = st.slider("Number of scenario/project questions", min_value=2, max_value=12, value=5)
 job_title = st.text_input("Job Title", value="Junior Data Analyst")
 
 # Use API key from Streamlit secrets
 openai.api_key = st.secrets["openai"]["api_key"]
 
-if st.button("Generate Job-Focused Quiz"):
+if st.button("Generate Scenario/Project Quiz"):
     competencies = parse_list_block(competencies_txt)
     hard_skills = parse_list_block(hard_skills_txt)
     soft_skills = parse_list_block(soft_skills_txt)
@@ -95,7 +96,7 @@ if st.button("Generate Job-Focused Quiz"):
         if not questions:
             st.warning("No quiz questions generated. Please check your inputs.")
         else:
-            st.subheader(f"Generated Job-Focused Quiz for {job_title}")
+            st.subheader(f"Generated Scenario/Project Quiz for {job_title}")
             student_responses = []
             for i, q in enumerate(questions, start=1):
                 st.markdown(f"**Q{i} ({q.get('type', 'N/A')})**")
