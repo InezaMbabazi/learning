@@ -10,7 +10,7 @@ def parse_list_block(text: str) -> List[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 # -----------------------------
-# Generate scenario-based projects with embedded data in questions
+# Generate full scenario-based projects with embedded data and tasks
 # -----------------------------
 
 def generate_project(competencies: List[str], hard_skills: List[str], soft_skills: List[str], tasks: List[str], num_projects: int) -> List[Dict]:
@@ -20,9 +20,9 @@ def generate_project(competencies: List[str], hard_skills: List[str], soft_skill
     prompt = (
         f"You are an AI career mentor. Based on the following competencies: {competencies},"
         f" job hard skills: {hard_skills}, soft skills: {soft_skills}, and tasks: {tasks},"
-        f" generate {num_projects} scenario-based project assignments where all the necessary data is included within the question itself."
-        f" For example, provide a dataset snippet or table inside the question that the student can analyze directly to answer the task, such as patient data, sales records, or inventory tables."
-        f" Each project should include: project description with embedded data, grading criteria, hints, potential gaps, and actionable recommendations."
+        f" generate {num_projects} fully scenario-based project assignments for students to assess job readiness." 
+        f" Each scenario should include a realistic context (e.g., medical, finance, IT), all necessary data embedded directly within the question (tables, CSV snippets, inventory, or patient records), practical tasks to complete, grading criteria, hints, expected skills demonstrated, potential gaps, and recommendations to improve skills and align with market demands."
+        f" Ensure the projects allow the student to apply critical thinking, problem-solving, and hard skills relevant to the job market."
         f" Return as JSON list with keys: project, type, skill, embedded_data, grading_criteria, hints, gaps, recommendations."
     )
 
@@ -48,8 +48,8 @@ def grade_project(project: str, student_answer: str, grading_criteria: str) -> D
         f"You are an AI grader. The project assignment is: '{project}'."
         f" The grading criteria are: '{grading_criteria}'."
         f" The student submitted: '{student_answer}'."
-        f" Provide a grade (pass/fail), explain gaps if failed, and give recommendations to improve skills and fit the job market." 
-        f" Focus on practical application, problem-solving, and job readiness."
+        f" Provide a grade (pass/fail), highlight any gaps in skills or understanding, and give actionable recommendations for improvement." 
+        f" Focus on practical application, problem-solving, and alignment with real job market competencies."
     )
 
     try:
@@ -67,8 +67,8 @@ def grade_project(project: str, student_answer: str, grading_criteria: str) -> D
 # -----------------------------
 # Streamlit App
 # -----------------------------
-st.set_page_config(page_title="AI Job Skills Scenario Project Assessment", layout="wide")
-st.title("AI Job Skills Scenario Project Assessment")
+st.set_page_config(page_title="AI Job Skills Full Scenario Assessment", layout="wide")
+st.title("AI Job Skills Full Scenario Assessment")
 
 # Input Section
 st.header("Enter Job and Competencies")
@@ -82,7 +82,7 @@ job_title = st.text_input("Job Title", value="Junior Data Analyst")
 # Use API key from Streamlit secrets
 openai.api_key = st.secrets["openai"]["api_key"]
 
-if st.button("Generate Scenario-Based Project Assessment"):
+if st.button("Generate Full Scenario-Based Project Assessment"):
     competencies = parse_list_block(competencies_txt)
     hard_skills = parse_list_block(hard_skills_txt)
     soft_skills = parse_list_block(soft_skills_txt)
@@ -96,7 +96,7 @@ if st.button("Generate Scenario-Based Project Assessment"):
         if not projects:
             st.warning("No project assignments generated. Please check your inputs.")
         else:
-            st.subheader(f"Generated Scenario-Based Projects for {job_title}")
+            st.subheader(f"Generated Full Scenario-Based Projects for {job_title}")
             student_responses = []
             for i, p in enumerate(projects, start=1):
                 st.markdown(f"**Project {i} ({p.get('type', 'N/A')})**")
@@ -115,6 +115,6 @@ if st.button("Generate Scenario-Based Project Assessment"):
                 st.download_button(
                     label="Download Graded Projects JSON",
                     data=json.dumps(student_responses, indent=2).encode('utf-8'),
-                    file_name="graded_scenario_projects.json",
+                    file_name="graded_full_scenario_projects.json",
                     mime="application/json"
                 )
