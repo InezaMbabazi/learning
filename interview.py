@@ -54,7 +54,7 @@ num_questions = st.slider("Number of interview questions", min_value=2, max_valu
 job_title = st.text_input("Job Title", value="Junior Data Analyst")
 
 # Use API key from Streamlit secrets
-openai.api_key = st.secrets.get('OPENAI_API_KEY', '')
+openai.api_key = st.secrets["openai"]["api_key"]
 
 if st.button("Generate Interview"):
     competencies = parse_list_block(competencies_txt)
