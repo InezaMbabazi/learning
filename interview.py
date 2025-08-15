@@ -10,7 +10,7 @@ def parse_list_block(text: str) -> List[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 # -----------------------------
-# Generate real project assignments with practical datasets
+# Generate scenario-based projects with embedded data in questions
 # -----------------------------
 
 def generate_project(competencies: List[str], hard_skills: List[str], soft_skills: List[str], tasks: List[str], num_projects: int) -> List[Dict]:
@@ -20,10 +20,10 @@ def generate_project(competencies: List[str], hard_skills: List[str], soft_skill
     prompt = (
         f"You are an AI career mentor. Based on the following competencies: {competencies},"
         f" job hard skills: {hard_skills}, soft skills: {soft_skills}, and tasks: {tasks},"
-        f" generate {num_projects} real-world project assignments with example datasets, such as CSV or database examples," 
-        f" that students can work on to demonstrate job readiness. For instance, a medical student may get a dataset of patients to find patients with HIV or high blood pressure."
-        f" Each project should include: the project description, dataset details, grading criteria, hints, potential gaps, and recommendations for improvement."
-        f" Return as JSON list with keys: project, type, skill, dataset_example, grading_criteria, hints, gaps, recommendations."
+        f" generate {num_projects} scenario-based project assignments where all the necessary data is included within the question itself."
+        f" For example, provide a dataset snippet or table inside the question that the student can analyze directly to answer the task, such as patient data, sales records, or inventory tables."
+        f" Each project should include: project description with embedded data, grading criteria, hints, potential gaps, and actionable recommendations."
+        f" Return as JSON list with keys: project, type, skill, embedded_data, grading_criteria, hints, gaps, recommendations."
     )
 
     try:
@@ -67,8 +67,8 @@ def grade_project(project: str, student_answer: str, grading_criteria: str) -> D
 # -----------------------------
 # Streamlit App
 # -----------------------------
-st.set_page_config(page_title="AI Job Skills Real Project Assessment", layout="wide")
-st.title("AI Job Skills Real Project Assessment")
+st.set_page_config(page_title="AI Job Skills Scenario Project Assessment", layout="wide")
+st.title("AI Job Skills Scenario Project Assessment")
 
 # Input Section
 st.header("Enter Job and Competencies")
@@ -76,13 +76,13 @@ competencies_txt = st.text_area("Module Competencies (one per line)")
 hard_skills_txt = st.text_area("Hard Skills (one per line)")
 soft_skills_txt = st.text_area("Soft Skills (one per line)")
 tasks_txt = st.text_area("Key Tasks (one per line)")
-num_projects = st.slider("Number of real project assignments", min_value=1, max_value=5, value=2)
+num_projects = st.slider("Number of scenario-based projects", min_value=1, max_value=5, value=2)
 job_title = st.text_input("Job Title", value="Junior Data Analyst")
 
 # Use API key from Streamlit secrets
 openai.api_key = st.secrets["openai"]["api_key"]
 
-if st.button("Generate Real Project Assessment"):
+if st.button("Generate Scenario-Based Project Assessment"):
     competencies = parse_list_block(competencies_txt)
     hard_skills = parse_list_block(hard_skills_txt)
     soft_skills = parse_list_block(soft_skills_txt)
@@ -96,12 +96,12 @@ if st.button("Generate Real Project Assessment"):
         if not projects:
             st.warning("No project assignments generated. Please check your inputs.")
         else:
-            st.subheader(f"Generated Real Project Assessment for {job_title}")
+            st.subheader(f"Generated Scenario-Based Projects for {job_title}")
             student_responses = []
             for i, p in enumerate(projects, start=1):
                 st.markdown(f"**Project {i} ({p.get('type', 'N/A')})**")
                 st.markdown(p.get('project'))
-                st.markdown(f"*Dataset Example: {p.get('dataset_example', 'N/A')}*")
+                st.markdown(f"*Embedded Data: {p.get('embedded_data', 'N/A')}*")
                 student_answer = st.text_area(f"Your Submission for Project {i}", key=f"answer_{i}")
 
                 if st.button(f"Submit Project {i}", key=f"submit_{i}"):
@@ -115,6 +115,6 @@ if st.button("Generate Real Project Assessment"):
                 st.download_button(
                     label="Download Graded Projects JSON",
                     data=json.dumps(student_responses, indent=2).encode('utf-8'),
-                    file_name="graded_projects.json",
+                    file_name="graded_scenario_projects.json",
                     mime="application/json"
                 )
