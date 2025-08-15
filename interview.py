@@ -10,7 +10,7 @@ def parse_list_block(text: str) -> List[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 # -----------------------------
-# Generate practical quiz using ChatGPT API
+# Generate practical job-focused quiz using ChatGPT API
 # -----------------------------
 
 def generate_quiz(competencies: List[str], hard_skills: List[str], soft_skills: List[str], tasks: List[str], num_questions: int) -> List[Dict]:
@@ -20,8 +20,9 @@ def generate_quiz(competencies: List[str], hard_skills: List[str], soft_skills: 
     prompt = (
         f"You are an AI career mentor. Based on the following competencies: {competencies},"
         f" job hard skills: {hard_skills}, soft skills: {soft_skills}, and tasks: {tasks},"
-        f" generate {num_questions} practical quiz questions that assess actual job-related skills for a student."
-        f" For each question, provide grading criteria, hints, knowledge gaps if the student fails, and recommendations to improve and fit the label market."
+        f" generate {num_questions} practical interview questions that directly assess if a student can perform in the real job market and fit the job role." 
+        f" Focus on competencies to see if the student has all necessary skills for the job." 
+        f" For each question, provide grading criteria, hints, knowledge gaps if the student struggles, and actionable recommendations to improve and align with market requirements."
         f" Return as JSON list with keys: question, type, skill, grading_criteria, hints, gaps, recommendations."
     )
 
@@ -39,10 +40,34 @@ def generate_quiz(competencies: List[str], hard_skills: List[str], soft_skills: 
     return questions
 
 # -----------------------------
+# Grade student response using ChatGPT API
+# -----------------------------
+
+def grade_response(question: str, student_answer: str, grading_criteria: str) -> Dict:
+    prompt = (
+        f"You are an AI grader. The question is: '{question}'."
+        f" The grading criteria are: '{grading_criteria}'."
+        f" The student answered: '{student_answer}'."
+        f" Provide a grade (pass/fail), explain gaps if failed, and give recommendations to improve skills and fit the job market."
+    )
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0
+        )
+        result = response.choices[0].message.content
+        return json.loads(result)
+    except Exception as e:
+        st.error(f"Failed to grade response: {e}")
+        return {"grade": "N/A", "gaps": "N/A", "recommendations": "N/A"}
+
+# -----------------------------
 # Streamlit App
 # -----------------------------
-st.set_page_config(page_title="AI Practical Quiz Agent", layout="wide")
-st.title("AI Practical Quiz Agent")
+st.set_page_config(page_title="AI Job Skills Quiz Agent", layout="wide")
+st.title("AI Job Skills Quiz Agent")
 
 # Input Section
 st.header("Enter Job and Competencies")
@@ -56,7 +81,7 @@ job_title = st.text_input("Job Title", value="Junior Data Analyst")
 # Use API key from Streamlit secrets
 openai.api_key = st.secrets["openai"]["api_key"]
 
-if st.button("Generate Practical Quiz"):
+if st.button("Generate Job-Focused Quiz"):
     competencies = parse_list_block(competencies_txt)
     hard_skills = parse_list_block(hard_skills_txt)
     soft_skills = parse_list_block(soft_skills_txt)
@@ -70,19 +95,24 @@ if st.button("Generate Practical Quiz"):
         if not questions:
             st.warning("No quiz questions generated. Please check your inputs.")
         else:
-            st.subheader(f"Generated Practical Quiz for {job_title}")
+            st.subheader(f"Generated Job-Focused Quiz for {job_title}")
+            student_responses = []
             for i, q in enumerate(questions, start=1):
                 st.markdown(f"**Q{i} ({q.get('type', 'N/A')})**")
                 st.markdown(q.get('question'))
-                st.markdown(f"*Grading Criteria: {q.get('grading_criteria', '')}*")
-                st.markdown(f"*Hints: {q.get('hints', '')}*")
-                st.markdown(f"*Knowledge Gaps: {q.get('gaps', 'N/A')}*")
-                st.markdown(f"*Recommendations: {q.get('recommendations', 'N/A')}*")
+                student_answer = st.text_area(f"Your Answer for Q{i}", key=f"answer_{i}")
 
-            # Allow downloading as JSON
-            st.download_button(
-                label="Download Quiz JSON",
-                data=json.dumps(questions, indent=2).encode('utf-8'),
-                file_name="practical_quiz.json",
-                mime="application/json"
-            )
+                if st.button(f"Submit Answer Q{i}", key=f"submit_{i}"):
+                    grading_result = grade_response(q.get('question'), student_answer, q.get('grading_criteria'))
+                    st.markdown(f"*Grade: {grading_result.get('grade', 'N/A')}*")
+                    st.markdown(f"*Knowledge Gaps: {grading_result.get('gaps', 'N/A')}*")
+                    st.markdown(f"*Recommendations: {grading_result.get('recommendations', 'N/A')}*")
+                    student_responses.append({"question": q.get('question'), "answer": student_answer, **grading_result})
+
+            if student_responses:
+                st.download_button(
+                    label="Download Graded Responses JSON",
+                    data=json.dumps(student_responses, indent=2).encode('utf-8'),
+                    file_name="graded_responses.json",
+                    mime="application/json"
+                )
