@@ -75,8 +75,11 @@ num_questions = st.slider("Number of Interview Questions", min_value=1, max_valu
 # Use API key from Streamlit secrets
 openai.api_key = st.secrets["openai"]["api_key"]
 
-interview = []
-candidate_responses = []
+# Persist interview and responses in session state
+if "interview" not in st.session_state:
+    st.session_state["interview"] = []
+if "responses" not in st.session_state:
+    st.session_state["responses"] = {}
 
 if st.button("Generate Full AI Interview"):
     competencies = parse_list_block(competencies_txt)
@@ -86,29 +89,32 @@ if st.button("Generate Full AI Interview"):
     if not openai.api_key:
         st.error("OpenAI API key not found. Please add it to Streamlit secrets.")
     else:
-        interview = generate_interview(competencies, hard_skills, soft_skills, job_title, num_questions)
+        st.session_state["interview"] = generate_interview(competencies, hard_skills, soft_skills, job_title, num_questions)
+        st.session_state["responses"] = {}
 
-if interview:
+if st.session_state["interview"]:
     st.subheader(f"Generated AI Interview for {job_title}")
-    for i, q in enumerate(interview, start=1):
+    for i, q in enumerate(st.session_state["interview"], start=1):
         st.markdown(f"**Question {i}:** {q.get('question', 'N/A')}")
         if q.get('embedded_data'):
             st.markdown(f"*Embedded Data: {q.get('embedded_data')}*")
         answer_key = f"answer_{i}"
-        student_answer = st.text_area(f"Your Answer for Question {i}", key=answer_key)
-        candidate_responses.append({"question": q.get('question'), "answer_key": answer_key, "grading_criteria": q.get('grading_criteria')})
+        st.session_state["responses"][answer_key] = st.text_area(f"Your Answer for Question {i}", value=st.session_state["responses"].get(answer_key, ""), key=answer_key)
 
     if st.button("Submit All Answers"):
-        for resp in candidate_responses:
-            student_answer = st.session_state.get(resp["answer_key"], "")
-            grading_result = grade_answer(resp["question"], student_answer, resp["grading_criteria"])
-            st.markdown(f"**Question:** {resp['question']}\n*Grade: {grading_result.get('grade', 'N/A')}*")
+        graded_results = []
+        for i, q in enumerate(st.session_state["interview"], start=1):
+            answer_key = f"answer_{i}"
+            student_answer = st.session_state["responses"].get(answer_key, "")
+            grading_result = grade_answer(q.get('question'), student_answer, q.get('grading_criteria'))
+            st.markdown(f"**Question {i}:** {q.get('question')}\n*Grade: {grading_result.get('grade', 'N/A')}*")
             st.markdown(f"*Skill Gaps: {grading_result.get('gaps', 'N/A')}*")
             st.markdown(f"*Recommendations: {grading_result.get('recommendations', 'N/A')}*")
+            graded_results.append({"question": q.get('question'), "answer": student_answer, **grading_result})
 
         st.download_button(
             label="Download Graded Interview JSON",
-            data=json.dumps([{**resp, **grading_result} for resp in candidate_responses], indent=2).encode('utf-8'),
+            data=json.dumps(graded_results, indent=2).encode('utf-8'),
             file_name="graded_ai_interview.json",
             mime="application/json"
         )
