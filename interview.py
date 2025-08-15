@@ -40,9 +40,13 @@ with st.sidebar:
     generate_btn = st.button("🚀 Generate Interview")
 
 # -----------------------------
-# ChatGPT Helper
+# ChatGPT Helper with Error Handling
 # -----------------------------
+
 def generate_interview(competencies: List[str], hard_skills: List[str], soft_skills: List[str], tasks: List[str], num_questions: int) -> List[Dict]:
+    if not competencies and not hard_skills and not soft_skills and not tasks:
+        return []
+
     prompt = (
         f"You are an expert interviewer. Based on the following competencies: {competencies},"
         f" job hard skills: {hard_skills}, soft skills: {soft_skills}, and tasks: {tasks},"
@@ -50,23 +54,27 @@ def generate_interview(competencies: List[str], hard_skills: List[str], soft_ski
         f" Return as JSON list with keys: question, type, difficulty, skill, and hints."
     )
     
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7
-    )
-
-    content = response.choices[0].message.content
     try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+
+        content = response.choices[0].message.content
         questions = json.loads(content)
-    except:
-        # fallback: wrap content into a single question if JSON fails
-        questions = [{"question": content, "type": "general", "difficulty": 3, "skill": "N/A", "hints": "N/A"}]
+    except Exception as e:
+        st.warning(f"Failed to generate JSON from API response. Fallback applied. Error: {e}")
+        questions = [{"question": content if 'content' in locals() else 'API error occurred',
+                      "type": "general", "difficulty": 3, "skill": "N/A", "hints": "N/A"}]
     return questions
 
 # -----------------------------
-# Main Logic
+# Main Logic with Session State
 # -----------------------------
+if 'questions' not in st.session_state:
+    st.session_state.questions = []
+
 if generate_btn:
     competencies = parse_list_block(comp_txt)
     hard_skills = parse_list_block(hard_txt)
@@ -75,20 +83,23 @@ if generate_btn:
 
     if not openai.api_key:
         st.error("OpenAI API key not found. Add it to Streamlit secrets.")
+    elif not (competencies or hard_skills or soft_skills or tasks):
+        st.error("Please enter at least one competency, skill, or task.")
     else:
         with st.spinner("Generating interview questions..."):
-            questions = generate_interview(competencies, hard_skills, soft_skills, tasks, quota)
+            st.session_state.questions = generate_interview(competencies, hard_skills, soft_skills, tasks, quota)
 
-        st.subheader("🧭 Generated Interview Questions")
-        for i, q in enumerate(questions, start=1):
-            st.markdown(f"**Q{i} ({q.get('type', 'N/A')} • difficulty {q.get('difficulty', '-')})**")
-            st.markdown(f"{q.get('question')}")
-            st.markdown(f"*Hints: {q.get('hints', '')}*")
+if st.session_state.questions:
+    st.subheader("🧭 Generated Interview Questions")
+    for i, q in enumerate(st.session_state.questions, start=1):
+        st.markdown(f"**Q{i} ({q.get('type', 'N/A')} • difficulty {q.get('difficulty', '-')})**")
+        st.markdown(f"{q.get('question')}")
+        st.markdown(f"*Hints: {q.get('hints', '')}*")
 
-        st.markdown("---")
-        st.download_button(
-            label="Download Questions JSON",
-            data=json.dumps(questions, indent=2).encode('utf-8'),
-            file_name="interview_questions.json",
-            mime="application/json"
-        )
+    st.markdown("---")
+    st.download_button(
+        label="Download Questions JSON",
+        data=json.dumps(st.session_state.questions, indent=2).encode('utf-8'),
+        file_name="interview_questions.json",
+        mime="application/json"
+    )
