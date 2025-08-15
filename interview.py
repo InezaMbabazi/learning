@@ -10,20 +10,20 @@ def parse_list_block(text: str) -> List[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 # -----------------------------
-# Generate project-based interview using ChatGPT API
+# Generate real project assignments with practical datasets
 # -----------------------------
 
-def generate_quiz(competencies: List[str], hard_skills: List[str], soft_skills: List[str], tasks: List[str], num_projects: int) -> List[Dict]:
+def generate_project(competencies: List[str], hard_skills: List[str], soft_skills: List[str], tasks: List[str], num_projects: int) -> List[Dict]:
     if not competencies and not hard_skills and not soft_skills and not tasks:
         return []
 
     prompt = (
         f"You are an AI career mentor. Based on the following competencies: {competencies},"
         f" job hard skills: {hard_skills}, soft skills: {soft_skills}, and tasks: {tasks},"
-        f" generate {num_projects} real project-based assignments or case studies that a student can complete to demonstrate readiness for the job role." 
-        f" Each project should be practical, reflect real job scenarios, and test the student's competencies and skills." 
-        f" For each project, provide grading criteria, hints, knowledge gaps if the student struggles, and actionable recommendations to improve and align with market requirements."
-        f" Return as JSON list with keys: project, type, skill, grading_criteria, hints, gaps, recommendations."
+        f" generate {num_projects} real-world project assignments with example datasets, such as CSV or database examples," 
+        f" that students can work on to demonstrate job readiness. For instance, a medical student may get a dataset of patients to find patients with HIV or high blood pressure."
+        f" Each project should include: the project description, dataset details, grading criteria, hints, potential gaps, and recommendations for improvement."
+        f" Return as JSON list with keys: project, type, skill, dataset_example, grading_criteria, hints, gaps, recommendations."
     )
 
     try:
@@ -35,7 +35,7 @@ def generate_quiz(competencies: List[str], hard_skills: List[str], soft_skills: 
         content = response.choices[0].message.content
         projects = json.loads(content)
     except Exception as e:
-        st.error(f"Failed to generate project-based assignments: {e}")
+        st.error(f"Failed to generate project assignments: {e}")
         projects = []
     return projects
 
@@ -67,7 +67,7 @@ def grade_project(project: str, student_answer: str, grading_criteria: str) -> D
 # -----------------------------
 # Streamlit App
 # -----------------------------
-st.set_page_config(page_title="AI Job Skills Project Assessment", layout="wide")
+st.set_page_config(page_title="AI Job Skills Real Project Assessment", layout="wide")
 st.title("AI Job Skills Real Project Assessment")
 
 # Input Section
@@ -82,7 +82,7 @@ job_title = st.text_input("Job Title", value="Junior Data Analyst")
 # Use API key from Streamlit secrets
 openai.api_key = st.secrets["openai"]["api_key"]
 
-if st.button("Generate Project-Based Assessment"):
+if st.button("Generate Real Project Assessment"):
     competencies = parse_list_block(competencies_txt)
     hard_skills = parse_list_block(hard_skills_txt)
     soft_skills = parse_list_block(soft_skills_txt)
@@ -91,16 +91,17 @@ if st.button("Generate Project-Based Assessment"):
     if not openai.api_key:
         st.error("OpenAI API key not found. Please add it to Streamlit secrets.")
     else:
-        projects = generate_quiz(competencies, hard_skills, soft_skills, tasks, num_projects)
+        projects = generate_project(competencies, hard_skills, soft_skills, tasks, num_projects)
 
         if not projects:
             st.warning("No project assignments generated. Please check your inputs.")
         else:
-            st.subheader(f"Generated Project-Based Assessment for {job_title}")
+            st.subheader(f"Generated Real Project Assessment for {job_title}")
             student_responses = []
             for i, p in enumerate(projects, start=1):
                 st.markdown(f"**Project {i} ({p.get('type', 'N/A')})**")
                 st.markdown(p.get('project'))
+                st.markdown(f"*Dataset Example: {p.get('dataset_example', 'N/A')}*")
                 student_answer = st.text_area(f"Your Submission for Project {i}", key=f"answer_{i}")
 
                 if st.button(f"Submit Project {i}", key=f"submit_{i}"):
