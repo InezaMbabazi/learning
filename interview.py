@@ -19,6 +19,7 @@ def generate_interview(competencies: List[str], hard_skills: List[str], soft_ski
         f" job hard skills: {hard_skills}, and soft skills: {soft_skills}."
         f" Generate {num_questions} scenario-based questions where all necessary data is embedded within the question itself (datasets, tables, or examples)."
         f" For each question, include: 'question', 'embedded_data', 'expected_skills', 'grading_criteria', and 'recommendations if failed'."
+        f" Additionally, provide an analysis comparing required competencies with job skills and highlight any gaps."
         f" Return as JSON list."
     )
 
@@ -29,7 +30,6 @@ def generate_interview(competencies: List[str], hard_skills: List[str], soft_ski
             temperature=0.7
         )
         content = response.choices[0].message.content
-        # Ensure valid JSON parsing
         interview_questions = json.loads(content)
     except json.JSONDecodeError:
         st.error("Failed to parse JSON from AI. Please check the generated content.")
@@ -49,7 +49,7 @@ def grade_answer(question: str, student_answer: str, grading_criteria: str) -> D
         f"You are an AI grader. The interview question is: '{question}'."
         f" The grading criteria are: '{grading_criteria}'."
         f" The candidate answered: '{student_answer}'."
-        f" Provide a JSON object with keys: 'grade', 'gaps', 'recommendations'."
+        f" Provide a JSON object with keys: 'grade', 'gaps', 'recommendations', 'competency_analysis'."
     )
     try:
         response = openai.ChatCompletion.create(
@@ -58,7 +58,6 @@ def grade_answer(question: str, student_answer: str, grading_criteria: str) -> D
             temperature=0
         )
         result_text = response.choices[0].message.content.strip()
-        # Some responses may include extra text, extract JSON portion
         first_brace = result_text.find('{')
         last_brace = result_text.rfind('}')
         if first_brace != -1 and last_brace != -1:
@@ -66,15 +65,15 @@ def grade_answer(question: str, student_answer: str, grading_criteria: str) -> D
             return json.loads(json_text)
         else:
             st.warning("AI response did not contain valid JSON.")
-            return {"grade": "N/A", "gaps": "N/A", "recommendations": "N/A"}
+            return {"grade": "N/A", "gaps": "N/A", "recommendations": "N/A", "competency_analysis": "N/A"}
     except Exception as e:
         st.error(f"Failed to grade answer: {e}")
-        return {"grade": "N/A", "gaps": "N/A", "recommendations": "N/A"}
+        return {"grade": "N/A", "gaps": "N/A", "recommendations": "N/A", "competency_analysis": "N/A"}
 
 # -----------------------------
 # Streamlit App
 # -----------------------------
-st.set_page_config(page_title="AI Full Interview Generator", layout="wide")
+st.set_page_config(page_title="AI Interview Generator", layout="wide")
 st.title("AI Full Interview Generator")
 
 st.header("Job and Competencies Input")
@@ -84,10 +83,8 @@ soft_skills_txt = st.text_area("Soft Skills (one per line)")
 job_title = st.text_input("Job Title", value="Junior Data Analyst")
 num_questions = st.slider("Number of Interview Questions", min_value=1, max_value=10, value=5)
 
-# Use API key from Streamlit secrets
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Persist interview and responses in session state
 if "interview" not in st.session_state:
     st.session_state["interview"] = []
 if "responses" not in st.session_state:
@@ -97,7 +94,6 @@ if st.button("Generate Full AI Interview"):
     competencies = parse_list_block(competencies_txt)
     hard_skills = parse_list_block(hard_skills_txt)
     soft_skills = parse_list_block(soft_skills_txt)
-
     if not openai.api_key:
         st.error("OpenAI API key not found. Please add it to Streamlit secrets.")
     else:
@@ -125,6 +121,7 @@ if st.session_state["interview"]:
             grading_result = grade_answer(q.get('question'), student_answer, q.get('grading_criteria'))
             st.markdown(f"**Question {i}:** {q.get('question')}\n*Grade: {grading_result.get('grade', 'N/A')}*")
             st.markdown(f"*Skill Gaps: {grading_result.get('gaps', 'N/A')}*")
+            st.markdown(f"*Competency Analysis: {grading_result.get('competency_analysis', 'N/A')}*")
             st.markdown(f"*Recommendations: {grading_result.get('recommendations', 'N/A')}*")
             graded_results.append({"question": q.get('question'), "answer": student_answer, **grading_result})
 
