@@ -1,61 +1,32 @@
+import streamlit as st
 import requests
-from urllib.parse import urlencode
 
-API_TOKEN = "1941~9PvtMZ2M7xDtUhCWFv7yM7xYUeRT9tKvhGeM9Y6XHzaYDW7rtV9fZwyTemYTHYzM"  # revoke the old token you posted, then put the new one here
 BASE_URL = "https://kepler.instructure.com/api/v1"
-
-course_id = 3266
-student_id = 4511  # must be the Canvas internal user ID
+API_TOKEN = "1941~9PvtMZ2M7xDtUhCWFv7yM7xYUeRT9tKvhGeM9Y6XHzaYDW7rtV9fZwyTemYTHYzM"
+course_id, assignment_id, student_id = 3266, 58846, 4511
 
 headers = {"Authorization": f"Bearer {API_TOKEN}"}
-params = {
-    "student_ids[]": student_id,
-    "per_page": 100,
-    "enrollment_state": "active",
-    "include[]": ["submission_history", "assignment", "user"],
-}
+params = {"include[]": ["assignment", "user", "submission_history", "rubric_assessment"]}
 
-url = f"{BASE_URL}/courses/{course_id}/students/submissions"
-print("REQUEST:", url, "?", urlencode(params, doseq=True))
-
+url = f"{BASE_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/{student_id}"
 r = requests.get(url, headers=headers, params=params)
-print("STATUS:", r.status_code)
 
-# Try to decode JSON, otherwise show raw error text
+st.write("Status:", r.status_code)
 try:
-    data = r.json()
+    sub = r.json()
 except Exception:
-    print("RAW RESPONSE:", r.text)
-    raise
+    st.code(r.text)
+    st.stop()
 
-# Normalize: submissions can come back as a list, or errors as a dict
-submissions = []
-if isinstance(data, list):
-    submissions = data
-elif isinstance(data, dict):
-    if "errors" in data:
-        print("API Errors:", data["errors"])
-    elif "submissions" in data and isinstance(data["submissions"], list):
-        submissions = data["submissions"]
-    else:
-        # Unexpected shape—show it so you can diagnose
-        print("Unexpected JSON shape:", data)
+if isinstance(sub, dict) and sub:
+    st.write({
+        "assignment_name": (sub.get("assignment") or {}).get("name"),
+        "score": sub.get("score"),
+        "grade": sub.get("grade"),
+        "entered_grade": sub.get("entered_grade"),
+        "graded_at": sub.get("graded_at"),
+        "posted_at": sub.get("posted_at"),
+        "workflow_state": sub.get("workflow_state"),
+    })
 else:
-    print("Unknown response type:", type(data))
-
-if not submissions:
-    print("No submissions found for this student in this course.")
-else:
-    for sub in submissions:
-        if not isinstance(sub, dict):
-            # Skip anything that isn't a dict
-            print("Skipping non-dict item:", type(sub))
-            continue
-        assignment = sub.get("assignment") or {}
-        print("-----")
-        print("Assignment ID:", sub.get("assignment_id"))
-        print("Assignment Name:", assignment.get("name"))
-        print("Graded At:", sub.get("graded_at"))
-        print("Score:", sub.get("score"))
-        print("Grade:", sub.get("grade"))
-        print("Workflow State:", sub.get("workflow_state"))
+    st.info("No submission returned for this student/assignment.")
