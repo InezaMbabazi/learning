@@ -6,6 +6,7 @@ BASE_URL = "https://kepler.instructure.com/api/v1"
 
 # Example IDs
 course_id = 3266  # replace with actual course ID
+student_id = 4511 # replace with actual student ID
 
 # Define headers
 headers = {
