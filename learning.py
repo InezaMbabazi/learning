@@ -2,7 +2,7 @@ import requests
 import json
 
 BASE_URL = "https://kepler.instructure.com/api/v1"
-API_TOKEN = "REPLACE_ME"   # use env/secrets in real apps
+API_TOKEN = "1941~9PvtMZ2M7xDtUhCWFv7yM7xYUeRT9tKvhGeM9Y6XHzaYDW7rtV9fZwyTemYTHYzM"   # use env/secrets in real apps
 course_id = 3266
 assignment_id = 58846
 student_id = 4511
